@@ -2,56 +2,62 @@ import { OrbitControls } from '@react-three/drei';
 import { Room } from './Room';
 import { Robot } from './Robot';
 import { Walls } from './Walls';
+import { CameraFollow } from './CameraFollow';
 import { rooms } from '../utils/homeLayout';
 
 export function HomeScene() {
   return (
     <>
-      {/* Camera Controls - overhead angle for floor plan view */}
+      {/* Camera follows robot with orbit override */}
+      <CameraFollow />
       <OrbitControls
         makeDefault
-        maxPolarAngle={Math.PI / 2.5}
-        minPolarAngle={0.2}
-        minDistance={6}
-        maxDistance={30}
-        target={[0.5, 0, 1.5]}
+        maxPolarAngle={Math.PI / 2.3}
+        minPolarAngle={0.3}
+        minDistance={4}
+        maxDistance={25}
         enableDamping
         dampingFactor={0.05}
+        enablePan={false}
       />
 
-      {/* Lighting - warm interior feel */}
-      <ambientLight intensity={0.25} color="#f8f0e0" />
+      {/* Lighting — warm realistic interior */}
+      <ambientLight intensity={0.35} color="#f8f0e0" />
+      <hemisphereLight color="#ffeedd" groundColor="#221a10" intensity={0.3} />
+
+      {/* Main sun light */}
       <directionalLight
-        position={[8, 20, 5]}
-        intensity={1.2}
+        position={[6, 18, 8]}
+        intensity={1.0}
         castShadow
         shadow-mapSize-width={2048}
         shadow-mapSize-height={2048}
         shadow-camera-far={50}
-        shadow-camera-left={-15}
-        shadow-camera-right={15}
-        shadow-camera-top={15}
-        shadow-camera-bottom={-15}
-        shadow-bias={-0.001}
+        shadow-camera-left={-12}
+        shadow-camera-right={12}
+        shadow-camera-top={12}
+        shadow-camera-bottom={-12}
+        shadow-bias={-0.0005}
         color="#fff8f0"
       />
 
-      {/* Room accent lights */}
-      <pointLight position={[-3, 2.5, -2]} intensity={0.3} color="#ffe8c0" distance={8} />
-      <pointLight position={[4, 2.5, -2]} intensity={0.35} color="#fff0d0" distance={8} />
-      <pointLight position={[-3, 2.5, 5]} intensity={0.2} color="#e0e8ff" distance={8} />
-      <pointLight position={[4, 2.5, 5]} intensity={0.25} color="#f0f8ff" distance={8} />
+      {/* Room accent lights — simulating ceiling fixtures */}
+      <pointLight position={[-3, 2.6, -2]} intensity={0.5} color="#ffe8c0" distance={7} decay={2} />
+      <pointLight position={[4.2, 2.6, -2]} intensity={0.6} color="#fff0d0" distance={7} decay={2} />
+      <pointLight position={[-3.5, 2.6, 5]} intensity={0.35} color="#e0e0ff" distance={7} decay={2} />
+      <pointLight position={[4, 2.6, 5]} intensity={0.45} color="#f0f5ff" distance={7} decay={2} />
+      <pointLight position={[0.5, 2.6, 1.5]} intensity={0.3} color="#ffe0b0" distance={5} decay={2} />
 
-      {/* Base ground plane */}
+      {/* Base ground */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 1]} receiveShadow>
         <planeGeometry args={[20, 16]} />
         <meshStandardMaterial color="#1a1815" roughness={0.95} />
       </mesh>
 
-      {/* Exterior ground */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 1]} receiveShadow>
-        <planeGeometry args={[40, 40]} />
-        <meshStandardMaterial color="#0e0d0c" roughness={1} />
+      {/* Exterior */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 1]}>
+        <planeGeometry args={[50, 50]} />
+        <meshStandardMaterial color="#0c0b0a" roughness={1} />
       </mesh>
 
       {/* Rooms */}
@@ -65,8 +71,8 @@ export function HomeScene() {
       {/* Robot */}
       <Robot />
 
-      {/* Fog for depth */}
-      <fog attach="fog" args={['#0e0d0c', 18, 40]} />
+      {/* Fog */}
+      <fog attach="fog" args={['#0c0b0a', 20, 45]} />
     </>
   );
 }
