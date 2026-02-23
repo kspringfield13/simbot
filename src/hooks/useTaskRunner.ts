@@ -68,7 +68,7 @@ export const useTaskRunner = () => {
     const dz = robotPosition[2] - target[2];
     const dist = Math.sqrt(dx * dx + dz * dz);
 
-    if (dist < 0.4) {
+    if (dist < 0.25) {
       // Arrived at waypoint — next waypoint or start working
       const nextIndex = currentPathIndex + 1;
       if (nextIndex < robotPath.length) {
@@ -90,6 +90,8 @@ export const useTaskRunner = () => {
           if (progress >= 100) {
             updateTask(currentTask.id, { status: 'completed', progress: 100 });
             setCurrentAnimation('general');
+            setRobotState('idle');
+            setRobotPath([]);
 
             // Contextual completion messages
             const completionMsgs: Record<string, string> = {

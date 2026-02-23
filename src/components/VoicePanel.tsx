@@ -25,18 +25,23 @@ export function VoicePanel() {
     prevListening.current = isListening;
   }, [isListening, transcript, submitCommand]);
 
-  // Demo mode
+  // Demo mode — waits for current task to finish before starting next
   useEffect(() => {
     if (!demoMode) return;
-    const interval = setInterval(() => {
-      const cmd = demoCommands[demoIndexRef.current % demoCommands.length];
-      submitCommand(cmd);
-      demoIndexRef.current++;
-    }, 8000);
     // Start first task immediately
-    const cmd = demoCommands[0];
-    submitCommand(cmd);
+    submitCommand(demoCommands[0]);
     demoIndexRef.current = 1;
+
+    const interval = setInterval(() => {
+      const { tasks, robotState } = useStore.getState();
+      const hasActive = tasks.some((t) => t.status === 'pending' || t.status === 'walking' || t.status === 'working');
+      // Only advance when robot is idle and no active tasks
+      if (!hasActive && robotState === 'idle') {
+        const cmd = demoCommands[demoIndexRef.current % demoCommands.length];
+        submitCommand(cmd);
+        demoIndexRef.current++;
+      }
+    }, 2000); // check every 2s
     return () => clearInterval(interval);
   }, [demoMode, submitCommand]);
 

@@ -1,129 +1,113 @@
-// Simple waypoint-based navigation that respects walls
-// The home has a hallway connecting rooms - robot must route through it
+// Waypoint-based navigation for modern open floor plan
+// Layout: Living(-3.5,-2.5) | Kitchen(3.5,-2.5) | Hallway(0,1) | Bedroom(-3.5,4.5) | Bathroom(3.5,4.5)
 
 interface Waypoint {
   id: string;
-  pos: [number, number];
+  pos: [number, number]; // [x, z]
   connections: string[];
 }
 
-// Navigation graph - waypoints at doorways and room centers
 const waypoints: Waypoint[] = [
-  // Room centers
-  { id: 'living-center', pos: [-3.5, -2], connections: ['living-door'] },
-  { id: 'kitchen-center', pos: [4.2, -2.5], connections: ['kitchen-door'] },
-  { id: 'bedroom-center', pos: [-3.5, 5], connections: ['bedroom-door'] },
-  { id: 'bathroom-center', pos: [4, 5.5], connections: ['bathroom-door'] },
+  // Living room waypoints
+  { id: 'living-center', pos: [-3.5, -2.5], connections: ['living-door', 'living-tv', 'living-couch'] },
+  { id: 'living-couch', pos: [-5, -3], connections: ['living-center'] },
+  { id: 'living-tv', pos: [-3.5, -0.5], connections: ['living-center', 'living-door'] },
+  { id: 'living-door', pos: [-1.5, -0.5], connections: ['living-center', 'living-tv', 'hall-west', 'open-passage'] },
 
-  // Doorway waypoints
-  { id: 'living-door', pos: [-0.5, -1], connections: ['living-center', 'hall-north'] },
-  { id: 'kitchen-door', pos: [1, -1], connections: ['kitchen-center', 'hall-north'] },
-  { id: 'bedroom-door', pos: [-0.5, 3], connections: ['bedroom-center', 'hall-south'] },
-  { id: 'bathroom-door', pos: [1.5, 4], connections: ['bathroom-center', 'hall-south'] },
+  // Open passage between living and kitchen (the open concept area, z=-2 to 0, x around 0)
+  { id: 'open-passage', pos: [0, -1], connections: ['living-door', 'kitchen-door'] },
 
-  // Hallway nodes
-  { id: 'hall-north', pos: [0.5, 0], connections: ['living-door', 'kitchen-door', 'hall-center'] },
-  { id: 'hall-center', pos: [0.5, 1.5], connections: ['hall-north', 'hall-south'] },
-  { id: 'hall-south', pos: [0.5, 3], connections: ['hall-center', 'bedroom-door', 'bathroom-door'] },
+  // Kitchen waypoints
+  { id: 'kitchen-center', pos: [3.5, -2.5], connections: ['kitchen-door', 'kitchen-counter', 'kitchen-island'] },
+  { id: 'kitchen-counter', pos: [5, -4], connections: ['kitchen-center'] },
+  { id: 'kitchen-island', pos: [3.5, -1.5], connections: ['kitchen-center', 'kitchen-door'] },
+  { id: 'kitchen-door', pos: [1.5, -0.5], connections: ['kitchen-center', 'kitchen-island', 'hall-east', 'open-passage'] },
 
-  // Specific furniture waypoints
-  { id: 'kitchen-sink', pos: [5.5, -3.5], connections: ['kitchen-center'] },
-  { id: 'kitchen-stove', pos: [4.5, -3.5], connections: ['kitchen-center'] },
-  { id: 'kitchen-fridge', pos: [2.8, -3.5], connections: ['kitchen-center'] },
-  { id: 'kitchen-island', pos: [4.2, -1.5], connections: ['kitchen-center'] },
-  { id: 'living-couch', pos: [-4.5, -3], connections: ['living-center'] },
-  { id: 'living-tv', pos: [-3.5, -0.5], connections: ['living-center'] },
-  { id: 'bed-area', pos: [-4, 5.8], connections: ['bedroom-center'] },
-  { id: 'desk-area', pos: [-1.5, 4], connections: ['bedroom-center'] },
-  { id: 'dresser-area', pos: [-5.2, 4.2], connections: ['bedroom-center'] },
-  { id: 'bathtub-area', pos: [5, 6], connections: ['bathroom-center'] },
-  { id: 'vanity-area', pos: [4, 4.2], connections: ['bathroom-center'] },
+  // Hallway waypoints (z=0 to z=2, wide open area)
+  { id: 'hall-west', pos: [-1, 1], connections: ['living-door', 'hall-center'] },
+  { id: 'hall-center', pos: [0, 1], connections: ['hall-west', 'hall-east', 'bedroom-door', 'bathroom-door'] },
+  { id: 'hall-east', pos: [1, 1], connections: ['kitchen-door', 'hall-center'] },
+
+  // Bedroom waypoints
+  { id: 'bedroom-door', pos: [-0.75, 2.5], connections: ['hall-center', 'bedroom-center'] },
+  { id: 'bedroom-center', pos: [-3.5, 4.5], connections: ['bedroom-door', 'bedroom-bed', 'bedroom-desk'] },
+  { id: 'bedroom-bed', pos: [-5, 5.5], connections: ['bedroom-center'] },
+  { id: 'bedroom-desk', pos: [-1.5, 3.5], connections: ['bedroom-center', 'bedroom-door'] },
+
+  // Bathroom waypoints
+  { id: 'bathroom-door', pos: [0.75, 2.5], connections: ['hall-center', 'bathroom-center'] },
+  { id: 'bathroom-center', pos: [3.5, 4.5], connections: ['bathroom-door', 'bathroom-tub', 'bathroom-sink'] },
+  { id: 'bathroom-tub', pos: [5.5, 5.5], connections: ['bathroom-center'] },
+  { id: 'bathroom-sink', pos: [3, 3.5], connections: ['bathroom-center', 'bathroom-door'] },
 ];
 
-const waypointMap = new Map(waypoints.map(w => [w.id, w]));
+// Room detection
+function detectRoom(x: number, z: number): string {
+  if (z < 0 && x < 0) return 'living-room';
+  if (z < 0 && x >= 0) return 'kitchen';
+  if (z >= 0 && z <= 2) return 'hallway';
+  if (z > 2 && x < 0) return 'bedroom';
+  if (z > 2 && x >= 0) return 'bathroom';
+  return 'hallway';
+}
 
-// BFS to find shortest path between two waypoints
-function findPath(startId: string, endId: string): string[] {
+function findNearestWaypoint(x: number, z: number): string {
+  const room = detectRoom(x, z);
+  const roomWaypoints = waypoints.filter((w) => w.id.startsWith(room.split('-')[0]) || w.id.startsWith('hall') || w.id.startsWith('open'));
+
+  let nearest = waypoints[0].id;
+  let minDist = Infinity;
+  for (const wp of (roomWaypoints.length > 0 ? roomWaypoints : waypoints)) {
+    const d = Math.hypot(wp.pos[0] - x, wp.pos[1] - z);
+    if (d < minDist) {
+      minDist = d;
+      nearest = wp.id;
+    }
+  }
+  return nearest;
+}
+
+// BFS pathfinding
+function bfsPath(startId: string, endId: string): string[] {
   if (startId === endId) return [startId];
-
+  const visited = new Set<string>();
   const queue: string[][] = [[startId]];
-  const visited = new Set<string>([startId]);
+  visited.add(startId);
 
   while (queue.length > 0) {
     const path = queue.shift()!;
     const current = path[path.length - 1];
-    const node = waypointMap.get(current);
-    if (!node) continue;
+    const wp = waypoints.find((w) => w.id === current);
+    if (!wp) continue;
 
-    for (const neighbor of node.connections) {
-      if (neighbor === endId) {
-        return [...path, neighbor];
-      }
-      if (!visited.has(neighbor)) {
-        visited.add(neighbor);
-        queue.push([...path, neighbor]);
-      }
+    for (const neighbor of wp.connections) {
+      if (visited.has(neighbor)) continue;
+      const newPath = [...path, neighbor];
+      if (neighbor === endId) return newPath;
+      visited.add(neighbor);
+      queue.push(newPath);
     }
   }
-
   return [startId, endId]; // fallback
-}
-
-// Find closest waypoint to a position
-function closestWaypoint(pos: [number, number]): string {
-  let closest = waypoints[0].id;
-  let minDist = Infinity;
-
-  for (const wp of waypoints) {
-    const dx = wp.pos[0] - pos[0];
-    const dz = wp.pos[1] - pos[1];
-    const dist = dx * dx + dz * dz;
-    if (dist < minDist) {
-      minDist = dist;
-      closest = wp.id;
-    }
-  }
-  return closest;
-}
-
-// Get room from position
-function getRoomForPosition(pos: [number, number]): string {
-  if (pos[0] < 0 && pos[1] < 1) return 'living';
-  if (pos[0] > 1 && pos[1] < 1) return 'kitchen';
-  if (pos[0] < 0 && pos[1] > 2.5) return 'bedroom';
-  if (pos[0] > 1 && pos[1] > 3) return 'bathroom';
-  return 'hall';
 }
 
 export function getNavigationPath(
   from: [number, number, number],
   to: [number, number, number]
 ): [number, number, number][] {
-  const fromPos: [number, number] = [from[0], from[2]];
-  const toPos: [number, number] = [to[0], to[2]];
+  const startWp = findNearestWaypoint(from[0], from[2]);
+  const endWp = findNearestWaypoint(to[0], to[2]);
 
-  const fromRoom = getRoomForPosition(fromPos);
-  const toRoom = getRoomForPosition(toPos);
+  const wpPath = bfsPath(startWp, endWp);
 
-  // If same room, go direct
-  if (fromRoom === toRoom) {
-    return [to];
+  const path: [number, number, number][] = [];
+  for (const wpId of wpPath) {
+    const wp = waypoints.find((w) => w.id === wpId);
+    if (wp) path.push([wp.pos[0], 0, wp.pos[1]]);
   }
-
-  const startWp = closestWaypoint(fromPos);
-  const endWp = closestWaypoint(toPos);
-
-  const pathIds = findPath(startWp, endWp);
-
-  const path: [number, number, number][] = pathIds.map(id => {
-    const wp = waypointMap.get(id)!;
-    return [wp.pos[0], 0, wp.pos[1]];
-  });
 
   // Add final destination
   path.push(to);
 
   return path;
 }
-
-export { waypoints, waypointMap };

@@ -16,12 +16,15 @@ export function Robot() {
   const headRef = useRef<THREE.Group>(null);
   const torsoRef = useRef<THREE.Group>(null);
 
-  const { robotPosition, robotTarget, robotState, currentAnimation, setRobotPosition } = useStore();
+  // Smoothed speed for acceleration/deceleration
+  const currentSpeedRef = useRef(0);
+  const walkPhaseRef = useRef(0);
+
+  const { robotPosition, robotTarget, robotState, currentAnimation, setRobotPosition, setRobotRotationY } = useStore();
 
   // Colors - Tesla Optimus inspired
   const shellDark = '#1e1e1e';
   const shellMid = '#2d2d2d';
-  const shellLight = '#3d3d3d';
   const panelWhite = '#ddd8cc';
   const panelLight = '#c8c2b4';
   const jointDark = '#111';
@@ -32,17 +35,42 @@ export function Robot() {
   useFrame((_, delta) => {
     if (!groupRef.current) return;
 
-    // === MOVEMENT — slow, human-like pace ===
+    const clampDelta = Math.min(delta, 0.05); // prevent physics jumps on tab switch
+
+    // === MOVEMENT — acceleration, deceleration, precise turning ===
     if (robotTarget && robotState === 'walking') {
       const current = new THREE.Vector3(robotPosition[0], 0, robotPosition[2]);
       const target = new THREE.Vector3(robotTarget[0], 0, robotTarget[2]);
       const direction = target.clone().sub(current);
       const distance = direction.length();
 
-      if (distance > 0.15) {
+      if (distance > 0.1) {
         direction.normalize();
-        // ~1.2 m/s — realistic human walking speed
-        const speed = 1.2 * delta;
+
+        // Calculate rotation
+        const targetAngle = Math.atan2(direction.x, direction.z);
+        const currentAngle = groupRef.current.rotation.y;
+        let diff = targetAngle - currentAngle;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        const absDiff = Math.abs(diff);
+
+        // Smooth rotation — faster for big turns, gentle for small adjustments
+        const rotSpeed = absDiff > 1.5 ? 0.18 : absDiff > 0.8 ? 0.14 : 0.1;
+        groupRef.current.rotation.y += diff * rotSpeed;
+
+        if (absDiff > 1.0) {
+          // Large angle — decelerate to turn in place
+          currentSpeedRef.current = THREE.MathUtils.lerp(currentSpeedRef.current, 0.15, 0.08);
+        } else {
+          // Target speed: full speed normally, decelerate near waypoint
+          const targetSpeed = distance < 0.6 ? 0.5 : distance < 1.2 ? 0.9 : 1.3;
+          // Accelerate smoothly from stops, decelerate near targets
+          const accelRate = currentSpeedRef.current < targetSpeed ? 0.04 : 0.08;
+          currentSpeedRef.current = THREE.MathUtils.lerp(currentSpeedRef.current, targetSpeed, accelRate);
+        }
+
+        const speed = currentSpeedRef.current * clampDelta;
         const newPos: [number, number, number] = [
           robotPosition[0] + direction.x * speed,
           0,
@@ -50,93 +78,118 @@ export function Robot() {
         ];
         setRobotPosition(newPos);
 
-        // Smooth rotation — gradual turn like a real biped
-        const targetAngle = Math.atan2(direction.x, direction.z);
-        const currentAngle = groupRef.current.rotation.y;
-        let diff = targetAngle - currentAngle;
-        while (diff > Math.PI) diff -= Math.PI * 2;
-        while (diff < -Math.PI) diff += Math.PI * 2;
-        groupRef.current.rotation.y += diff * 0.06;
+        // Advance walk phase based on actual movement speed
+        walkPhaseRef.current += currentSpeedRef.current * clampDelta * 5.0;
+      } else {
+        // Very close — snap deceleration
+        currentSpeedRef.current = THREE.MathUtils.lerp(currentSpeedRef.current, 0, 0.15);
       }
+    } else if (robotState === 'idle') {
+      currentSpeedRef.current = THREE.MathUtils.lerp(currentSpeedRef.current, 0, 0.1);
     }
 
     groupRef.current.position.set(robotPosition[0], robotPosition[1], robotPosition[2]);
 
-    const t = Date.now() * 0.001;
+    // Sync rotation to store for camera modes
+    setRobotRotationY(groupRef.current.rotation.y);
 
-    // === IDLE ===
+    const t = Date.now() * 0.001;
+    const wp = walkPhaseRef.current;
+    // Normalized speed factor for animation intensity (0..1)
+    const sf = Math.min(currentSpeedRef.current / 1.3, 1);
+
+    // === IDLE — breathing, micro-movements, occasional look-around ===
     if (robotState === 'idle') {
-      // Subtle weight shifting
+      // Breathing — chest rises and falls
+      const breath = Math.sin(t * 1.8) * 0.006;
       if (torsoRef.current) {
-        torsoRef.current.position.y = 1.05 + Math.sin(t * 1.2) * 0.004;
-        torsoRef.current.rotation.y = THREE.MathUtils.lerp(torsoRef.current.rotation.y, 0, 0.02);
-        torsoRef.current.rotation.x = THREE.MathUtils.lerp(torsoRef.current.rotation.x, 0, 0.02);
+        torsoRef.current.position.y = 1.05 + breath;
+        torsoRef.current.rotation.y = THREE.MathUtils.lerp(torsoRef.current.rotation.y, Math.sin(t * 0.15) * 0.02, 0.01);
+        torsoRef.current.rotation.x = THREE.MathUtils.lerp(torsoRef.current.rotation.x, 0, 0.015);
+        torsoRef.current.rotation.z = THREE.MathUtils.lerp(torsoRef.current.rotation.z, Math.sin(t * 0.4) * 0.005, 0.01);
       }
       if (headRef.current) {
-        headRef.current.rotation.y = Math.sin(t * 0.3) * 0.08;
-        headRef.current.rotation.x = THREE.MathUtils.lerp(headRef.current.rotation.x, Math.sin(t * 0.5) * 0.02, 0.02);
+        // Occasional slow look-around with varying speed
+        const lookY = Math.sin(t * 0.25) * 0.12 + Math.sin(t * 0.7) * 0.04;
+        const lookX = Math.sin(t * 0.35) * 0.03 + Math.sin(t * 0.13) * 0.02;
+        headRef.current.rotation.y = THREE.MathUtils.lerp(headRef.current.rotation.y, lookY, 0.015);
+        headRef.current.rotation.x = THREE.MathUtils.lerp(headRef.current.rotation.x, lookX, 0.015);
       }
-      // Arms hang naturally with slight sway
+      // Arms hang naturally with slight sway + breathing influence
       if (leftUpperArmRef.current) {
-        leftUpperArmRef.current.rotation.x = THREE.MathUtils.lerp(leftUpperArmRef.current.rotation.x, Math.sin(t * 0.8) * 0.02, 0.03);
-        leftUpperArmRef.current.rotation.z = THREE.MathUtils.lerp(leftUpperArmRef.current.rotation.z, 0.05, 0.03);
+        leftUpperArmRef.current.rotation.x = THREE.MathUtils.lerp(leftUpperArmRef.current.rotation.x, Math.sin(t * 0.6) * 0.015 + breath * 2, 0.025);
+        leftUpperArmRef.current.rotation.z = THREE.MathUtils.lerp(leftUpperArmRef.current.rotation.z, 0.06 + Math.sin(t * 0.4) * 0.01, 0.025);
       }
       if (rightUpperArmRef.current) {
-        rightUpperArmRef.current.rotation.x = THREE.MathUtils.lerp(rightUpperArmRef.current.rotation.x, Math.sin(t * 0.8 + 0.5) * 0.02, 0.03);
-        rightUpperArmRef.current.rotation.z = THREE.MathUtils.lerp(rightUpperArmRef.current.rotation.z, -0.05, 0.03);
+        rightUpperArmRef.current.rotation.x = THREE.MathUtils.lerp(rightUpperArmRef.current.rotation.x, Math.sin(t * 0.6 + 0.8) * 0.015 + breath * 2, 0.025);
+        rightUpperArmRef.current.rotation.z = THREE.MathUtils.lerp(rightUpperArmRef.current.rotation.z, -0.06 - Math.sin(t * 0.4) * 0.01, 0.025);
       }
-      // Forearms slight bend
-      if (leftForearmRef.current) leftForearmRef.current.rotation.x = THREE.MathUtils.lerp(leftForearmRef.current.rotation.x, -0.08, 0.03);
-      if (rightForearmRef.current) rightForearmRef.current.rotation.x = THREE.MathUtils.lerp(rightForearmRef.current.rotation.x, -0.08, 0.03);
-      // Legs straight
-      [leftLegRef, rightLegRef].forEach(ref => {
-        if (ref.current) ref.current.rotation.x = THREE.MathUtils.lerp(ref.current.rotation.x, 0, 0.03);
+      // Forearms slight natural bend
+      if (leftForearmRef.current) leftForearmRef.current.rotation.x = THREE.MathUtils.lerp(leftForearmRef.current.rotation.x, -0.1 + Math.sin(t * 0.5) * 0.02, 0.02);
+      if (rightForearmRef.current) rightForearmRef.current.rotation.x = THREE.MathUtils.lerp(rightForearmRef.current.rotation.x, -0.1 + Math.sin(t * 0.5 + 1) * 0.02, 0.02);
+      // Legs — subtle weight shift side to side
+      const weightShift = Math.sin(t * 0.3) * 0.015;
+      [leftLegRef, rightLegRef].forEach((ref, i) => {
+        if (ref.current) ref.current.rotation.x = THREE.MathUtils.lerp(ref.current.rotation.x, i === 0 ? weightShift : -weightShift, 0.02);
       });
       [leftShinRef, rightShinRef].forEach(ref => {
-        if (ref.current) ref.current.rotation.x = THREE.MathUtils.lerp(ref.current.rotation.x, 0, 0.03);
+        if (ref.current) ref.current.rotation.x = THREE.MathUtils.lerp(ref.current.rotation.x, 0, 0.025);
       });
     }
 
-    // === WALKING — realistic human gait cycle ===
+    // === WALKING — realistic gait with speed-dependent intensity ===
     if (robotState === 'walking') {
-      const ws = 4.5; // slower, more natural cadence
-      const hipSwing = 0.28;
-      const kneeMax = 0.45;
+      // Animation scales with speed
+      const hipSwing = 0.22 + sf * 0.12; // bigger strides at full speed
+      const kneeMax = 0.35 + sf * 0.15;
+      const armSwing = 0.12 + sf * 0.14;
+      const forearmBend = 0.12 + sf * 0.08;
 
-      // Hip rotation (upper leg)
+      // Hip rotation (upper leg) — asymmetric for realism
       if (leftLegRef.current && rightLegRef.current) {
-        leftLegRef.current.rotation.x = Math.sin(t * ws) * hipSwing;
-        rightLegRef.current.rotation.x = Math.sin(t * ws + Math.PI) * hipSwing;
+        const lHip = Math.sin(wp) * hipSwing;
+        const rHip = Math.sin(wp + Math.PI) * hipSwing;
+        leftLegRef.current.rotation.x = THREE.MathUtils.lerp(leftLegRef.current.rotation.x, lHip, 0.12);
+        rightLegRef.current.rotation.x = THREE.MathUtils.lerp(rightLegRef.current.rotation.x, rHip, 0.12);
       }
-      // Knee bend — only bends when leg is swinging forward
+      // Knee bend — smooth heel-strike/toe-off curve
       if (leftShinRef.current && rightShinRef.current) {
-        const leftPhase = Math.sin(t * ws);
-        const rightPhase = Math.sin(t * ws + Math.PI);
-        leftShinRef.current.rotation.x = leftPhase > 0 ? -leftPhase * kneeMax : 0;
-        rightShinRef.current.rotation.x = rightPhase > 0 ? -rightPhase * kneeMax : 0;
+        const lp = Math.sin(wp);
+        const rp = Math.sin(wp + Math.PI);
+        // Knee bends during swing phase AND slightly at heel strike
+        const lKnee = lp > 0 ? -lp * kneeMax : -Math.abs(lp) * kneeMax * 0.15;
+        const rKnee = rp > 0 ? -rp * kneeMax : -Math.abs(rp) * kneeMax * 0.15;
+        leftShinRef.current.rotation.x = THREE.MathUtils.lerp(leftShinRef.current.rotation.x, lKnee, 0.12);
+        rightShinRef.current.rotation.x = THREE.MathUtils.lerp(rightShinRef.current.rotation.x, rKnee, 0.12);
       }
-      // Counter-swing arms naturally
+      // Counter-swing arms — opposite to legs, with natural lag
       if (leftUpperArmRef.current && rightUpperArmRef.current) {
-        leftUpperArmRef.current.rotation.x = -Math.sin(t * ws) * 0.2;
-        rightUpperArmRef.current.rotation.x = -Math.sin(t * ws + Math.PI) * 0.2;
-        leftUpperArmRef.current.rotation.z = 0.05;
-        rightUpperArmRef.current.rotation.z = -0.05;
+        leftUpperArmRef.current.rotation.x = THREE.MathUtils.lerp(leftUpperArmRef.current.rotation.x, -Math.sin(wp) * armSwing, 0.1);
+        rightUpperArmRef.current.rotation.x = THREE.MathUtils.lerp(rightUpperArmRef.current.rotation.x, -Math.sin(wp + Math.PI) * armSwing, 0.1);
+        // Arms tuck in slightly at speed
+        leftUpperArmRef.current.rotation.z = 0.04 + sf * 0.02;
+        rightUpperArmRef.current.rotation.z = -0.04 - sf * 0.02;
       }
+      // Forearms bend more when arm swings back
       if (leftForearmRef.current && rightForearmRef.current) {
-        leftForearmRef.current.rotation.x = -0.15 - Math.max(0, Math.sin(t * ws)) * 0.1;
-        rightForearmRef.current.rotation.x = -0.15 - Math.max(0, Math.sin(t * ws + Math.PI)) * 0.1;
+        leftForearmRef.current.rotation.x = -forearmBend - Math.max(0, Math.sin(wp)) * 0.12 * sf;
+        rightForearmRef.current.rotation.x = -forearmBend - Math.max(0, Math.sin(wp + Math.PI)) * 0.12 * sf;
       }
-      // Vertical bob — double bounce per stride
-      groupRef.current.position.y = Math.abs(Math.sin(t * ws * 2)) * 0.012;
-      // Slight lateral sway
+      // Vertical bob — peaks at mid-stance (double-bump per stride cycle)
+      const bob = Math.abs(Math.sin(wp)) * 0.008 + Math.abs(Math.sin(wp * 2)) * 0.005;
+      groupRef.current.position.y = bob * sf;
+      // Torso — lateral sway, slight forward lean at speed, pelvis rotation
       if (torsoRef.current) {
-        torsoRef.current.rotation.z = Math.sin(t * ws) * 0.015;
-        torsoRef.current.rotation.y = Math.sin(t * ws) * 0.02;
+        torsoRef.current.rotation.z = THREE.MathUtils.lerp(torsoRef.current.rotation.z, Math.sin(wp) * 0.018 * sf, 0.1);
+        torsoRef.current.rotation.y = THREE.MathUtils.lerp(torsoRef.current.rotation.y, Math.sin(wp) * 0.025 * sf, 0.08);
+        torsoRef.current.rotation.x = THREE.MathUtils.lerp(torsoRef.current.rotation.x, -sf * 0.02, 0.05); // lean forward at speed
         torsoRef.current.position.y = 1.05;
       }
+      // Head — stabilizes (counter-rotates slightly vs torso sway)
       if (headRef.current) {
-        headRef.current.rotation.x = -0.03;
-        headRef.current.rotation.y = 0;
+        headRef.current.rotation.x = THREE.MathUtils.lerp(headRef.current.rotation.x, -0.02 - sf * 0.02, 0.06);
+        headRef.current.rotation.y = THREE.MathUtils.lerp(headRef.current.rotation.y, -Math.sin(wp) * 0.01 * sf, 0.05);
+        headRef.current.rotation.z = THREE.MathUtils.lerp(headRef.current.rotation.z, -Math.sin(wp) * 0.008 * sf, 0.05);
       }
     }
 
@@ -316,180 +369,155 @@ export function Robot() {
     }
   });
 
+  // Shared materials for performance
+  const S = 16; // segment count for rounded shapes
+
   return (
     <group ref={groupRef}>
       {/* === TORSO === */}
       <group ref={torsoRef} position={[0, 1.05, 0]}>
-        {/* Upper chest — main panel */}
+        {/* Upper chest — rounded capsule torso */}
         <mesh castShadow>
-          <boxGeometry args={[0.46, 0.36, 0.22]} />
-          <meshStandardMaterial color={panelWhite} metalness={0.3} roughness={0.5} />
+          <capsuleGeometry args={[0.14, 0.2, 8, S]} />
+          <meshStandardMaterial color={panelWhite} metalness={0.35} roughness={0.4} />
         </mesh>
-        {/* Chest side panels */}
-        <mesh position={[-0.2, 0, 0]} castShadow>
-          <boxGeometry args={[0.08, 0.34, 0.21]} />
+        {/* Chest panel overlay — slightly forward */}
+        <mesh position={[0, 0, 0.08]} castShadow>
+          <cylinderGeometry args={[0.13, 0.12, 0.28, S]} />
+          <meshStandardMaterial color={panelLight} metalness={0.3} roughness={0.45} />
+        </mesh>
+        {/* Center seam line */}
+        <mesh position={[0, 0, 0.15]}>
+          <cylinderGeometry args={[0.005, 0.005, 0.3, 6]} />
+          <meshStandardMaterial color={shellDark} metalness={0.6} roughness={0.2} />
+        </mesh>
+        {/* Status indicator lights */}
+        <mesh position={[0.06, 0.06, 0.155]}>
+          <sphereGeometry args={[0.012, 8, 8]} />
+          <meshStandardMaterial color={indicator} emissive={indicator} emissiveIntensity={3} />
+        </mesh>
+        <mesh position={[-0.06, 0.06, 0.155]}>
+          <sphereGeometry args={[0.012, 8, 8]} />
+          <meshStandardMaterial color={visor} emissive={visor} emissiveIntensity={2} />
+        </mesh>
+        {/* Back actuator housing */}
+        <mesh position={[0, 0, -0.1]} castShadow>
+          <cylinderGeometry args={[0.11, 0.1, 0.26, S]} />
           <meshStandardMaterial color={shellMid} metalness={0.5} roughness={0.3} />
         </mesh>
-        <mesh position={[0.2, 0, 0]} castShadow>
-          <boxGeometry args={[0.08, 0.34, 0.21]} />
-          <meshStandardMaterial color={shellMid} metalness={0.5} roughness={0.3} />
-        </mesh>
-        {/* Center seam */}
-        <mesh position={[0, 0, 0.115]}>
-          <boxGeometry args={[0.025, 0.32, 0.005]} />
-          <meshStandardMaterial color={shellDark} metalness={0.6} roughness={0.3} />
-        </mesh>
-        {/* Status indicators */}
-        <mesh position={[0.08, 0.08, 0.115]}>
-          <boxGeometry args={[0.03, 0.03, 0.008]} />
-          <meshStandardMaterial color={indicator} emissive={indicator} emissiveIntensity={2} />
-        </mesh>
-        <mesh position={[-0.08, 0.08, 0.115]}>
-          <boxGeometry args={[0.03, 0.03, 0.008]} />
-          <meshStandardMaterial color={visor} emissive={visor} emissiveIntensity={1.5} />
-        </mesh>
-        {/* Back plate */}
-        <mesh position={[0, 0, -0.115]} castShadow>
-          <boxGeometry args={[0.42, 0.34, 0.01]} />
-          <meshStandardMaterial color={shellMid} metalness={0.5} roughness={0.3} />
-        </mesh>
-        {/* Back detail vents */}
-        {[-0.1, 0, 0.1].map((y, i) => (
-          <mesh key={`vent-${i}`} position={[0, y, -0.125]}>
-            <boxGeometry args={[0.2, 0.025, 0.005]} />
-            <meshStandardMaterial color={shellDark} metalness={0.7} roughness={0.2} />
-          </mesh>
-        ))}
 
-        {/* Lower torso / waist */}
-        <mesh position={[0, -0.26, 0]} castShadow>
-          <boxGeometry args={[0.38, 0.16, 0.18]} />
-          <meshStandardMaterial color={shellDark} metalness={0.6} roughness={0.25} />
+        {/* Lower torso / waist — tapered */}
+        <mesh position={[0, -0.24, 0]} castShadow>
+          <cylinderGeometry args={[0.1, 0.13, 0.14, S]} />
+          <meshStandardMaterial color={shellDark} metalness={0.55} roughness={0.3} />
         </mesh>
-        {/* Waist detail ring */}
-        <mesh position={[0, -0.18, 0]}>
-          <cylinderGeometry args={[0.21, 0.19, 0.03, 20]} />
-          <meshStandardMaterial color={jointDark} metalness={0.8} roughness={0.15} />
+        {/* Waist actuator ring */}
+        <mesh position={[0, -0.17, 0]}>
+          <torusGeometry args={[0.12, 0.015, 8, S]} />
+          <meshStandardMaterial color={jointDark} metalness={0.85} roughness={0.1} />
         </mesh>
-        {/* Abdominal segments */}
-        {[-0.22, -0.26, -0.30].map((y, i) => (
-          <mesh key={`ab-${i}`} position={[0, y, 0.095]}>
-            <boxGeometry args={[0.25, 0.02, 0.005]} />
-            <meshStandardMaterial color={shellLight} metalness={0.4} roughness={0.4} />
-          </mesh>
-        ))}
 
         {/* === HEAD === */}
         <group ref={headRef} position={[0, 0.35, 0]}>
-          {/* Neck — segmented */}
+          {/* Neck — stacked cylinders (actuator look) */}
           <mesh position={[0, -0.06, 0]} castShadow>
-            <cylinderGeometry args={[0.055, 0.07, 0.06, 14]} />
-            <meshStandardMaterial color={jointDark} metalness={0.7} roughness={0.25} />
+            <cylinderGeometry args={[0.04, 0.055, 0.05, S]} />
+            <meshStandardMaterial color={jointDark} metalness={0.8} roughness={0.15} />
           </mesh>
-          <mesh position={[0, -0.02, 0]} castShadow>
-            <cylinderGeometry args={[0.05, 0.055, 0.04, 14]} />
-            <meshStandardMaterial color={shellMid} metalness={0.6} roughness={0.3} />
-          </mesh>
-
-          {/* Head main shape */}
-          <mesh position={[0, 0.1, 0]} castShadow>
-            <boxGeometry args={[0.23, 0.24, 0.19]} />
-            <meshStandardMaterial color={panelWhite} metalness={0.3} roughness={0.45} />
-          </mesh>
-          {/* Head top */}
-          <mesh position={[0, 0.23, 0]} castShadow>
-            <boxGeometry args={[0.21, 0.03, 0.17]} />
-            <meshStandardMaterial color={shellMid} metalness={0.5} roughness={0.3} />
-          </mesh>
-          {/* Chin */}
-          <mesh position={[0, -0.02, 0.04]} castShadow>
-            <boxGeometry args={[0.16, 0.04, 0.1]} />
-            <meshStandardMaterial color={panelLight} metalness={0.3} roughness={0.5} />
-          </mesh>
-
-          {/* Visor housing */}
-          <mesh position={[0, 0.12, 0.1]}>
-            <boxGeometry args={[0.21, 0.1, 0.015]} />
-            <meshStandardMaterial color={shellDark} metalness={0.8} roughness={0.1} />
-          </mesh>
-          {/* Visor screen */}
-          <mesh position={[0, 0.12, 0.11]}>
-            <boxGeometry args={[0.19, 0.065, 0.005]} />
-            <meshStandardMaterial color={visorDim} metalness={0.9} roughness={0.05} />
-          </mesh>
-          {/* Visor glow */}
-          <mesh position={[0, 0.12, 0.115]}>
-            <boxGeometry args={[0.17, 0.04, 0.003]} />
-            <meshStandardMaterial color={visor} emissive={visor} emissiveIntensity={2.5} transparent opacity={0.85} />
-          </mesh>
-
-          {/* Side sensors / ears */}
-          <mesh position={[0.125, 0.1, 0]}>
-            <boxGeometry args={[0.015, 0.1, 0.08]} />
+          <mesh position={[0, -0.025, 0]} castShadow>
+            <cylinderGeometry args={[0.035, 0.04, 0.03, S]} />
             <meshStandardMaterial color={shellMid} metalness={0.6} roughness={0.25} />
           </mesh>
-          <mesh position={[-0.125, 0.1, 0]}>
-            <boxGeometry args={[0.015, 0.1, 0.08]} />
-            <meshStandardMaterial color={shellMid} metalness={0.6} roughness={0.25} />
+
+          {/* Head — smooth rounded shape (Atlas style) */}
+          <mesh position={[0, 0.1, 0.01]} castShadow>
+            <sphereGeometry args={[0.12, S, S]} />
+            <meshStandardMaterial color={panelWhite} metalness={0.3} roughness={0.35} />
+          </mesh>
+          {/* Head top cap */}
+          <mesh position={[0, 0.18, 0]} castShadow>
+            <sphereGeometry args={[0.09, S, S, 0, Math.PI * 2, 0, Math.PI / 2]} />
+            <meshStandardMaterial color={shellMid} metalness={0.5} roughness={0.25} />
+          </mesh>
+
+          {/* Visor — smooth curved band across face */}
+          <mesh position={[0, 0.11, 0.1]} rotation={[0.1, 0, 0]}>
+            <cylinderGeometry args={[0.11, 0.11, 0.05, S, 1, true, -Math.PI * 0.4, Math.PI * 0.8]} />
+            <meshStandardMaterial color={visorDim} metalness={0.9} roughness={0.05} side={THREE.DoubleSide} />
+          </mesh>
+          {/* Visor glow strip */}
+          <mesh position={[0, 0.11, 0.115]} rotation={[0.1, 0, 0]}>
+            <cylinderGeometry args={[0.105, 0.105, 0.025, S, 1, true, -Math.PI * 0.35, Math.PI * 0.7]} />
+            <meshStandardMaterial color={visor} emissive={visor} emissiveIntensity={3} transparent opacity={0.9} side={THREE.DoubleSide} />
+          </mesh>
+
+          {/* Side sensor pods */}
+          <mesh position={[0.12, 0.1, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+            <capsuleGeometry args={[0.015, 0.04, 4, 8]} />
+            <meshStandardMaterial color={shellMid} metalness={0.6} roughness={0.2} />
+          </mesh>
+          <mesh position={[-0.12, 0.1, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+            <capsuleGeometry args={[0.015, 0.04, 4, 8]} />
+            <meshStandardMaterial color={shellMid} metalness={0.6} roughness={0.2} />
           </mesh>
           {/* Sensor lights */}
-          <mesh position={[0.135, 0.1, 0]}>
-            <boxGeometry args={[0.005, 0.04, 0.02]} />
-            <meshStandardMaterial color={visor} emissive={visor} emissiveIntensity={1} />
+          <mesh position={[0.14, 0.1, 0]}>
+            <sphereGeometry args={[0.008, 8, 8]} />
+            <meshStandardMaterial color={visor} emissive={visor} emissiveIntensity={1.5} />
           </mesh>
-          <mesh position={[-0.135, 0.1, 0]}>
-            <boxGeometry args={[0.005, 0.04, 0.02]} />
-            <meshStandardMaterial color={visor} emissive={visor} emissiveIntensity={1} />
+          <mesh position={[-0.14, 0.1, 0]}>
+            <sphereGeometry args={[0.008, 8, 8]} />
+            <meshStandardMaterial color={visor} emissive={visor} emissiveIntensity={1.5} />
           </mesh>
         </group>
 
-        {/* === SHOULDERS === */}
+        {/* === SHOULDERS — large ball joints === */}
         <mesh position={[-0.27, 0.13, 0]} castShadow>
-          <sphereGeometry args={[0.055, 14, 14]} />
-          <meshStandardMaterial color={jointDark} metalness={0.8} roughness={0.15} />
+          <sphereGeometry args={[0.06, S, S]} />
+          <meshStandardMaterial color={jointDark} metalness={0.85} roughness={0.1} />
         </mesh>
         <mesh position={[0.27, 0.13, 0]} castShadow>
-          <sphereGeometry args={[0.055, 14, 14]} />
-          <meshStandardMaterial color={jointDark} metalness={0.8} roughness={0.15} />
+          <sphereGeometry args={[0.06, S, S]} />
+          <meshStandardMaterial color={jointDark} metalness={0.85} roughness={0.1} />
         </mesh>
 
         {/* === LEFT ARM === */}
         <group ref={leftUpperArmRef} position={[-0.33, 0.06, 0]}>
-          {/* Upper arm */}
+          {/* Upper arm — tapered cylinder */}
           <mesh position={[0, -0.12, 0]} castShadow>
-            <boxGeometry args={[0.095, 0.22, 0.095]} />
-            <meshStandardMaterial color={shellLight} metalness={0.45} roughness={0.35} />
+            <cylinderGeometry args={[0.04, 0.05, 0.22, S]} />
+            <meshStandardMaterial color={panelWhite} metalness={0.35} roughness={0.4} />
           </mesh>
-          {/* Bicep detail */}
-          <mesh position={[-0.05, -0.1, 0]}>
-            <boxGeometry args={[0.01, 0.12, 0.06]} />
-            <meshStandardMaterial color={shellDark} metalness={0.5} roughness={0.3} />
+          {/* Bicep actuator band */}
+          <mesh position={[0, -0.06, 0]}>
+            <torusGeometry args={[0.048, 0.008, 6, S]} />
+            <meshStandardMaterial color={shellDark} metalness={0.7} roughness={0.15} />
           </mesh>
-          {/* Elbow */}
+          {/* Elbow — ball joint */}
           <mesh position={[0, -0.25, 0]} castShadow>
-            <sphereGeometry args={[0.042, 12, 12]} />
-            <meshStandardMaterial color={jointDark} metalness={0.8} roughness={0.15} />
+            <sphereGeometry args={[0.045, S, S]} />
+            <meshStandardMaterial color={jointDark} metalness={0.85} roughness={0.1} />
           </mesh>
           {/* Forearm */}
           <group ref={leftForearmRef} position={[0, -0.25, 0]}>
-            <mesh position={[0, -0.15, 0]} castShadow>
-              <boxGeometry args={[0.085, 0.22, 0.085]} />
-              <meshStandardMaterial color={panelLight} metalness={0.3} roughness={0.45} />
+            <mesh position={[0, -0.14, 0]} castShadow>
+              <cylinderGeometry args={[0.035, 0.045, 0.2, S]} />
+              <meshStandardMaterial color={panelLight} metalness={0.3} roughness={0.4} />
             </mesh>
-            {/* Wrist */}
-            <mesh position={[0, -0.27, 0]} castShadow>
-              <cylinderGeometry args={[0.03, 0.035, 0.03, 10]} />
-              <meshStandardMaterial color={jointDark} metalness={0.7} roughness={0.2} />
+            {/* Wrist joint */}
+            <mesh position={[0, -0.26, 0]} castShadow>
+              <sphereGeometry args={[0.025, 10, 10]} />
+              <meshStandardMaterial color={jointDark} metalness={0.8} roughness={0.12} />
             </mesh>
-            {/* Hand */}
-            <mesh position={[0, -0.32, 0]} castShadow>
-              <boxGeometry args={[0.065, 0.07, 0.035]} />
-              <meshStandardMaterial color={shellDark} metalness={0.5} roughness={0.35} />
+            {/* Hand — rounded */}
+            <mesh position={[0, -0.31, 0]} castShadow>
+              <capsuleGeometry args={[0.025, 0.04, 4, 8]} />
+              <meshStandardMaterial color={shellDark} metalness={0.5} roughness={0.3} />
             </mesh>
-            {/* Finger detail */}
+            {/* Finger cluster */}
             <mesh position={[0, -0.37, 0]} castShadow>
-              <boxGeometry args={[0.055, 0.03, 0.03]} />
-              <meshStandardMaterial color={jointDark} metalness={0.6} roughness={0.3} />
+              <sphereGeometry args={[0.02, 8, 8]} />
+              <meshStandardMaterial color={jointDark} metalness={0.6} roughness={0.25} />
             </mesh>
           </group>
         </group>
@@ -497,89 +525,99 @@ export function Robot() {
         {/* === RIGHT ARM === */}
         <group ref={rightUpperArmRef} position={[0.33, 0.06, 0]}>
           <mesh position={[0, -0.12, 0]} castShadow>
-            <boxGeometry args={[0.095, 0.22, 0.095]} />
-            <meshStandardMaterial color={shellLight} metalness={0.45} roughness={0.35} />
+            <cylinderGeometry args={[0.04, 0.05, 0.22, S]} />
+            <meshStandardMaterial color={panelWhite} metalness={0.35} roughness={0.4} />
           </mesh>
-          <mesh position={[0.05, -0.1, 0]}>
-            <boxGeometry args={[0.01, 0.12, 0.06]} />
-            <meshStandardMaterial color={shellDark} metalness={0.5} roughness={0.3} />
+          <mesh position={[0, -0.06, 0]}>
+            <torusGeometry args={[0.048, 0.008, 6, S]} />
+            <meshStandardMaterial color={shellDark} metalness={0.7} roughness={0.15} />
           </mesh>
           <mesh position={[0, -0.25, 0]} castShadow>
-            <sphereGeometry args={[0.042, 12, 12]} />
-            <meshStandardMaterial color={jointDark} metalness={0.8} roughness={0.15} />
+            <sphereGeometry args={[0.045, S, S]} />
+            <meshStandardMaterial color={jointDark} metalness={0.85} roughness={0.1} />
           </mesh>
           <group ref={rightForearmRef} position={[0, -0.25, 0]}>
-            <mesh position={[0, -0.15, 0]} castShadow>
-              <boxGeometry args={[0.085, 0.22, 0.085]} />
-              <meshStandardMaterial color={panelLight} metalness={0.3} roughness={0.45} />
+            <mesh position={[0, -0.14, 0]} castShadow>
+              <cylinderGeometry args={[0.035, 0.045, 0.2, S]} />
+              <meshStandardMaterial color={panelLight} metalness={0.3} roughness={0.4} />
             </mesh>
-            <mesh position={[0, -0.27, 0]} castShadow>
-              <cylinderGeometry args={[0.03, 0.035, 0.03, 10]} />
-              <meshStandardMaterial color={jointDark} metalness={0.7} roughness={0.2} />
+            <mesh position={[0, -0.26, 0]} castShadow>
+              <sphereGeometry args={[0.025, 10, 10]} />
+              <meshStandardMaterial color={jointDark} metalness={0.8} roughness={0.12} />
             </mesh>
-            <mesh position={[0, -0.32, 0]} castShadow>
-              <boxGeometry args={[0.065, 0.07, 0.035]} />
-              <meshStandardMaterial color={shellDark} metalness={0.5} roughness={0.35} />
+            <mesh position={[0, -0.31, 0]} castShadow>
+              <capsuleGeometry args={[0.025, 0.04, 4, 8]} />
+              <meshStandardMaterial color={shellDark} metalness={0.5} roughness={0.3} />
             </mesh>
             <mesh position={[0, -0.37, 0]} castShadow>
-              <boxGeometry args={[0.055, 0.03, 0.03]} />
-              <meshStandardMaterial color={jointDark} metalness={0.6} roughness={0.3} />
+              <sphereGeometry args={[0.02, 8, 8]} />
+              <meshStandardMaterial color={jointDark} metalness={0.6} roughness={0.25} />
             </mesh>
           </group>
         </group>
       </group>
 
-      {/* === HIP === */}
+      {/* === HIP — rounded pelvis === */}
       <mesh position={[0, 0.63, 0]} castShadow>
-        <boxGeometry args={[0.32, 0.07, 0.16]} />
-        <meshStandardMaterial color={shellDark} metalness={0.6} roughness={0.25} />
+        <capsuleGeometry args={[0.06, 0.16, 4, S]} />
+        <meshPhysicalMaterial color={shellDark} metalness={0.6} roughness={0.25} />
+      </mesh>
+      {/* Hip actuator discs */}
+      <mesh position={[-0.1, 0.63, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+        <cylinderGeometry args={[0.05, 0.05, 0.02, S]} />
+        <meshStandardMaterial color={jointDark} metalness={0.85} roughness={0.1} />
+      </mesh>
+      <mesh position={[0.1, 0.63, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+        <cylinderGeometry args={[0.05, 0.05, 0.02, S]} />
+        <meshStandardMaterial color={jointDark} metalness={0.85} roughness={0.1} />
       </mesh>
 
       {/* === LEFT LEG === */}
       <group ref={leftLegRef} position={[-0.1, 0.59, 0]}>
-        <mesh position={[0, 0, 0]} castShadow>
-          <sphereGeometry args={[0.048, 12, 12]} />
-          <meshStandardMaterial color={jointDark} metalness={0.8} roughness={0.15} />
+        {/* Hip ball joint */}
+        <mesh castShadow>
+          <sphereGeometry args={[0.052, S, S]} />
+          <meshStandardMaterial color={jointDark} metalness={0.85} roughness={0.1} />
         </mesh>
-        {/* Upper leg / thigh */}
+        {/* Thigh — tapered cylinder */}
         <mesh position={[0, -0.16, 0]} castShadow>
-          <boxGeometry args={[0.105, 0.26, 0.105]} />
-          <meshStandardMaterial color={shellLight} metalness={0.45} roughness={0.35} />
+          <cylinderGeometry args={[0.045, 0.058, 0.26, S]} />
+          <meshStandardMaterial color={panelWhite} metalness={0.35} roughness={0.4} />
         </mesh>
-        {/* Thigh detail */}
-        <mesh position={[0, -0.16, 0.055]}>
-          <boxGeometry args={[0.07, 0.18, 0.008]} />
-          <meshStandardMaterial color={shellDark} metalness={0.5} roughness={0.3} />
+        {/* Thigh actuator band */}
+        <mesh position={[0, -0.08, 0]}>
+          <torusGeometry args={[0.055, 0.006, 6, S]} />
+          <meshStandardMaterial color={shellDark} metalness={0.7} roughness={0.15} />
         </mesh>
-        {/* Knee */}
+        {/* Knee — large actuator joint */}
         <mesh position={[0, -0.32, 0]} castShadow>
-          <sphereGeometry args={[0.048, 12, 12]} />
-          <meshStandardMaterial color={jointDark} metalness={0.8} roughness={0.15} />
+          <sphereGeometry args={[0.052, S, S]} />
+          <meshStandardMaterial color={jointDark} metalness={0.85} roughness={0.1} />
         </mesh>
-        {/* Lower leg / shin */}
+        {/* Shin */}
         <group ref={leftShinRef} position={[0, -0.32, 0]}>
-          <mesh position={[0, -0.17, 0]} castShadow>
-            <boxGeometry args={[0.095, 0.28, 0.095]} />
-            <meshStandardMaterial color={panelLight} metalness={0.3} roughness={0.45} />
+          <mesh position={[0, -0.16, 0]} castShadow>
+            <cylinderGeometry args={[0.038, 0.05, 0.26, S]} />
+            <meshStandardMaterial color={panelLight} metalness={0.3} roughness={0.4} />
           </mesh>
-          {/* Shin guard detail */}
-          <mesh position={[0, -0.17, 0.05]}>
-            <boxGeometry args={[0.06, 0.2, 0.008]} />
-            <meshStandardMaterial color={shellMid} metalness={0.4} roughness={0.35} />
+          {/* Shin guard — front plate */}
+          <mesh position={[0, -0.14, 0.04]} castShadow>
+            <cylinderGeometry args={[0.03, 0.035, 0.18, 8, 1, true, -Math.PI * 0.3, Math.PI * 0.6]} />
+            <meshStandardMaterial color={shellMid} metalness={0.45} roughness={0.3} side={THREE.DoubleSide} />
           </mesh>
-          {/* Ankle */}
-          <mesh position={[0, -0.33, 0]} castShadow>
-            <cylinderGeometry args={[0.035, 0.04, 0.03, 10]} />
-            <meshStandardMaterial color={jointDark} metalness={0.7} roughness={0.2} />
+          {/* Ankle actuator */}
+          <mesh position={[0, -0.32, 0]} castShadow>
+            <sphereGeometry args={[0.032, 12, 12]} />
+            <meshStandardMaterial color={jointDark} metalness={0.8} roughness={0.12} />
           </mesh>
-          {/* Foot */}
-          <mesh position={[0, -0.37, 0.025]} castShadow>
-            <boxGeometry args={[0.11, 0.04, 0.18]} />
+          {/* Foot — rounded wedge */}
+          <mesh position={[0, -0.37, 0.02]} castShadow>
+            <capsuleGeometry args={[0.03, 0.1, 4, 8]} />
             <meshStandardMaterial color={shellDark} metalness={0.5} roughness={0.3} />
           </mesh>
-          {/* Toe */}
-          <mesh position={[0, -0.38, 0.1]} castShadow>
-            <boxGeometry args={[0.1, 0.02, 0.06]} />
+          {/* Toe pad */}
+          <mesh position={[0, -0.385, 0.08]} castShadow>
+            <sphereGeometry args={[0.028, 8, 8, 0, Math.PI * 2, 0, Math.PI / 2]} />
             <meshStandardMaterial color={shellMid} metalness={0.4} roughness={0.35} />
           </mesh>
         </group>
@@ -587,41 +625,41 @@ export function Robot() {
 
       {/* === RIGHT LEG === */}
       <group ref={rightLegRef} position={[0.1, 0.59, 0]}>
-        <mesh position={[0, 0, 0]} castShadow>
-          <sphereGeometry args={[0.048, 12, 12]} />
-          <meshStandardMaterial color={jointDark} metalness={0.8} roughness={0.15} />
+        <mesh castShadow>
+          <sphereGeometry args={[0.052, S, S]} />
+          <meshStandardMaterial color={jointDark} metalness={0.85} roughness={0.1} />
         </mesh>
         <mesh position={[0, -0.16, 0]} castShadow>
-          <boxGeometry args={[0.105, 0.26, 0.105]} />
-          <meshStandardMaterial color={shellLight} metalness={0.45} roughness={0.35} />
+          <cylinderGeometry args={[0.045, 0.058, 0.26, S]} />
+          <meshStandardMaterial color={panelWhite} metalness={0.35} roughness={0.4} />
         </mesh>
-        <mesh position={[0, -0.16, 0.055]}>
-          <boxGeometry args={[0.07, 0.18, 0.008]} />
-          <meshStandardMaterial color={shellDark} metalness={0.5} roughness={0.3} />
+        <mesh position={[0, -0.08, 0]}>
+          <torusGeometry args={[0.055, 0.006, 6, S]} />
+          <meshStandardMaterial color={shellDark} metalness={0.7} roughness={0.15} />
         </mesh>
         <mesh position={[0, -0.32, 0]} castShadow>
-          <sphereGeometry args={[0.048, 12, 12]} />
-          <meshStandardMaterial color={jointDark} metalness={0.8} roughness={0.15} />
+          <sphereGeometry args={[0.052, S, S]} />
+          <meshStandardMaterial color={jointDark} metalness={0.85} roughness={0.1} />
         </mesh>
         <group ref={rightShinRef} position={[0, -0.32, 0]}>
-          <mesh position={[0, -0.17, 0]} castShadow>
-            <boxGeometry args={[0.095, 0.28, 0.095]} />
-            <meshStandardMaterial color={panelLight} metalness={0.3} roughness={0.45} />
+          <mesh position={[0, -0.16, 0]} castShadow>
+            <cylinderGeometry args={[0.038, 0.05, 0.26, S]} />
+            <meshStandardMaterial color={panelLight} metalness={0.3} roughness={0.4} />
           </mesh>
-          <mesh position={[0, -0.17, 0.05]}>
-            <boxGeometry args={[0.06, 0.2, 0.008]} />
-            <meshStandardMaterial color={shellMid} metalness={0.4} roughness={0.35} />
+          <mesh position={[0, -0.14, 0.04]} castShadow>
+            <cylinderGeometry args={[0.03, 0.035, 0.18, 8, 1, true, -Math.PI * 0.3, Math.PI * 0.6]} />
+            <meshStandardMaterial color={shellMid} metalness={0.45} roughness={0.3} side={THREE.DoubleSide} />
           </mesh>
-          <mesh position={[0, -0.33, 0]} castShadow>
-            <cylinderGeometry args={[0.035, 0.04, 0.03, 10]} />
-            <meshStandardMaterial color={jointDark} metalness={0.7} roughness={0.2} />
+          <mesh position={[0, -0.32, 0]} castShadow>
+            <sphereGeometry args={[0.032, 12, 12]} />
+            <meshStandardMaterial color={jointDark} metalness={0.8} roughness={0.12} />
           </mesh>
-          <mesh position={[0, -0.37, 0.025]} castShadow>
-            <boxGeometry args={[0.11, 0.04, 0.18]} />
+          <mesh position={[0, -0.37, 0.02]} castShadow>
+            <capsuleGeometry args={[0.03, 0.1, 4, 8]} />
             <meshStandardMaterial color={shellDark} metalness={0.5} roughness={0.3} />
           </mesh>
-          <mesh position={[0, -0.38, 0.1]} castShadow>
-            <boxGeometry args={[0.1, 0.02, 0.06]} />
+          <mesh position={[0, -0.385, 0.08]} castShadow>
+            <sphereGeometry args={[0.028, 8, 8, 0, Math.PI * 2, 0, Math.PI / 2]} />
             <meshStandardMaterial color={shellMid} metalness={0.4} roughness={0.35} />
           </mesh>
         </group>
@@ -629,10 +667,10 @@ export function Robot() {
 
       {/* Subtle ground glow */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.004, 0]}>
-        <circleGeometry args={[0.25, 32]} />
-        <meshStandardMaterial color={visor} emissive={visor} emissiveIntensity={0.2} transparent opacity={0.1} />
+        <circleGeometry args={[0.3, 32]} />
+        <meshStandardMaterial color={visor} emissive={visor} emissiveIntensity={0.15} transparent opacity={0.08} />
       </mesh>
-      <pointLight position={[0, 1.5, 0.3]} color={visor} intensity={0.25} distance={1.5} />
+      <pointLight position={[0, 1.5, 0.3]} color={visor} intensity={0.3} distance={2} />
     </group>
   );
 }
