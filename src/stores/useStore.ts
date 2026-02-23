@@ -1,14 +1,20 @@
 import { create } from 'zustand';
-import type { Task, ChatMessage, RobotState } from '../types';
+import type { Task, ChatMessage, RobotState, TaskType } from '../types';
 
 interface SimBotStore {
   // Robot
   robotPosition: [number, number, number];
   robotTarget: [number, number, number] | null;
   robotState: RobotState;
+  robotPath: [number, number, number][];
+  currentPathIndex: number;
+  currentAnimation: TaskType;
   setRobotPosition: (pos: [number, number, number]) => void;
   setRobotTarget: (pos: [number, number, number] | null) => void;
   setRobotState: (state: RobotState) => void;
+  setRobotPath: (path: [number, number, number][]) => void;
+  setCurrentPathIndex: (i: number) => void;
+  setCurrentAnimation: (a: TaskType) => void;
 
   // Tasks
   tasks: Task[];
@@ -32,12 +38,18 @@ interface SimBotStore {
 }
 
 export const useStore = create<SimBotStore>((set) => ({
-  robotPosition: [0, 0, 0],
+  robotPosition: [0.5, 0, 1.5], // start in hallway
   robotTarget: null,
   robotState: 'idle',
+  robotPath: [],
+  currentPathIndex: 0,
+  currentAnimation: 'general',
   setRobotPosition: (pos) => set({ robotPosition: pos }),
   setRobotTarget: (pos) => set({ robotTarget: pos }),
   setRobotState: (state) => set({ robotState: state }),
+  setRobotPath: (path) => set({ robotPath: path, currentPathIndex: 0 }),
+  setCurrentPathIndex: (i) => set({ currentPathIndex: i }),
+  setCurrentAnimation: (a) => set({ currentAnimation: a }),
 
   tasks: [],
   addTask: (task) => set((s) => ({ tasks: [...s.tasks, task] })),

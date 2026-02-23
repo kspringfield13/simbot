@@ -1,7 +1,5 @@
-import type { Room } from '../types';
+import type { Room, TaskType } from '../types';
 
-// Realistic home floor plan - ranch style layout
-// All positions in world units, roughly 1 unit = 1 meter
 export const rooms: Room[] = [
   {
     id: 'living-room',
@@ -81,42 +79,34 @@ export const rooms: Room[] = [
   },
 ];
 
-// Wall definitions for the home
 export interface Wall {
   start: [number, number];
   end: [number, number];
   height: number;
   thickness: number;
-  hasDoor?: boolean;
-  doorPosition?: number; // 0-1 along wall
 }
 
 export const walls: Wall[] = [
   // Outer walls - Living Room
-  { start: [-6, -4.5], end: [0, -4.5], height: 2.8, thickness: 0.15 }, // north
-  { start: [-6, -4.5], end: [-6, 0.5], height: 2.8, thickness: 0.15 }, // west
-  { start: [-6, 0.5], end: [0, 0.5], height: 2.8, thickness: 0.15 },   // south
-
+  { start: [-6, -4.5], end: [0, -4.5], height: 2.8, thickness: 0.15 },
+  { start: [-6, -4.5], end: [-6, 0.5], height: 2.8, thickness: 0.15 },
+  { start: [-6, 0.5], end: [0, 0.5], height: 2.8, thickness: 0.15 },
   // Outer walls - Kitchen
-  { start: [1.5, -4.5], end: [6.7, -4.5], height: 2.8, thickness: 0.15 }, // north
-  { start: [6.7, -4.5], end: [6.7, 0.5], height: 2.8, thickness: 0.15 }, // east
-  { start: [1.5, 0.5], end: [6.7, 0.5], height: 2.8, thickness: 0.15 },  // south
-
-  // Divider between living room and kitchen
+  { start: [1.5, -4.5], end: [6.7, -4.5], height: 2.8, thickness: 0.15 },
+  { start: [6.7, -4.5], end: [6.7, 0.5], height: 2.8, thickness: 0.15 },
+  { start: [1.5, 0.5], end: [6.7, 0.5], height: 2.8, thickness: 0.15 },
+  // Divider living/kitchen
   { start: [0, -4.5], end: [0, -2], height: 2.8, thickness: 0.15 },
   { start: [1.5, -2], end: [1.5, 0.5], height: 2.8, thickness: 0.15 },
-
   // Outer walls - Bedroom
-  { start: [-6, 2.5], end: [-6, 7.5], height: 2.8, thickness: 0.15 }, // west
-  { start: [-6, 7.5], end: [0, 7.5], height: 2.8, thickness: 0.15 },  // south
-  { start: [0, 2.5], end: [0, 5], height: 2.8, thickness: 0.15 },     // east wall segment
-
+  { start: [-6, 2.5], end: [-6, 7.5], height: 2.8, thickness: 0.15 },
+  { start: [-6, 7.5], end: [0, 7.5], height: 2.8, thickness: 0.15 },
+  { start: [0, 2.5], end: [0, 5], height: 2.8, thickness: 0.15 },
   // Outer walls - Bathroom
-  { start: [2, 3], end: [6.2, 3], height: 2.8, thickness: 0.15 },     // north
-  { start: [6.2, 3], end: [6.2, 7], height: 2.8, thickness: 0.15 },   // east
-  { start: [2, 7], end: [6.2, 7], height: 2.8, thickness: 0.15 },     // south
-  { start: [2, 3], end: [2, 5.5], height: 2.8, thickness: 0.15 },     // west segment
-
+  { start: [2, 3], end: [6.2, 3], height: 2.8, thickness: 0.15 },
+  { start: [6.2, 3], end: [6.2, 7], height: 2.8, thickness: 0.15 },
+  { start: [2, 7], end: [6.2, 7], height: 2.8, thickness: 0.15 },
+  { start: [2, 3], end: [2, 5.5], height: 2.8, thickness: 0.15 },
   // Hallway walls
   { start: [0, 0.5], end: [0, 2.5], height: 2.8, thickness: 0.15 },
   { start: [1.5, 0.5], end: [1.5, 3], height: 2.8, thickness: 0.15 },
@@ -124,28 +114,84 @@ export const walls: Wall[] = [
 
 export const getRoomCenter = (roomId: string): [number, number, number] => {
   const room = rooms.find((r) => r.id === roomId);
-  if (!room) return [0, 0, 0];
+  if (!room) return [0.5, 0, 1.5];
   return [room.position[0], 0, room.position[2]];
 };
 
-export const findTaskTarget = (command: string): { roomId: string; position: [number, number, number]; description: string } | null => {
+interface TaskTarget {
+  roomId: string;
+  position: [number, number, number];
+  description: string;
+  taskType: TaskType;
+  workDuration: number;
+  response: string;
+}
+
+export const findTaskTarget = (command: string): TaskTarget | null => {
   const cmd = command.toLowerCase();
 
-  if (cmd.includes('kitchen') || cmd.includes('cook') || cmd.includes('dishes') || cmd.includes('food')) {
-    return { roomId: 'kitchen', position: [4.5, 0, -2.5], description: 'Working in the kitchen...' };
-  }
-  if (cmd.includes('bed') || cmd.includes('bedroom') || cmd.includes('sleep')) {
-    return { roomId: 'bedroom', position: [-4, 0, 5.5], description: 'Tidying the bedroom...' };
-  }
-  if (cmd.includes('bath') || cmd.includes('shower') || cmd.includes('toilet')) {
-    return { roomId: 'bathroom', position: [4, 0, 5.5], description: 'Cleaning the bathroom...' };
-  }
-  if (cmd.includes('living') || cmd.includes('couch') || cmd.includes('tv') || cmd.includes('clean')) {
-    return { roomId: 'living-room', position: [-3.5, 0, -2], description: 'Cleaning the living room...' };
-  }
-  if (cmd.includes('organize') || cmd.includes('tidy') || cmd.includes('desk')) {
-    return { roomId: 'bedroom', position: [-1.5, 0, 4], description: 'Organizing the desk area...' };
+  // Dishes
+  if (cmd.includes('dish') || cmd.includes('wash') && cmd.includes('kitchen')) {
+    return { roomId: 'kitchen', position: [5.5, 0, -3.5], description: 'Washing the dishes...', taskType: 'dishes', workDuration: 8, response: "I'll head to the sink and get these dishes sparkling clean!" };
   }
 
-  return { roomId: 'living-room', position: [0.5, 0, 1.5], description: 'Looking around for something to do...' };
+  // Cooking
+  if (cmd.includes('cook') || cmd.includes('food') || cmd.includes('meal') || cmd.includes('dinner') || cmd.includes('breakfast') || cmd.includes('lunch')) {
+    return { roomId: 'kitchen', position: [4.5, 0, -3.5], description: 'Cooking at the stove...', taskType: 'cooking', workDuration: 12, response: "Time to cook! Heading to the stove." };
+  }
+
+  // Grocery list
+  if (cmd.includes('grocer') || cmd.includes('shopping list') || cmd.includes('inventory') || cmd.includes('fridge')) {
+    return { roomId: 'kitchen', position: [2.8, 0, -3.5], description: 'Checking the fridge and making a list...', taskType: 'grocery-list', workDuration: 6, response: "Let me check what we have and make a grocery list." };
+  }
+
+  // Kitchen cleaning
+  if (cmd.includes('kitchen') && (cmd.includes('clean') || cmd.includes('wipe') || cmd.includes('tidy'))) {
+    return { roomId: 'kitchen', position: [4.2, 0, -2], description: 'Wiping down kitchen surfaces...', taskType: 'cleaning', workDuration: 10, response: "On my way to clean the kitchen — counters, island, the works!" };
+  }
+
+  // Vacuuming
+  if (cmd.includes('vacuum') || cmd.includes('hoover')) {
+    const room = cmd.includes('bedroom') ? 'bedroom' : cmd.includes('kitchen') ? 'kitchen' : 'living-room';
+    const pos: [number, number, number] = room === 'bedroom' ? [-3.5, 0, 5] : room === 'kitchen' ? [4.2, 0, -2] : [-3.5, 0, -2];
+    return { roomId: room, position: pos, description: `Vacuuming the ${room.replace('-', ' ')}...`, taskType: 'vacuuming', workDuration: 12, response: `Grabbing the vacuum — heading to the ${room.replace('-', ' ')}!` };
+  }
+
+  // Sweeping
+  if (cmd.includes('sweep') || cmd.includes('mop')) {
+    return { roomId: 'kitchen', position: [4, 0, -2], description: 'Sweeping the kitchen floor...', taskType: 'sweeping', workDuration: 8, response: "I'll sweep the kitchen floor nice and clean." };
+  }
+
+  // Make the bed
+  if (cmd.includes('bed') && (cmd.includes('make') || cmd.includes('fix') || cmd.includes('tidy'))) {
+    return { roomId: 'bedroom', position: [-3, 0, 5.8], description: 'Making the bed — sheets, pillows, the whole deal...', taskType: 'bed-making', workDuration: 6, response: "On it! Making the bed nice and neat." };
+  }
+
+  // Laundry
+  if (cmd.includes('laundry') || cmd.includes('clothes') || cmd.includes('fold')) {
+    return { roomId: 'bedroom', position: [-5.2, 0, 4.2], description: 'Sorting and folding laundry...', taskType: 'laundry', workDuration: 10, response: "Time for laundry duty — sorting and folding!" };
+  }
+
+  // Organize desk
+  if (cmd.includes('organize') || cmd.includes('desk') || cmd.includes('tidy') && cmd.includes('room')) {
+    return { roomId: 'bedroom', position: [-1.5, 0, 4], description: 'Organizing the desk — papers, cables, everything...', taskType: 'organizing', workDuration: 8, response: "Let me organize that desk for you." };
+  }
+
+  // Bathroom cleaning / scrubbing
+  if (cmd.includes('bath') || cmd.includes('shower') || cmd.includes('scrub') || cmd.includes('toilet')) {
+    return { roomId: 'bathroom', position: [4.5, 0, 5.5], description: 'Scrubbing the bathroom...', taskType: 'scrubbing', workDuration: 10, response: "Heading to the bathroom — time for a deep scrub!" };
+  }
+
+  // Living room cleaning
+  if (cmd.includes('living') || cmd.includes('couch') || cmd.includes('tv') || (cmd.includes('clean') && !cmd.includes('kitchen') && !cmd.includes('bath'))) {
+    return { roomId: 'living-room', position: [-3.5, 0, -2], description: 'Cleaning up the living room...', taskType: 'cleaning', workDuration: 8, response: "I'll tidy up the living room!" };
+  }
+
+  // Bedroom general
+  if (cmd.includes('bedroom')) {
+    return { roomId: 'bedroom', position: [-3.5, 0, 5], description: 'Tidying the bedroom...', taskType: 'cleaning', workDuration: 8, response: "Heading to the bedroom to tidy up!" };
+  }
+
+  // Default
+  return { roomId: 'living-room', position: [0.5, 0, 1.5], description: 'Looking around for something to do...', taskType: 'general', workDuration: 5, response: "I'll take a look around and see what needs doing!" };
 };

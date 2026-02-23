@@ -16,6 +16,19 @@ export interface Furniture {
   interactable?: boolean;
 }
 
+export type TaskType =
+  | 'cleaning'
+  | 'vacuuming'
+  | 'dishes'
+  | 'laundry'
+  | 'organizing'
+  | 'cooking'
+  | 'bed-making'
+  | 'scrubbing'
+  | 'sweeping'
+  | 'grocery-list'
+  | 'general';
+
 export interface Task {
   id: string;
   command: string;
@@ -24,6 +37,8 @@ export interface Task {
   status: 'pending' | 'walking' | 'working' | 'completed';
   progress: number;
   description: string;
+  taskType: TaskType;
+  workDuration: number; // seconds
 }
 
 export interface ChatMessage {
@@ -34,3 +49,4 @@ export interface ChatMessage {
 }
 
 export type RobotState = 'idle' | 'walking' | 'working';
+export type AnimationType = TaskType;
