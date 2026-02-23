@@ -16,7 +16,7 @@ function App() {
       <div className="order-1 md:order-2 flex-1 relative h-[60vh] md:h-full">
         <Canvas
           shadows
-          camera={{ position: [12, 12, 12], fov: 50 }}
+          camera={{ position: [0, 18, 10], fov: 45 }}
           gl={{ antialias: true }}
         >
           <HomeScene />
