@@ -205,26 +205,18 @@ export const useTaskRunner = () => {
 
       if (currentNode.pauseAtDoorway && doorwayPauseKeyRef.current !== pauseKey) {
         doorwayPauseKeyRef.current = pauseKey;
-        // Keep walking state but clear target so robot decelerates naturally
-        // instead of snapping to idle (which triggers full idle animation jank)
-        setRobotTarget(null);
+        // Instead of stopping, immediately set next waypoint so robot
+        // walks through doorways fluidly with only a brief slowdown
+        setCurrentPathIndex(nextIndex);
+        setRobotTarget(nextNode.position);
 
+        // Small delay before clearing the pause key to prevent re-trigger
         if (doorwayPauseTimerRef.current) {
           window.clearTimeout(doorwayPauseTimerRef.current);
         }
-
-        const pauseMs = 350 / Math.max(state.simSpeed, 1);
-
         doorwayPauseTimerRef.current = window.setTimeout(() => {
-          const latest = useStore.getState();
-          const walkingTask = latest.tasks.find((task) => task.status === 'walking' && task.id === activeTask.id);
-          if (!walkingTask) return;
-
-          setCurrentPathIndex(nextIndex);
-          setRobotTarget(nextNode.position);
-          setRobotState('walking');
           doorwayPauseKeyRef.current = null;
-        }, pauseMs);
+        }, 200 / Math.max(state.simSpeed, 1));
 
         return;
       }
