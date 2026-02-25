@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useStore } from '../../stores/useStore';
+import { getAvoidanceForce } from '../../systems/ObstacleMap';
 import * as THREE from 'three';
 
 export function Robot() {
@@ -81,10 +82,21 @@ export function Robot() {
         }
 
         const speed = currentSpeedRef.current * scaledDelta;
+
+        // Obstacle avoidance — steer around furniture
+        const [avoidX, avoidZ] = getAvoidanceForce(
+          robotPosition[0], robotPosition[2],
+          direction.x, direction.z,
+          0.8 + currentSpeedRef.current * 0.3,
+        );
+        const steerX = direction.x + avoidX * 0.5;
+        const steerZ = direction.z + avoidZ * 0.5;
+        const steerLen = Math.sqrt(steerX * steerX + steerZ * steerZ) || 1;
+
         const newPos: [number, number, number] = [
-          robotPosition[0] + direction.x * speed,
+          robotPosition[0] + (steerX / steerLen) * speed,
           0,
-          robotPosition[2] + direction.z * speed,
+          robotPosition[2] + (steerZ / steerLen) * speed,
         ];
         setRobotPosition(newPos);
 
