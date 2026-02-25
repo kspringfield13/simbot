@@ -2,6 +2,7 @@ import { useFrame } from '@react-three/fiber';
 import { useRef } from 'react';
 import { buildAutonomousTask, scoreRoomAttention } from './RoomState';
 import { rooms, windowSpots } from '../utils/homeLayout';
+import { findClearPosition } from './ObstacleMap';
 import { useStore } from '../stores/useStore';
 import type { RobotMood, RoomId } from '../types';
 
@@ -398,7 +399,9 @@ export function AIBrain() {
       }
 
       case 'patrol': {
-        const spot = windowSpots[Math.floor(Math.random() * windowSpots.length)] ?? [0, 0, -1];
+        const rawSpot = windowSpots[Math.floor(Math.random() * windowSpots.length)] ?? [0, 0, -1];
+        const [px, pz] = findClearPosition(rawSpot[0], rawSpot[2], 0.8);
+        const spot: [number, number, number] = [px, 0, pz];
         s.addTask({
           id: crypto.randomUUID(),
           command: 'Window gazing',
@@ -422,8 +425,9 @@ export function AIBrain() {
 
       case 'wander': {
         const randomRoom = pick(rooms);
-        const rx = randomRoom.position[0] + (Math.random() - 0.5) * randomRoom.size[0] * 0.5;
-        const rz = randomRoom.position[2] + (Math.random() - 0.5) * randomRoom.size[1] * 0.5;
+        const rawX = randomRoom.position[0] + (Math.random() - 0.5) * randomRoom.size[0] * 0.5;
+        const rawZ = randomRoom.position[2] + (Math.random() - 0.5) * randomRoom.size[1] * 0.5;
+        const [rx, rz] = findClearPosition(rawX, rawZ, 0.8);
 
         s.addTask({
           id: crypto.randomUUID(),

@@ -43,6 +43,38 @@ export const OBSTACLES: Obstacle[] = [
   { x: -7.2 * S, z: -1 * S, r: 0.3 * S },
 ];
 
+/**
+ * Check if a position is clear of obstacles.
+ * Returns true if the position is at least `margin` away from all obstacles.
+ */
+export function isPositionClear(x: number, z: number, margin: number = 0.5): boolean {
+  for (const obs of OBSTACLES) {
+    const dx = x - obs.x;
+    const dz = z - obs.z;
+    const dist = Math.sqrt(dx * dx + dz * dz);
+    if (dist < obs.r + margin) return false;
+  }
+  return true;
+}
+
+/**
+ * Find nearest clear position to the given point.
+ * Searches in a spiral pattern outward.
+ */
+export function findClearPosition(x: number, z: number, margin: number = 0.8): [number, number] {
+  if (isPositionClear(x, z, margin)) return [x, z];
+  
+  // Spiral outward
+  for (let radius = 0.5; radius <= 4; radius += 0.5) {
+    for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 6) {
+      const nx = x + Math.cos(angle) * radius;
+      const nz = z + Math.sin(angle) * radius;
+      if (isPositionClear(nx, nz, margin)) return [nx, nz];
+    }
+  }
+  return [x, z]; // fallback
+}
+
 export function getAvoidanceForce(
   posX: number, posZ: number, dirX: number, dirZ: number, lookAhead: number = 1.5,
 ): [number, number] {

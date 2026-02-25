@@ -1,4 +1,5 @@
 import { roomTaskAnchors, rooms } from '../utils/homeLayout';
+import { findClearPosition } from './ObstacleMap';
 import type { RoomId, RoomNeedState, SimPeriod, TaskType } from '../types';
 
 const clampPercent = (value: number): number => Math.min(100, Math.max(0, value));
@@ -189,10 +190,13 @@ export function buildAutonomousTask(roomId: RoomId, period: SimPeriod): {
 } {
   const preset = pickPreset(roomId, period);
   const anchors = roomTaskAnchors[roomId];
-  const target = anchors[Math.floor(Math.random() * anchors.length)] ?? [0, 0, -1];
-
+  const raw = anchors[Math.floor(Math.random() * anchors.length)] ?? [0, 0, -1];
+  
+  // Ensure target position is clear of obstacles
+  const [cx, cz] = findClearPosition(raw[0], raw[2], 0.8);
+  
   return {
     ...preset,
-    position: target,
+    position: [cx, 0, cz] as [number, number, number],
   };
 }

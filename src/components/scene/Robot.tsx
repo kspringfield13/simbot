@@ -34,6 +34,8 @@ export function Robot() {
   const modelRef = useRef<THREE.Group>(null);
   const currentSpeedRef = useRef(0);
   const currentAnimRef = useRef<string>('idle');
+  const stuckTimerRef = useRef(0);
+  const lastDistRef = useRef(999);
 
   const { scene, animations } = useGLTF('/models/xbot.glb');
 
@@ -132,6 +134,22 @@ export function Robot() {
           0,
           robotPosition[2] + (steerZ / steerLen) * speed,
         ]);
+
+        // Stuck detection: if distance hasn't decreased meaningfully in ~3 seconds, skip this target
+        if (Math.abs(distance - lastDistRef.current) < 0.05) {
+          stuckTimerRef.current += scaledDelta;
+          if (stuckTimerRef.current > 3) {
+            // Force arrival — we're stuck
+            console.log('[Robot] Stuck detected, forcing arrival');
+            stuckTimerRef.current = 0;
+            lastDistRef.current = 999;
+            currentSpeedRef.current = 0;
+            // Don't set position to target (it's in an obstacle), just stop where we are
+          }
+        } else {
+          stuckTimerRef.current = 0;
+          lastDistRef.current = distance;
+        }
 
         // Walk vs Run based on speed
         if (currentSpeedRef.current > 2.0) {
