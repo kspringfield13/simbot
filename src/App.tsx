@@ -2,6 +2,7 @@ import { Canvas } from '@react-three/fiber';
 import { GameUI } from './components/game/GameUI';
 import { HomeScene } from './components/scene/HomeScene';
 import { RobotTerminal } from './components/ui/RobotTerminal';
+import { NeedsIndicator } from './components/ui/NeedsIndicator';
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
       </Canvas>
 
       <RobotTerminal />
+      <NeedsIndicator />
       <GameUI />
     </div>
   );

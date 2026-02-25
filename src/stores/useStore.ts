@@ -6,6 +6,7 @@ import type {
   ChatMessage,
   NavigationPoint,
   RobotMood,
+  RobotNeeds,
   RobotState,
   RoomId,
   RoomNeedState,
@@ -36,6 +37,11 @@ interface SimBotStore {
   setRobotRotationY: (rotationY: number) => void;
   setRobotThought: (thought: string) => void;
   setRobotMood: (mood: RobotMood) => void;
+
+  // Tamagotchi needs
+  robotNeeds: RobotNeeds;
+  updateRobotNeeds: (updates: Partial<RobotNeeds>) => void;
+  tickRobotNeeds: (deltaSimMinutes: number) => void;
 
   // Camera
   cameraMode: CameraMode;
@@ -105,6 +111,35 @@ export const useStore = create<SimBotStore>((set) => ({
   setRobotThought: (thought) => set({ robotThought: thought }),
   setRobotMood: (mood) => set({ robotMood: mood }),
 
+  robotNeeds: { energy: 85, happiness: 70, social: 50, boredom: 10 },
+  updateRobotNeeds: (updates) => set((state) => ({
+    robotNeeds: {
+      energy: Math.max(0, Math.min(100, updates.energy ?? state.robotNeeds.energy)),
+      happiness: Math.max(0, Math.min(100, updates.happiness ?? state.robotNeeds.happiness)),
+      social: Math.max(0, Math.min(100, updates.social ?? state.robotNeeds.social)),
+      boredom: Math.max(0, Math.min(100, updates.boredom ?? state.robotNeeds.boredom)),
+    },
+  })),
+  tickRobotNeeds: (delta) => set((state) => {
+    const n = state.robotNeeds;
+    const isWorking = state.robotState === 'working';
+    // const isWalking = state.robotState === 'walking';
+    const isIdle = state.robotState === 'idle';
+
+    return {
+      robotNeeds: {
+        energy: Math.max(0, Math.min(100,
+          n.energy + (isIdle ? delta * 0.15 : isWorking ? -delta * 0.08 : -delta * 0.03))),
+        happiness: Math.max(0, Math.min(100,
+          n.happiness + (isWorking ? delta * 0.02 : -delta * 0.01))),
+        social: Math.max(0, Math.min(100,
+          n.social - delta * 0.02)),
+        boredom: Math.max(0, Math.min(100,
+          n.boredom + (isIdle ? delta * 0.06 : isWorking ? -delta * 0.05 : -delta * 0.02))),
+      },
+    };
+  }),
+
   cameraMode: 'follow',
   cameraSnapTarget: null,
   setCameraMode: (mode) => set({ cameraMode: mode }),
@@ -128,10 +163,23 @@ export const useStore = create<SimBotStore>((set) => ({
     const deltaSimMinutes = deltaSeconds * state.simSpeed;
     const nextSimMinutes = state.simMinutes + deltaSimMinutes;
 
+    // Also tick robot needs
+    const n = state.robotNeeds;
+    const isWorking = state.robotState === 'working';
+    // const isWalking = state.robotState === 'walking';
+    const isIdle = state.robotState === 'idle';
+    const clamp = (v: number) => Math.max(0, Math.min(100, v));
+
     return {
       simMinutes: nextSimMinutes,
       simPeriod: getSimPeriod(nextSimMinutes),
       roomNeeds: decayRoomNeeds(state.roomNeeds, deltaSimMinutes),
+      robotNeeds: {
+        energy: clamp(n.energy + (isIdle ? deltaSimMinutes * 0.15 : isWorking ? -deltaSimMinutes * 0.08 : -deltaSimMinutes * 0.03)),
+        happiness: clamp(n.happiness + (isWorking ? deltaSimMinutes * 0.02 : -deltaSimMinutes * 0.01)),
+        social: clamp(n.social - deltaSimMinutes * 0.02),
+        boredom: clamp(n.boredom + (isIdle ? deltaSimMinutes * 0.06 : isWorking ? -deltaSimMinutes * 0.05 : -deltaSimMinutes * 0.02)),
+      },
     };
   }),
 

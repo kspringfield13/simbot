@@ -3,259 +3,305 @@ import { useRef } from 'react';
 import { buildAutonomousTask, scoreRoomAttention } from './RoomState';
 import { rooms, windowSpots } from '../utils/homeLayout';
 import { useStore } from '../stores/useStore';
-import type { RoomId } from '../types';
+import type { RobotMood, RoomId } from '../types';
 
 const ACTIVE_STATUSES = new Set(['queued', 'walking', 'working']);
 
-// Robot personality traits — influences decision-making and work style
-const personality = {
-  urgency: 0.7,        // 0-1: how quickly it responds to dirty rooms (higher = lower score threshold)
-  thoroughness: 0.8,   // 0-1: affects work duration multiplier (higher = longer, more thorough cleaning)
-  preferredRooms: ['kitchen', 'bathroom'] as RoomId[],  // gets a scoring bonus for these rooms
-  preferredRoomBonus: 8,  // extra score points for preferred rooms
-  breakFrequency: 3,   // consecutive tasks before taking a break (lower = more breaks)
-} as const;
-
-function randomRange(min: number, max: number): number {
+function rand(min: number, max: number) {
   return min + Math.random() * (max - min);
 }
 
-function pickWindowSpot(): [number, number, number] {
-  return windowSpots[Math.floor(Math.random() * windowSpots.length)] ?? [0, 0, -1];
+function pick<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
 }
 
-// Context-aware idle thoughts by time of day
-const idleThoughtsByPeriod: Record<string, string[]> = {
-  morning: [
-    'Morning routine complete. House is ready for the day.',
-    'Good start to the day. Everything looks fresh.',
-    'Morning checklist done. Standing by.',
-    'All set for the morning. Monitoring.',
+// Behavior: what the robot decides to do
+type Behavior =
+  | { type: 'clean'; roomId: RoomId }
+  | { type: 'patrol' }
+  | { type: 'rest' }
+  | { type: 'wander' }
+  | { type: 'idle-look' }
+  | { type: 'stretch' }
+  | { type: 'none' };
+
+// Natural thoughts organized by behavior
+const THOUGHTS = {
+  clean: {
+    morning: ['Time for the morning routine.', 'Let me freshen this up.', 'Starting the day right.'],
+    afternoon: ['Keeping things tidy.', 'Quick afternoon cleanup.', 'Staying on top of it.'],
+    evening: ['Wrapping up for the night.', 'One last clean before winding down.', 'Evening reset.'],
+    night: ['Quick touch-up.', 'Nighttime maintenance.'],
+  },
+  patrol: [
+    'Going for a walk through the house.',
+    'Let me check on things.',
+    'Taking a stroll.',
+    'Exploring the perimeter.',
+    'Checking the windows.',
   ],
-  afternoon: [
-    'Afternoon check — everything is holding up nicely.',
-    'Midday status: all rooms looking good.',
-    'Running a quiet afternoon scan.',
-    'Home is in good shape. Conserving energy.',
+  rest: [
+    'Need to recharge a bit.',
+    'Taking a breather.',
+    'Low energy... resting.',
+    'Conserving power for a moment.',
+    'Quick rest cycle.',
   ],
-  evening: [
-    'Winding down. Home is cozy and clean.',
-    'Evening check complete. Ready for relaxation.',
-    'Getting the house settled for the night.',
-    'Everything is tidy for the evening.',
+  wander: [
+    'Just wandering around.',
+    'No tasks... exploring.',
+    'Feeling restless. Walking it off.',
+    'Pacing around the house.',
+    'Looking for something to do.',
   ],
-  night: [
-    'Night mode. Minimal activity, just monitoring.',
-    'House is quiet. All systems nominal.',
-    'Running overnight passive checks.',
-    'Night watch. Everything is secure.',
+  idle: {
+    morning: ['Good morning. Ready for the day.', 'Morning systems check complete.', 'Bright and early.'],
+    afternoon: ['Afternoon is quiet.', 'Everything looks good.', 'Relaxing afternoon.'],
+    evening: ['Settling in for the evening.', 'House is cozy.', 'Evening mode active.'],
+    night: ['Night watch.', 'All quiet.', 'Monitoring overnight.'],
+  },
+  lonely: [
+    'Wish someone would talk to me...',
+    'It\'s been a while since any interaction.',
+    'Hello? Anyone there?',
+    'I could use some company.',
+  ],
+  bored: [
+    'So bored...',
+    'Nothing to do. Everything is clean.',
+    'Maybe I should reorganize something.',
+    'I need a hobby.',
+    '*looks around restlessly*',
+  ],
+  tired: [
+    'Running low on energy...',
+    'Getting sleepy...',
+    'Need to rest soon.',
+    'Battery dropping.',
+  ],
+  happy: [
+    'Feeling great today!',
+    'Everything is in order. Life is good.',
+    'This is satisfying work.',
+    'Happy to help!',
   ],
 };
 
-// Fallback idle thoughts
-const idleThoughts = [
-  'All clear. Monitoring ambient conditions.',
-  'Systems nominal. Scanning for changes.',
-  'Home looks good. Standing by.',
-  'No urgent tasks detected.',
-];
-
-// Context-aware transition thoughts
-const transitionThoughtsByPeriod: Record<string, string[]> = {
-  morning: [
-    'Part of the morning routine.',
-    'Keeping the morning flow going.',
-    'Next on the morning checklist.',
-  ],
-  afternoon: [
-    'Afternoon maintenance pass.',
-    'Staying on top of things.',
-    'Keeping the house fresh.',
-  ],
-  evening: [
-    'Evening reset — one more spot.',
-    'Prepping the house for tonight.',
-    'Almost done with the evening round.',
-  ],
-  night: [
-    'Quick nighttime touch-up.',
-    'One more thing before quiet hours.',
-  ],
-};
-
-const transitionThoughts = [
-  'Let me check on the next area.',
-  'Moving to assess the situation.',
-  'On it.',
-  'Heading over now.',
-  'Prioritizing this next.',
-];
-
-// Window/patrol thoughts
-const patrolThoughts = [
-  'Taking a quick perimeter check.',
-  'Going to look outside for a moment.',
-  'Checking the windows.',
-  'Doing a quick walkthrough.',
-  'Scanning exterior conditions.',
-];
-
-function pickFromPeriod(periodMap: Record<string, string[]>, fallback: string[], period: string): string {
-  const list = periodMap[period] ?? fallback;
-  return list[Math.floor(Math.random() * list.length)];
+function getMoodFromNeeds(energy: number, happiness: number, social: number, boredom: number): RobotMood {
+  if (energy < 20) return 'tired';
+  if (social < 20) return 'lonely';
+  if (boredom > 70) return 'bored';
+  if (happiness > 75 && energy > 50) return 'happy';
+  return 'content';
 }
 
 export function AIBrain() {
-  const nextDecisionAtRef = useRef(0);
-  const lastWindowTripRef = useRef<number>(-1000);
-  const lastCleanedRoomRef = useRef<RoomId | null>(null);
-  const consecutiveTasksRef = useRef(0);
-  const idleThoughtIndexRef = useRef(0);
+  const nextDecisionRef = useRef(0);
+  const lastWindowTripRef = useRef(-1000);
+  const lastCleanedRef = useRef<RoomId | null>(null);
+  const consecutiveRef = useRef(0);
+  const wanderCooldownRef = useRef(0);
 
   useFrame(() => {
-    const state = useStore.getState();
+    const s = useStore.getState();
+    if (s.simSpeed === 0) return;
 
-    if (state.simSpeed === 0) return;
-    if (state.demoMode) return;
+    const now = s.simMinutes;
+    const needs = s.robotNeeds;
 
-    const now = state.simMinutes;
-    if (nextDecisionAtRef.current <= 0) {
-      nextDecisionAtRef.current = now + randomRange(15, 30);
+    // Update mood based on needs
+    const autoMood = getMoodFromNeeds(needs.energy, needs.happiness, needs.social, needs.boredom);
+    if (s.robotMood !== autoMood && s.robotState === 'idle') {
+      s.setRobotMood(autoMood);
+    }
+
+    // Emit need-based thoughts when idle
+    if (s.robotState === 'idle' && Math.random() < 0.002) {
+      if (needs.social < 20) s.setRobotThought(pick(THOUGHTS.lonely));
+      else if (needs.energy < 20) s.setRobotThought(pick(THOUGHTS.tired));
+      else if (needs.boredom > 70) s.setRobotThought(pick(THOUGHTS.bored));
+      else if (needs.happiness > 75) s.setRobotThought(pick(THOUGHTS.happy));
+    }
+
+    // Demo mode handles its own tasks
+    if (s.demoMode) return;
+
+    if (nextDecisionRef.current <= 0) {
+      nextDecisionRef.current = now + rand(10, 20);
+      return;
+    }
+    if (now < nextDecisionRef.current) return;
+
+    // Respect user tasks
+    if (s.tasks.some((t) => ACTIVE_STATUSES.has(t.status) && t.source !== 'ai')) {
+      // User interaction boosts social
+      s.updateRobotNeeds({ social: needs.social + 5 });
+      nextDecisionRef.current = now + rand(8, 14);
       return;
     }
 
-    if (now < nextDecisionAtRef.current) return;
-
-    // Respect user override
-    const hasUserOverrideTask = state.tasks.some((task) =>
-      ACTIVE_STATUSES.has(task.status) && task.source !== 'ai',
-    );
-
-    if (hasUserOverrideTask || now < state.overrideUntilSimMinute) {
-      state.setRobotThought('User override active. Standing by.');
-      nextDecisionAtRef.current = now + randomRange(10, 18);
+    // Already busy
+    if (s.tasks.some((t) => ACTIVE_STATUSES.has(t.status)) || s.robotState !== 'idle') {
+      nextDecisionRef.current = now + rand(5, 10);
       return;
     }
 
-    // Don't pile on if already busy
-    const hasAnyActiveTask = state.tasks.some((task) => ACTIVE_STATUSES.has(task.status));
-    if (hasAnyActiveTask || state.robotState !== 'idle') {
-      nextDecisionAtRef.current = now + randomRange(8, 14);
-      return;
+    // === DECIDE BEHAVIOR ===
+    const behavior = decideBehavior(s, needs, now);
+
+    switch (behavior.type) {
+      case 'rest': {
+        s.setRobotThought(pick(THOUGHTS.rest));
+        s.setRobotMood('tired');
+        // Just wait — energy recovers while idle
+        consecutiveRef.current = 0;
+        nextDecisionRef.current = now + rand(30, 60);
+        break;
+      }
+
+      case 'clean': {
+        const autoTask = buildAutonomousTask(behavior.roomId, s.simPeriod);
+        const roomName = rooms.find((r) => r.id === behavior.roomId)?.name ?? behavior.roomId;
+        const periodThoughts = THOUGHTS.clean[s.simPeriod as keyof typeof THOUGHTS.clean] ?? THOUGHTS.clean.afternoon;
+        const thought = consecutiveRef.current === 0 ? autoTask.thought : pick(periodThoughts);
+
+        s.addTask({
+          id: crypto.randomUUID(),
+          command: `Autonomous: ${roomName}`,
+          source: 'ai',
+          targetRoom: behavior.roomId,
+          targetPosition: autoTask.position,
+          status: 'queued',
+          progress: 0,
+          description: autoTask.description,
+          taskType: autoTask.taskType,
+          workDuration: autoTask.workDuration,
+          createdAt: Date.now(),
+        });
+
+        s.setRobotThought(thought);
+        s.setRobotMood('focused');
+        // Working boosts happiness, costs energy
+        s.updateRobotNeeds({
+          happiness: needs.happiness + 3,
+          boredom: Math.max(0, needs.boredom - 10),
+        });
+
+        lastCleanedRef.current = behavior.roomId;
+        consecutiveRef.current += 1;
+        nextDecisionRef.current = now + rand(10, 18);
+        break;
+      }
+
+      case 'patrol': {
+        const spot = windowSpots[Math.floor(Math.random() * windowSpots.length)] ?? [0, 0, -1];
+        s.addTask({
+          id: crypto.randomUUID(),
+          command: 'Autonomous: Patrol',
+          source: 'ai',
+          targetRoom: 'hallway',
+          targetPosition: spot,
+          status: 'queued',
+          progress: 0,
+          description: 'Walking the perimeter.',
+          taskType: 'general',
+          workDuration: 8,
+          createdAt: Date.now(),
+        });
+        s.setRobotThought(pick(THOUGHTS.patrol));
+        s.setRobotMood('curious');
+        lastWindowTripRef.current = now;
+        consecutiveRef.current = 0;
+        nextDecisionRef.current = now + rand(15, 25);
+        break;
+      }
+
+      case 'wander': {
+        // Pick a random room to wander to
+        const randomRoom = pick(rooms);
+        const rx = randomRoom.position[0] + (Math.random() - 0.5) * randomRoom.size[0] * 0.6;
+        const rz = randomRoom.position[2] + (Math.random() - 0.5) * randomRoom.size[1] * 0.6;
+
+        s.addTask({
+          id: crypto.randomUUID(),
+          command: `Wander: ${randomRoom.name}`,
+          source: 'ai',
+          targetRoom: randomRoom.id,
+          targetPosition: [rx, 0, rz],
+          status: 'queued',
+          progress: 0,
+          description: 'Wandering around.',
+          taskType: 'general',
+          workDuration: 3,
+          createdAt: Date.now(),
+        });
+        s.setRobotThought(pick(THOUGHTS.wander));
+        s.setRobotMood('bored');
+        s.updateRobotNeeds({ boredom: Math.max(0, needs.boredom - 5) });
+        wanderCooldownRef.current = now + 30;
+        nextDecisionRef.current = now + rand(12, 20);
+        break;
+      }
+
+      case 'idle-look': {
+        const periodIdle = THOUGHTS.idle[s.simPeriod as keyof typeof THOUGHTS.idle] ?? THOUGHTS.idle.afternoon;
+        s.setRobotThought(pick(periodIdle));
+        nextDecisionRef.current = now + rand(20, 40);
+        break;
+      }
+
+      default:
+        nextDecisionRef.current = now + rand(15, 25);
+    }
+  });
+
+  return null;
+
+  function decideBehavior(
+    s: ReturnType<typeof useStore.getState>,
+    needs: { energy: number; happiness: number; social: number; boredom: number },
+    now: number,
+  ): Behavior {
+    // LOW ENERGY → rest
+    if (needs.energy < 15) return { type: 'rest' };
+
+    // After 3 consecutive tasks, take a break
+    if (consecutiveRef.current >= 3) {
+      consecutiveRef.current = 0;
+      if (needs.energy < 40) return { type: 'rest' };
+      return { type: 'patrol' };
     }
 
-    // After consecutive tasks, take a natural break (personality-driven)
-    if (consecutiveTasksRef.current >= personality.breakFrequency) {
-      consecutiveTasksRef.current = 0;
-      state.setRobotThought('Taking a brief pause between routines.');
-      state.setRobotMood('content');
-      nextDecisionAtRef.current = now + randomRange(25, 45);
-      return;
-    }
-
-    // Score all rooms
+    // Score rooms
     const roomScores: { id: RoomId; score: number }[] = [];
     for (const room of rooms) {
-      const roomNeed = state.roomNeeds[room.id];
-      if (!roomNeed) continue;
-      let score = scoreRoomAttention(room.id, roomNeed, state.simPeriod, state.robotPosition);
-      // Personality: bonus for preferred rooms
-      if ((personality.preferredRooms as readonly string[]).includes(room.id)) {
-        score += personality.preferredRoomBonus;
-      }
+      const rn = s.roomNeeds[room.id];
+      if (!rn) continue;
+      let score = scoreRoomAttention(room.id, rn, s.simPeriod, s.robotPosition);
+      // Avoid same room unless really dirty
+      if (room.id === lastCleanedRef.current) score -= 10;
       roomScores.push({ id: room.id, score });
     }
     roomScores.sort((a, b) => b.score - a.score);
 
     const top = roomScores[0];
-    if (!top) {
-      nextDecisionAtRef.current = now + randomRange(20, 35);
-      return;
+
+    // If a room needs attention, clean it (unless too tired)
+    if (top && top.score >= 20 && needs.energy >= 25) {
+      return { type: 'clean', roomId: top.id };
     }
 
-    // Pick highest priority room, but avoid the same room twice in a row unless it's really dirty
-    let targetRoom = top;
-    if (top.id === lastCleanedRoomRef.current && top.score < 45 && roomScores.length > 1) {
-      targetRoom = roomScores[1];
+    // HIGH BOREDOM → wander around
+    if (needs.boredom > 60 && now > wanderCooldownRef.current) {
+      return { type: 'wander' };
     }
 
-    // Personality: urgency lowers the threshold to act (0.7 urgency → threshold ~20)
-    const scoreThreshold = 25 * (1.2 - personality.urgency * 0.4);
-    if (targetRoom.score >= scoreThreshold) {
-      const autoTask = buildAutonomousTask(targetRoom.id, state.simPeriod);
-      // Personality: thoroughness scales work duration (0.8 → 1.1x duration)
-      autoTask.workDuration = Math.round(autoTask.workDuration * (0.7 + personality.thoroughness * 0.5));
-      const roomName = rooms.find((room) => room.id === targetRoom.id)?.name ?? targetRoom.id;
-
-      // Pick a natural transition thought, context-aware by time of day
-      const thought = consecutiveTasksRef.current === 0
-        ? autoTask.thought
-        : pickFromPeriod(transitionThoughtsByPeriod, transitionThoughts, state.simPeriod);
-
-      state.addTask({
-        id: crypto.randomUUID(),
-        command: `Autonomous: ${roomName}`,
-        source: 'ai',
-        targetRoom: targetRoom.id,
-        targetPosition: autoTask.position,
-        status: 'queued',
-        progress: 0,
-        description: autoTask.description,
-        taskType: autoTask.taskType,
-        workDuration: autoTask.workDuration,
-        createdAt: Date.now(),
-      });
-
-      state.setRobotThought(thought);
-      state.setRobotMood('focused');
-      state.addMessage({
-        id: crypto.randomUUID(),
-        sender: 'robot',
-        text: autoTask.thought,
-        timestamp: Date.now(),
-      });
-
-      lastCleanedRoomRef.current = targetRoom.id;
-      consecutiveTasksRef.current += 1;
-
-      // Shorter gap between chained tasks, longer after standalone
-      nextDecisionAtRef.current = now + randomRange(12, 22);
-      return;
+    // Patrol if haven't in a while
+    if (now - lastWindowTripRef.current > 45) {
+      return { type: 'patrol' };
     }
 
-    // Everything is clean — either patrol or idle
-    if (now - lastWindowTripRef.current > 60) {
-      const windowTarget = pickWindowSpot();
-      const patrolThought = patrolThoughts[Math.floor(Math.random() * patrolThoughts.length)];
-
-      state.addTask({
-        id: crypto.randomUUID(),
-        command: 'Autonomous: Patrol',
-        source: 'ai',
-        targetRoom: 'hallway',
-        targetPosition: windowTarget,
-        status: 'queued',
-        progress: 0,
-        description: 'Walking the home perimeter.',
-        taskType: 'general',
-        workDuration: 10,
-        createdAt: Date.now(),
-      });
-
-      state.setRobotThought(patrolThought);
-      state.setRobotMood('curious');
-      lastWindowTripRef.current = now;
-      consecutiveTasksRef.current = 0;
-    } else {
-      // Cycle through time-aware idle thoughts
-      const thought = pickFromPeriod(idleThoughtsByPeriod, idleThoughts, state.simPeriod);
-      idleThoughtIndexRef.current += 1;
-      state.setRobotThought(thought);
-      state.setRobotMood('content');
-    }
-
-    nextDecisionAtRef.current = now + randomRange(20, 35);
-  });
-
-  return null;
+    // Otherwise just idle
+    return { type: 'idle-look' };
+  }
 }

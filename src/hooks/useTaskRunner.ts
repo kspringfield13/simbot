@@ -82,6 +82,12 @@ export const useTaskRunner = () => {
     if (source === 'user') {
       clearQueuedAiTasks();
       setOverrideUntil(state.simMinutes + 90);
+      // User interaction boosts social and happiness
+      state.updateRobotNeeds({
+        social: Math.min(100, state.robotNeeds.social + 15),
+        happiness: Math.min(100, state.robotNeeds.happiness + 5),
+        boredom: Math.max(0, state.robotNeeds.boredom - 10),
+      });
 
       const blockingAiTasks = state.tasks.filter(
         (task) => task.source === 'ai' && (task.status === 'walking' || task.status === 'working'),

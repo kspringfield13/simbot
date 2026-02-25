@@ -69,7 +69,14 @@ export interface ChatMessage {
 }
 
 export type RobotState = 'idle' | 'walking' | 'working';
-export type RobotMood = 'content' | 'focused' | 'curious' | 'routine';
+export type RobotMood = 'content' | 'focused' | 'curious' | 'routine' | 'tired' | 'lonely' | 'bored' | 'happy';
+
+export interface RobotNeeds {
+  energy: number;     // 0-100: depletes with tasks, recharges when idle/charging
+  happiness: number;  // 0-100: increases with variety, social, completing tasks
+  social: number;     // 0-100: increases with user interaction, decays over time
+  boredom: number;    // 0-100: increases when idle too long, decreases with tasks
+}
 export type CameraMode = 'overview' | 'follow' | 'pov';
 export type SimPeriod = 'morning' | 'afternoon' | 'evening' | 'night';
 
