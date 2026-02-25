@@ -82,14 +82,18 @@ export function Robot() {
 
   // Start with idle
   useEffect(() => {
-    console.log('[Robot] Available animations:', Object.keys(actions));
+    console.log('[Robot] animations:', Object.keys(actions));
+    // Try playing each to verify they work
+    Object.entries(actions).forEach(([name, action]) => {
+      if (action) {
+        console.log(`[Robot] Found animation: ${name}, duration: ${action.getClip().duration}`);
+      }
+    });
     const idle = actions['Idle'];
     if (idle) {
       idle.reset().play();
       currentAnimRef.current = 'Idle';
-      console.log('[Robot] Playing Idle animation');
-    } else {
-      console.warn('[Robot] Idle animation not found!');
+      console.log('[Robot] ✅ Playing Idle');
     }
   }, [actions]);
 
