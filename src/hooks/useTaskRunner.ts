@@ -205,13 +205,15 @@ export const useTaskRunner = () => {
 
       if (currentNode.pauseAtDoorway && doorwayPauseKeyRef.current !== pauseKey) {
         doorwayPauseKeyRef.current = pauseKey;
-        setRobotState('idle');
+        // Keep walking state but clear target so robot decelerates naturally
+        // instead of snapping to idle (which triggers full idle animation jank)
+        setRobotTarget(null);
 
         if (doorwayPauseTimerRef.current) {
           window.clearTimeout(doorwayPauseTimerRef.current);
         }
 
-        const pauseMs = 700 / Math.max(state.simSpeed, 1);
+        const pauseMs = 350 / Math.max(state.simSpeed, 1);
 
         doorwayPauseTimerRef.current = window.setTimeout(() => {
           const latest = useStore.getState();
