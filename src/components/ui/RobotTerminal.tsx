@@ -14,7 +14,6 @@ export function RobotTerminal() {
 
   const [lines, setLines] = useState<{ id: number; text: string; opacity: number }[]>([]);
   const [typed, setTyped] = useState('');
-  const [currentLine, setCurrentLine] = useState('');
   const [showCursor, setShowCursor] = useState(true);
   const lineIdRef = useRef(0);
   const lastThoughtRef = useRef('');
@@ -38,7 +37,6 @@ export function RobotTerminal() {
       : '> ';
     const fullText = prefix + thought;
 
-    setCurrentLine(fullText);
     setTyped('');
 
     // Clear any existing typing
@@ -56,7 +54,6 @@ export function RobotTerminal() {
         // After typing complete, add to history and fade out
         const id = ++lineIdRef.current;
         setLines((prev) => [...prev.slice(-4), { id, text: fullText, opacity: 1 }]);
-        setCurrentLine('');
         setTyped('');
 
         // Start fade out after 3s

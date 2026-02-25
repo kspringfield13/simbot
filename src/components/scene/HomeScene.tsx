@@ -16,7 +16,7 @@ import {
   LivingRoomFurniture,
 } from './FurnitureModels';
 import { Robot } from './Robot';
-import { ThoughtBubble } from '../game/ThoughtBubble';
+// ThoughtBubble removed — replaced by RobotTerminal overlay
 
 const S = 2; // environment scale
 
