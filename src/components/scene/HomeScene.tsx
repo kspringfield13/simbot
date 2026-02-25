@@ -93,7 +93,7 @@ export function HomeScene() {
       <LaundryClosetFurniture />
 
       <Robot />
-      <ThoughtBubble />
+      {/* ThoughtBubble removed — replaced by terminal overlay in App */}
 
       <Environment preset="apartment" background={false} environmentIntensity={0.15} />
 
