@@ -1,49 +1,109 @@
-import { useRef, useMemo } from 'react';
+import { useRef, useEffect, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { useGLTF } from '@react-three/drei';
+import { useGLTF, useAnimations } from '@react-three/drei';
 import { useStore } from '../../stores/useStore';
 import { getAvoidanceForce } from '../../systems/ObstacleMap';
 import * as THREE from 'three';
 
 /*
- * Tesla Optimus: single mesh, 6 material groups.
- * Model is ~16.6 units tall. We split it into body part groups via clipping planes
- * on separate copies, each in its own group node for bone-like animation.
+ * RobotExpressive GLB — full humanoid skeleton (43 joints), articulated fingers,
+ * 14 built-in animations. Reskinned to Tesla Optimus color scheme.
  *
- * Approach: duplicate the model for each body part, clip vertices outside
- * the part's Y range by making them transparent, and rotate each group
- * around its pivot point. This gives us articulated animation without
- * needing a real skeleton.
+ * Materials reskin:
+ *   Grey  → White panels (#ddd8cc, metalness 0.35)
+ *   Main  → Dark charcoal body (#1e1e1e, metalness 0.55)
+ *   Black → Jet black joints (#0a0a0a, metalness 0.85)
  *
- * Simpler approach: just animate the whole model with procedural body motion
- * (bob, lean, sway) and add a helper skeleton overlay for limb indication.
- * Since the mesh is a single draw call, we get great performance.
+ * Visor glow added via emissive on the "eye" area.
  */
 
-const ROBOT_SCALE = 0.22;
+// Scale: RobotExpressive is ~2.5 units tall. Target ~0.83 scene units.
+const ROBOT_SCALE = 0.33;
+
+// Optimus color palette
+const COLORS = {
+  panelWhite: new THREE.Color('#ddd8cc'),
+  bodyDark: new THREE.Color('#1e1e1e'),
+  jointBlack: new THREE.Color('#0a0a0a'),
+  visor: new THREE.Color('#00b8e8'),
+  indicator: new THREE.Color('#00e0a0'),
+};
+
+// Map robot states/tasks to animation names
+const WALK_ANIM = 'Walking';
+const RUN_ANIM = 'Running';
+const IDLE_ANIM = 'Idle';
+
+const TASK_ANIM_MAP: Record<string, string> = {
+  dishes: 'Punch',
+  scrubbing: 'Punch',
+  cooking: 'Punch',
+  cleaning: 'Punch',
+  vacuuming: 'Walking',
+  sweeping: 'Walking',
+  'bed-making': 'Wave',
+  laundry: 'Wave',
+  organizing: 'ThumbsUp',
+  'grocery-list': 'Standing',
+  general: 'Standing',
+};
 
 export function Robot() {
   const groupRef = useRef<THREE.Group>(null);
-  const modelRef = useRef<THREE.Group>(null);
-  const headGroupRef = useRef<THREE.Group>(null);
   const currentSpeedRef = useRef(0);
-  const walkPhaseRef = useRef(0);
-  const animTimeRef = useRef(0);
+  const currentAnimRef = useRef<string>(IDLE_ANIM);
 
-  const { scene } = useGLTF('/models/optimus.glb');
+  const { scene, animations } = useGLTF('/models/robot-expressive.glb');
 
-  // Split model into head (y > 11.5) and body groups for basic articulation
-  const { bodyScene } = useMemo(() => {
+  // Clone and reskin
+  const clonedScene = useMemo(() => {
     const clone = scene.clone(true);
+
     clone.traverse((child: any) => {
       if (child.isMesh) {
         child.castShadow = true;
         child.receiveShadow = true;
+
+        // Reskin materials to Optimus palette
+        const reskinMaterial = (mat: THREE.Material) => {
+          if (!(mat instanceof THREE.MeshStandardMaterial)) return mat;
+          const m = mat.clone();
+
+          const name = mat.name?.toLowerCase() ?? '';
+          if (name.includes('grey') || name === 'grey') {
+            // Grey panels → white Optimus panels
+            m.color = COLORS.panelWhite.clone();
+            m.metalness = 0.35;
+            m.roughness = 0.4;
+          } else if (name.includes('main') || name === 'main') {
+            // Main body → dark charcoal
+            m.color = COLORS.bodyDark.clone();
+            m.metalness = 0.55;
+            m.roughness = 0.3;
+          } else if (name.includes('black') || name === 'black') {
+            // Black joints → glossy black
+            m.color = COLORS.jointBlack.clone();
+            m.metalness = 0.85;
+            m.roughness = 0.1;
+            // Add subtle visor glow to dark parts on the head
+            m.emissive = COLORS.visor.clone();
+            m.emissiveIntensity = 0.08;
+          }
+          return m;
+        };
+
+        if (Array.isArray(child.material)) {
+          child.material = child.material.map(reskinMaterial);
+        } else {
+          child.material = reskinMaterial(child.material);
+        }
       }
     });
 
-    return { bodyScene: clone };
+    return clone;
   }, [scene]);
+
+  const { actions, mixer } = useAnimations(animations, groupRef);
 
   const {
     robotPosition,
@@ -55,12 +115,35 @@ export function Robot() {
     setRobotRotationY,
   } = useStore();
 
+  // Crossfade to a new animation
+  const playAnim = (name: string, fadeTime = 0.35) => {
+    if (currentAnimRef.current === name) return;
+    const prev = actions[currentAnimRef.current];
+    const next = actions[name];
+    if (!next) return;
+
+    if (prev) prev.fadeOut(fadeTime);
+    next.reset().fadeIn(fadeTime).play();
+    currentAnimRef.current = name;
+  };
+
+  // Start with idle
+  useEffect(() => {
+    const idle = actions[IDLE_ANIM];
+    if (idle) {
+      idle.play();
+      currentAnimRef.current = IDLE_ANIM;
+    }
+  }, [actions]);
+
   useFrame((_, delta) => {
-    if (!groupRef.current || !modelRef.current) return;
+    if (!groupRef.current) return;
 
     const timeScale = Math.max(simSpeed, 0);
     const scaledDelta = Math.min(delta * timeScale, 0.08);
-    if (timeScale > 0) animTimeRef.current += scaledDelta;
+
+    // Sync animation mixer to sim speed
+    if (mixer) mixer.timeScale = timeScale;
 
     // === MOVEMENT ===
     if (timeScale > 0 && robotTarget && robotState === 'walking') {
@@ -105,101 +188,65 @@ export function Robot() {
           robotPosition[2] + (steerZ / steerLen) * speed,
         ]);
 
-        walkPhaseRef.current += currentSpeedRef.current * scaledDelta * 3.0;
+        // Choose walk or run animation based on speed
+        if (currentSpeedRef.current > 2.0) {
+          playAnim(RUN_ANIM, 0.3);
+          const runAction = actions[RUN_ANIM];
+          if (runAction) runAction.timeScale = currentSpeedRef.current / 2.2;
+        } else {
+          playAnim(WALK_ANIM, 0.3);
+          const walkAction = actions[WALK_ANIM];
+          if (walkAction) walkAction.timeScale = Math.max(currentSpeedRef.current / 1.2, 0.4);
+        }
       } else {
         currentSpeedRef.current = THREE.MathUtils.lerp(currentSpeedRef.current, 0, 0.15);
       }
     } else if (timeScale > 0 && robotState === 'idle') {
       currentSpeedRef.current = THREE.MathUtils.lerp(currentSpeedRef.current, 0, 0.1);
-    }
+      playAnim(IDLE_ANIM, 0.5);
+    } else if (timeScale > 0 && robotState === 'working') {
+      currentSpeedRef.current = 0;
+      const animName = TASK_ANIM_MAP[currentAnimation] ?? 'Standing';
+      playAnim(animName, 0.4);
 
-    groupRef.current.position.set(robotPosition[0], robotPosition[1], robotPosition[2]);
-    setRobotRotationY(groupRef.current.rotation.y);
-
-    const t = animTimeRef.current;
-    const wp = walkPhaseRef.current;
-    const sf = Math.min(currentSpeedRef.current / 2.6, 1);
-
-    // === BODY ANIMATION ===
-    // Since the mesh is a single piece, we animate the model group for full-body motion
-    // and use the head group for head-specific movement.
-
-    if (robotState === 'walking') {
-      // Walk bob
-      const bob = Math.abs(Math.sin(wp)) * 0.15 * sf;
-      modelRef.current.position.y = bob;
-
-      // Forward lean at speed
-      modelRef.current.rotation.x = THREE.MathUtils.lerp(modelRef.current.rotation.x, -sf * 0.06, 0.08);
-      // Lateral sway (hip shift)
-      modelRef.current.rotation.z = THREE.MathUtils.lerp(modelRef.current.rotation.z, Math.sin(wp) * 0.035 * sf, 0.1);
-      // Pelvis twist
-      modelRef.current.rotation.y = THREE.MathUtils.lerp(modelRef.current.rotation.y, Math.sin(wp) * 0.04 * sf, 0.08);
-
-    } else if (robotState === 'idle') {
-      const breath = Math.sin(t * 1.8) * 0.02;
-      modelRef.current.position.y = THREE.MathUtils.lerp(modelRef.current.position.y, breath, 0.05);
-      modelRef.current.rotation.x = THREE.MathUtils.lerp(modelRef.current.rotation.x, 0, 0.03);
-      modelRef.current.rotation.z = THREE.MathUtils.lerp(modelRef.current.rotation.z, Math.sin(t * 0.4) * 0.008, 0.02);
-      modelRef.current.rotation.y = THREE.MathUtils.lerp(modelRef.current.rotation.y, Math.sin(t * 0.25) * 0.015, 0.02);
-
-    } else if (robotState === 'working') {
-      const workSpeed = currentAnimation === 'scrubbing' || currentAnimation === 'dishes' ? 3.5
-        : currentAnimation === 'vacuuming' ? 1.8 : 2.0;
-      const intensity = currentAnimation === 'scrubbing' ? 0.04
-        : currentAnimation === 'vacuuming' ? 0.03 : 0.02;
-
-      modelRef.current.position.y = Math.sin(t * workSpeed) * intensity * 3;
-      modelRef.current.rotation.x = THREE.MathUtils.lerp(modelRef.current.rotation.x, -0.06, 0.03);
-      modelRef.current.rotation.y = THREE.MathUtils.lerp(modelRef.current.rotation.y, Math.sin(t * workSpeed * 0.5) * 0.08, 0.05);
-      modelRef.current.rotation.z = THREE.MathUtils.lerp(modelRef.current.rotation.z, Math.sin(t * workSpeed) * 0.03, 0.05);
-
+      // Vacuuming: robot moves around the area
       if (currentAnimation === 'vacuuming') {
+        const t = performance.now() / 1000;
         groupRef.current.position.x = robotPosition[0] + Math.sin(t * 0.4) * 0.4;
         groupRef.current.position.z = robotPosition[2] + Math.cos(t * 0.55) * 0.4;
+        return; // skip normal position set
       }
     }
 
-    // Head can move independently — scan/look around
-    // Since head meshes are part of the same geometry, we animate via a parent transform node
-    // The headGroupRef wraps the pivot point near the neck
-    if (headGroupRef.current) {
-      if (robotState === 'idle') {
-        headGroupRef.current.rotation.y = THREE.MathUtils.lerp(
-          headGroupRef.current.rotation.y,
-          Math.sin(t * 0.25) * 0.15 + Math.sin(t * 0.7) * 0.05, 0.015);
-        headGroupRef.current.rotation.x = THREE.MathUtils.lerp(
-          headGroupRef.current.rotation.x,
-          Math.sin(t * 0.35) * 0.05, 0.015);
-      } else if (robotState === 'walking') {
-        // Head stabilizes (counter-rotates vs body sway)
-        headGroupRef.current.rotation.y = THREE.MathUtils.lerp(
-          headGroupRef.current.rotation.y,
-          -Math.sin(wp) * 0.02 * sf, 0.05);
-        headGroupRef.current.rotation.x = THREE.MathUtils.lerp(
-          headGroupRef.current.rotation.x, -0.03, 0.05);
-      } else if (robotState === 'working') {
-        headGroupRef.current.rotation.x = THREE.MathUtils.lerp(
-          headGroupRef.current.rotation.x, -0.1, 0.03);
-        headGroupRef.current.rotation.y = THREE.MathUtils.lerp(
-          headGroupRef.current.rotation.y, Math.sin(t * 0.6) * 0.08, 0.03);
-      }
-    }
+    // Update position
+    groupRef.current.position.set(robotPosition[0], robotPosition[1], robotPosition[2]);
+    setRobotRotationY(groupRef.current.rotation.y);
   });
 
   return (
     <group ref={groupRef}>
-      <group ref={modelRef} scale={[ROBOT_SCALE, ROBOT_SCALE, ROBOT_SCALE]}>
-        <primitive object={bodyScene} />
-      </group>
+      <primitive
+        object={clonedScene}
+        scale={[ROBOT_SCALE, ROBOT_SCALE, ROBOT_SCALE]}
+        position={[0, 0, 0]}
+      />
       {/* Ground glow */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.004, 0]}>
         <circleGeometry args={[0.4, 32]} />
-        <meshStandardMaterial color="#00b8e8" emissive="#00b8e8" emissiveIntensity={0.2} transparent opacity={0.1} />
+        <meshStandardMaterial
+          color="#00b8e8"
+          emissive="#00b8e8"
+          emissiveIntensity={0.2}
+          transparent
+          opacity={0.1}
+        />
       </mesh>
-      <pointLight position={[0, 1.0, 0.3]} color="#00b8e8" intensity={0.25} distance={3} />
+      {/* Eye glow light */}
+      <pointLight position={[0, 0.7, 0.2]} color="#00b8e8" intensity={0.3} distance={2.5} />
+      {/* Status indicator */}
+      <pointLight position={[0, 0.5, 0.15]} color="#00e0a0" intensity={0.1} distance={1} />
     </group>
   );
 }
 
-useGLTF.preload('/models/optimus.glb');
+useGLTF.preload('/models/robot-expressive.glb');
