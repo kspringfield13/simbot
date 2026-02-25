@@ -1,9 +1,9 @@
 """
-Auto-rig Optimus GLB — manual proximity-based weight assignment.
-Envelope weights fail on this mesh, so we compute weights by
-distance from each vertex to each bone segment.
+Rig Optimus with anatomically-correct zone-based weight assignment.
+Each vertex is classified into a body region (head, torso, left arm, right arm,
+left leg, right leg) first, then weighted only among bones in that region.
 
-Run: ~/.local/blender/blender-4.3.0-linux-x64/blender --background --python scripts/rig_optimus.py
+Model coords (from GLTF): Y-up, height ~3.25, Y range -1.78 to 1.47
 """
 
 import bpy
@@ -22,78 +22,55 @@ for obj in bpy.data.objects:
     if obj.type == 'MESH':
         mesh_obj = obj
         break
-assert mesh_obj, "No mesh!"
+assert mesh_obj
 
-print(f"Mesh: {mesh_obj.name}, verts: {len(mesh_obj.data.vertices)}")
-
-# World-space bounds
 bbox = [mesh_obj.matrix_world @ Vector(c) for c in mesh_obj.bound_box]
 min_x = min(v.x for v in bbox); max_x = max(v.x for v in bbox)
 min_y = min(v.y for v in bbox); max_y = max(v.y for v in bbox)
-min_z = min(v.z for v in bbox); max_z = max(v.z for v in bbox)
 height = max_y - min_y
 cx = (min_x + max_x) / 2
 hw = (max_x - min_x) / 2
-print(f"Height: {height:.2f}, Y: {min_y:.2f}..{max_y:.2f}, X: {min_x:.2f}..{max_x:.2f}")
 
-# Bone definitions: (x_fraction_of_half_width, y_fraction_from_bottom)
-BONES = {
-    'Hips':          (0,     0.21),
-    'Spine':         (0,     0.32),
-    'Spine1':        (0,     0.42),
-    'Chest':         (0,     0.55),
-    'Neck':          (0,     0.73),
-    'Head':          (0,     0.83),
-    'HeadTop':       (0,     0.98),
-    'L_Shoulder':    (-0.42, 0.70),
-    'L_UpperArm':    (-0.82, 0.70),
-    'L_LowerArm':    (-0.82, 0.50),
-    'L_Hand':        (-0.82, 0.33),
-    'R_Shoulder':    (0.42,  0.70),
-    'R_UpperArm':    (0.82,  0.70),
-    'R_LowerArm':    (0.82,  0.50),
-    'R_Hand':        (0.82,  0.33),
-    'L_UpperLeg':    (-0.22, 0.21),
-    'L_LowerLeg':    (-0.22, 0.11),
-    'L_Foot':        (-0.22, 0.02),
-    'R_UpperLeg':    (0.22,  0.21),
-    'R_LowerLeg':    (0.22,  0.11),
-    'R_Foot':        (0.22,  0.02),
-}
+print(f"Verts: {len(mesh_obj.data.vertices)}, Height: {height:.2f}, Y: {min_y:.2f}..{max_y:.2f}")
 
-HIERARCHY = [
-    ('Hips', None),
-    ('Spine', 'Hips'),
-    ('Spine1', 'Spine'),
-    ('Chest', 'Spine1'),
-    ('Neck', 'Chest'),
-    ('Head', 'Neck'),
-    ('HeadTop', 'Head'),
-    ('L_Shoulder', 'Chest'),
-    ('L_UpperArm', 'L_Shoulder'),
-    ('L_LowerArm', 'L_UpperArm'),
-    ('L_Hand', 'L_LowerArm'),
-    ('R_Shoulder', 'Chest'),
-    ('R_UpperArm', 'R_Shoulder'),
-    ('R_LowerArm', 'R_UpperArm'),
-    ('R_Hand', 'R_LowerArm'),
-    ('L_UpperLeg', 'Hips'),
-    ('L_LowerLeg', 'L_UpperLeg'),
-    ('L_Foot', 'L_LowerLeg'),
-    ('R_UpperLeg', 'Hips'),
-    ('R_LowerLeg', 'R_UpperLeg'),
-    ('R_Foot', 'R_LowerLeg'),
+# Normalized Y: 0 = feet, 1 = top of head
+def ny(y): return (y - min_y) / height
+# Normalized X: 0 = center, negative = left, positive = right
+def nx(x): return (x - cx) / hw if hw > 0 else 0
+
+# --- BONE DEFINITIONS ---
+# (name, parent, x_frac, y_frac)
+BONE_DEFS = [
+    ('Hips',        None,        0,     0.21),
+    ('Spine',       'Hips',      0,     0.32),
+    ('Spine1',      'Spine',     0,     0.42),
+    ('Chest',       'Spine1',    0,     0.55),
+    ('Neck',        'Chest',     0,     0.73),
+    ('Head',        'Neck',      0,     0.83),
+    ('HeadTop',     'Head',      0,     0.98),
+    ('L_Shoulder',  'Chest',    -0.42,  0.70),
+    ('L_UpperArm',  'L_Shoulder',-0.82, 0.70),
+    ('L_LowerArm',  'L_UpperArm',-0.90, 0.50),
+    ('L_Hand',      'L_LowerArm',-0.95, 0.33),
+    ('R_Shoulder',  'Chest',     0.42,  0.70),
+    ('R_UpperArm',  'R_Shoulder', 0.82, 0.70),
+    ('R_LowerArm',  'R_UpperArm', 0.90, 0.50),
+    ('R_Hand',      'R_LowerArm', 0.95, 0.33),
+    ('L_UpperLeg',  'Hips',     -0.22,  0.21),
+    ('L_LowerLeg',  'L_UpperLeg',-0.22, 0.11),
+    ('L_Foot',      'L_LowerLeg',-0.22, 0.02),
+    ('R_UpperLeg',  'Hips',      0.22,  0.21),
+    ('R_LowerLeg',  'R_UpperLeg', 0.22, 0.11),
+    ('R_Foot',      'R_LowerLeg', 0.22, 0.02),
 ]
 
 NO_CONNECT = {'L_Shoulder', 'R_Shoulder', 'L_UpperLeg', 'R_UpperLeg'}
 
-def pos(name):
-    xf, yf = BONES[name]
+def bone_pos(xf, yf):
     return Vector((cx + xf * hw, min_y + yf * height, 0))
 
-# Build children map
 children_map = {}
-for name, parent in HIERARCHY:
+for name, parent, _, _ in BONE_DEFS:
     if parent:
         children_map.setdefault(parent, []).append(name)
 
@@ -103,139 +80,173 @@ bpy.ops.object.armature_add(enter_editmode=True, location=(0, 0, 0))
 arm_obj = bpy.context.active_object
 arm_obj.name = 'Armature'
 arm = arm_obj.data
-arm.name = 'OptimusRig'
 
 for b in arm.edit_bones:
     arm.edit_bones.remove(b)
 
 bone_refs = {}
-for name, parent_name in HIERARCHY:
+for name, parent, xf, yf in BONE_DEFS:
     b = arm.edit_bones.new(name)
-    head = pos(name)
-    
+    head = bone_pos(xf, yf)
     kids = children_map.get(name, [])
     if kids:
-        child_pos = pos(kids[0])
+        kx, ky = next((x, y) for n, _, x, y in BONE_DEFS if n == kids[0])
+        child_pos = bone_pos(kx, ky)
         d = child_pos - head
-        tail = head + d * 0.8 if d.length > 0.01 else head + Vector((0, height * 0.05, 0))
+        tail = head + d * 0.8 if d.length > 0.01 else head + Vector((0, height*0.05, 0))
     elif 'Foot' in name:
-        tail = head + Vector((0, 0, -height * 0.04))
+        tail = head + Vector((0, 0, -height*0.04))
     elif 'Hand' in name:
         sign = -1 if 'L_' in name else 1
-        tail = head + Vector((sign * height * 0.03, -height * 0.03, 0))
+        tail = head + Vector((sign*height*0.03, -height*0.03, 0))
     else:
-        tail = head + Vector((0, height * 0.05, 0))
-    
-    b.head = head
-    b.tail = tail
-    if parent_name and parent_name in bone_refs:
-        b.parent = bone_refs[parent_name]
+        tail = head + Vector((0, height*0.05, 0))
+    b.head = head; b.tail = tail
+    if parent and parent in bone_refs:
+        b.parent = bone_refs[parent]
         b.use_connect = name not in NO_CONNECT
     bone_refs[name] = b
 
 bpy.ops.object.mode_set(mode='OBJECT')
 
-# --- MANUAL WEIGHT ASSIGNMENT ---
-print("Computing proximity weights for all vertices...")
+# --- ZONE-BASED WEIGHT ASSIGNMENT ---
+print("Zone-based weight assignment...")
 
-# Precompute bone segment data in world space
-bone_segments = {}
-for bone in arm.bones:
-    h = arm_obj.matrix_world @ bone.head_local
-    t = arm_obj.matrix_world @ bone.tail_local
-    bone_segments[bone.name] = (h, t)
+# Body region classification thresholds (in normalized Y)
+# Approximate from the model's actual proportions:
+# Feet: 0-0.06, Lower legs: 0.06-0.16, Upper legs: 0.16-0.27
+# Hips: 0.21-0.27, Spine: 0.27-0.55, Chest: 0.55-0.73
+# Shoulders: ~0.68-0.73, Arms: X > 0.35 and Y 0.27-0.73
+# Neck: 0.73-0.83, Head: 0.83+
 
-# Remove any existing vertex groups and armature modifiers
+# For each region, define which bones can receive weight and Y ranges
+# Region: (y_min, y_max, x_condition, bone_list_with_y_ranges)
+# bone_list: [(bone_name, y_center, y_radius)]
+
+SPINE_BONES = [
+    ('Hips',    0.21, 0.06),
+    ('Spine',   0.32, 0.06),
+    ('Spine1',  0.42, 0.07),
+    ('Chest',   0.55, 0.09),
+    ('Neck',    0.73, 0.06),
+]
+
+HEAD_BONES = [
+    ('Neck',    0.73, 0.06),
+    ('Head',    0.83, 0.08),
+    ('HeadTop', 0.98, 0.08),
+]
+
+L_ARM_BONES = [
+    ('L_Shoulder',  0.70, 0.06),
+    ('L_UpperArm',  0.70, 0.10),
+    ('L_LowerArm',  0.50, 0.12),
+    ('L_Hand',      0.33, 0.08),
+]
+
+R_ARM_BONES = [
+    ('R_Shoulder',  0.70, 0.06),
+    ('R_UpperArm',  0.70, 0.10),
+    ('R_LowerArm',  0.50, 0.12),
+    ('R_Hand',      0.33, 0.08),
+]
+
+L_LEG_BONES = [
+    ('Hips',        0.21, 0.04),
+    ('L_UpperLeg',  0.21, 0.06),
+    ('L_LowerLeg',  0.11, 0.06),
+    ('L_Foot',      0.02, 0.04),
+]
+
+R_LEG_BONES = [
+    ('Hips',        0.21, 0.04),
+    ('R_UpperLeg',  0.21, 0.06),
+    ('R_LowerLeg',  0.11, 0.06),
+    ('R_Foot',      0.02, 0.04),
+]
+
 for vg in mesh_obj.vertex_groups:
     mesh_obj.vertex_groups.remove(vg)
 for mod in mesh_obj.modifiers:
     if mod.type == 'ARMATURE':
         mesh_obj.modifiers.remove(mod)
 
-# Create vertex groups
 vg_map = {}
-for name, _ in HIERARCHY:
+for name, _, _, _ in BONE_DEFS:
     vg_map[name] = mesh_obj.vertex_groups.new(name=name)
 
-def point_to_segment_dist(p, a, b):
-    ab = b - a
-    ab_len2 = ab.dot(ab)
-    if ab_len2 < 1e-8:
-        return (p - a).length
-    t = max(0, min(1, (p - a).dot(ab) / ab_len2))
-    proj = a + ab * t
-    return (p - proj).length
-
 mesh = mesh_obj.data
-inv_mat = mesh_obj.matrix_world
-
-bone_names = [name for name, _ in HIERARCHY]
+mw = mesh_obj.matrix_world
 n_verts = len(mesh.vertices)
 
 for i, vert in enumerate(mesh.vertices):
-    v_world = inv_mat @ vert.co
-    
-    # Compute distance to each bone
-    dists = []
-    for bname in bone_names:
-        h, t = bone_segments[bname]
-        d = point_to_segment_dist(v_world, h, t)
-        dists.append((d, bname))
-    
-    dists.sort()
-    
-    # Use inverse-distance weighting for top 4 closest bones
-    top = dists[:4]
-    
-    # Filter out bones that are much farther than the closest
-    min_d = top[0][0]
-    threshold = min_d * 3.0 + 0.01  # within 3x of closest
-    top = [(d, n) for d, n in top if d < threshold]
-    
-    if len(top) == 1 or top[0][0] < 1e-6:
-        vg_map[top[0][1]].add([i], 1.0, 'REPLACE')
+    vw = mw @ vert.co
+    vy = ny(vw.y)  # normalized 0..1
+    vx = nx(vw.x)  # normalized, - = left, + = right
+    ax = abs(vx)    # absolute x position
+
+    # Classify into body region
+    if vy > 0.78:
+        # HEAD region
+        region_bones = HEAD_BONES
+    elif vy > 0.27 and ax > 0.38:
+        # ARM region — which side?
+        if vx < 0:
+            region_bones = L_ARM_BONES
+        else:
+            region_bones = R_ARM_BONES
+    elif vy < 0.27:
+        # LEG region — which side?
+        if vx < 0:
+            region_bones = L_LEG_BONES
+        else:
+            region_bones = R_LEG_BONES
     else:
-        # Inverse distance^2 weighting
-        inv_weights = []
-        for d, n in top:
-            w = 1.0 / (d * d + 1e-6)
-            inv_weights.append((w, n))
-        total = sum(w for w, _ in inv_weights)
-        for w, n in inv_weights:
-            nw = w / total
-            if nw > 0.01:
-                vg_map[n].add([i], nw, 'REPLACE')
+        # TORSO/SPINE region
+        region_bones = SPINE_BONES
     
-    if (i + 1) % 20000 == 0:
-        print(f"  {i+1}/{n_verts} vertices weighted...")
+    # Within the region, weight by Y-distance to each bone's center
+    weights = []
+    for bname, by_center, by_radius in region_bones:
+        dist = abs(vy - by_center)
+        # Gaussian-like falloff
+        w = math.exp(-0.5 * (dist / (by_radius + 0.02)) ** 2)
+        if w > 0.01:
+            weights.append((bname, w))
+    
+    if not weights:
+        # Fallback: closest bone in region
+        weights = [(region_bones[0][0], 1.0)]
+    
+    # Normalize
+    total = sum(w for _, w in weights)
+    for bname, w in weights:
+        nw = w / total
+        if nw > 0.01:
+            vg_map[bname].add([i], nw, 'REPLACE')
+    
+    if (i+1) % 20000 == 0:
+        print(f"  {i+1}/{n_verts}...")
 
-print(f"  {n_verts}/{n_verts} vertices weighted!")
+print(f"  {n_verts}/{n_verts} done!")
 
-# Parent and add armature modifier
+# Verify
+def _sw(vg, i):
+    try: return vg.weight(i)
+    except: return 0
+for vg in mesh_obj.vertex_groups:
+    c = sum(1 for i in range(n_verts) if _sw(vg, i) > 0.01)
+    if c > 0:
+        print(f"  {vg.name}: {c}")
+
 mesh_obj.parent = arm_obj
 mesh_obj.matrix_parent_inverse = arm_obj.matrix_world.inverted()
 mod = mesh_obj.modifiers.new('Armature', 'ARMATURE')
 mod.object = arm_obj
 
-# Verify
-sample_counts = {}
-for vg in mesh_obj.vertex_groups:
-    count = 0
-    for i in range(n_verts):
-        try:
-            w = vg.weight(i)
-            if w > 0.01:
-                count += 1
-        except:
-            pass
-    if count > 0:
-        sample_counts[vg.name] = count
-
-print(f"Weight distribution:")
-for name, cnt in sorted(sample_counts.items(), key=lambda x: -x[1]):
-    print(f"  {name}: {cnt} verts")
-
 # === ANIMATIONS ===
+S = math.sin; C = math.cos
+
 def create_anim(name, frames, kf_fn):
     action = bpy.data.actions.new(name=name)
     arm_obj.animation_data_create()
@@ -265,25 +276,29 @@ def l(name, x=0, y=0, z=0, f=0):
         pb.location = Vector((x, y, z))
         pb.keyframe_insert(data_path='location', frame=f)
 
-S = math.sin
-C = math.cos
-
-# WALK (30 frames)
+# WALK (30 frames @ 30fps = 1 sec cycle)
 def walk(p, f):
+    # Legs — full human gait
     r('L_UpperLeg', rx=S(p)*0.45, f=f)
     r('R_UpperLeg', rx=S(p+3.14)*0.45, f=f)
-    r('L_LowerLeg', rx=max(0,S(p))*0.55, f=f)
-    r('R_LowerLeg', rx=max(0,S(p+3.14))*0.55, f=f)
-    r('L_Foot', rx=-S(p)*0.15, f=f)
-    r('R_Foot', rx=-S(p+3.14)*0.15, f=f)
+    r('L_LowerLeg', rx=max(0, S(p))*0.55, f=f)
+    r('R_LowerLeg', rx=max(0, S(p+3.14))*0.55, f=f)
+    r('L_Foot', rx=-S(p)*0.18, f=f)
+    r('R_Foot', rx=-S(p+3.14)*0.18, f=f)
+    # Arms — natural counter-swing
     r('L_UpperArm', rx=-S(p)*0.35, f=f)
     r('R_UpperArm', rx=-S(p+3.14)*0.35, f=f)
-    r('L_LowerArm', rx=-0.2-max(0,S(p))*0.2, f=f)
-    r('R_LowerArm', rx=-0.2-max(0,S(p+3.14))*0.2, f=f)
+    r('L_LowerArm', rx=-0.25 - max(0, S(p))*0.2, f=f)
+    r('R_LowerArm', rx=-0.25 - max(0, S(p+3.14))*0.2, f=f)
+    # Torso
     r('Spine', ry=S(p)*0.06, f=f)
+    r('Spine1', ry=S(p)*0.03, f=f)
     r('Chest', rz=S(p)*0.04, f=f)
-    l('Hips', y=abs(S(p))*0.06, f=f)
+    l('Hips', y=abs(S(p))*0.04, f=f)
+    r('Hips', rz=S(p)*0.03, f=f)
+    # Head stabilization
     r('Head', ry=-S(p)*0.025, rx=-0.04, f=f)
+    r('Neck', ry=-S(p)*0.015, f=f)
 
 walk_a = create_anim('Walk', 30, walk)
 
@@ -291,14 +306,18 @@ walk_a = create_anim('Walk', 30, walk)
 def idle(p, f):
     br = S(p)*0.012
     r('Spine', rx=br, f=f)
+    r('Spine1', rx=br*0.5, f=f)
     r('Chest', rz=S(p*0.5)*0.006, f=f)
-    r('Hips', rz=S(p*0.3)*0.02, f=f)
-    l('Hips', y=br*2, f=f)
+    r('Hips', rz=S(p*0.3)*0.015, f=f)
+    l('Hips', y=br*1.5, f=f)
     r('L_UpperArm', rz=0.1, rx=S(p*0.7)*0.025, f=f)
     r('R_UpperArm', rz=-0.1, rx=S(p*0.7+0.5)*0.025, f=f)
     r('L_LowerArm', rx=-0.15, f=f)
     r('R_LowerArm', rx=-0.15, f=f)
-    r('Head', ry=S(p*0.4)*0.15+S(p*1.1)*0.05, rx=S(p*0.6)*0.05, f=f)
+    r('Neck', ry=S(p*0.35)*0.06, f=f)
+    r('Head', ry=S(p*0.4)*0.12+S(p*1.1)*0.04, rx=S(p*0.6)*0.04, f=f)
+    r('L_UpperLeg', rx=S(p*0.2)*0.01, f=f)
+    r('R_UpperLeg', rx=-S(p*0.2)*0.01, f=f)
 
 idle_a = create_anim('Idle', 60, idle)
 
@@ -306,16 +325,18 @@ idle_a = create_anim('Idle', 60, idle)
 def run(p, f):
     r('L_UpperLeg', rx=S(p)*0.65, f=f)
     r('R_UpperLeg', rx=S(p+3.14)*0.65, f=f)
-    r('L_LowerLeg', rx=max(0,S(p))*0.85, f=f)
-    r('R_LowerLeg', rx=max(0,S(p+3.14))*0.85, f=f)
-    r('L_Foot', rx=-S(p)*0.25, f=f)
-    r('R_Foot', rx=-S(p+3.14)*0.25, f=f)
+    r('L_LowerLeg', rx=max(0, S(p))*0.85, f=f)
+    r('R_LowerLeg', rx=max(0, S(p+3.14))*0.85, f=f)
+    r('L_Foot', rx=-S(p)*0.28, f=f)
+    r('R_Foot', rx=-S(p+3.14)*0.28, f=f)
     r('L_UpperArm', rx=-S(p)*0.55, f=f)
     r('R_UpperArm', rx=-S(p+3.14)*0.55, f=f)
-    r('L_LowerArm', rx=-0.45-max(0,S(p))*0.3, f=f)
-    r('R_LowerArm', rx=-0.45-max(0,S(p+3.14))*0.3, f=f)
+    r('L_LowerArm', rx=-0.5-max(0,S(p))*0.3, f=f)
+    r('R_LowerArm', rx=-0.5-max(0,S(p+3.14))*0.3, f=f)
     r('Spine', rx=-0.1, ry=S(p)*0.07, f=f)
-    l('Hips', y=abs(S(p))*0.1, f=f)
+    r('Chest', rz=S(p)*0.05, f=f)
+    l('Hips', y=abs(S(p))*0.08, f=f)
+    r('Hips', rz=S(p)*0.04, f=f)
     r('Head', rx=-0.06, f=f)
 
 run_a = create_anim('Run', 20, run)
@@ -327,9 +348,12 @@ def work(p, f):
     r('L_LowerArm', rx=-0.65+S(p*3)*0.12, f=f)
     r('R_LowerArm', rx=-0.55+C(p*2.5)*0.14, f=f)
     r('Spine', rx=-0.1, f=f)
+    r('Spine1', rx=-0.05, f=f)
     r('Chest', ry=S(p)*0.07, f=f)
     r('Head', rx=-0.18, ry=S(p*0.8)*0.1, f=f)
-    l('Hips', y=S(p*2)*0.025, f=f)
+    l('Hips', y=S(p*2)*0.02, f=f)
+    r('L_UpperLeg', rx=-0.02, f=f)
+    r('R_UpperLeg', rx=-0.02, f=f)
 
 work_a = create_anim('Work', 40, work)
 
@@ -339,20 +363,20 @@ def wave(p, f):
     r('R_LowerArm', rx=-0.35, rz=S(p*2)*0.45, f=f)
     r('L_UpperArm', rz=0.12, f=f)
     r('L_LowerArm', rx=-0.12, f=f)
-    r('Head', rx=-0.12, ry=0.18, f=f)
+    r('Neck', ry=0.08, f=f)
+    r('Head', rx=-0.1, ry=0.15, f=f)
+    r('Spine', rx=0.02, f=f)
 
 wave_a = create_anim('Wave', 30, wave)
 
-print("All 5 animations created!")
+print("5 animations created!")
 
-# Push to NLA
 arm_obj.animation_data.action = None
 for act in [walk_a, idle_a, run_a, work_a, wave_a]:
     track = arm_obj.animation_data.nla_tracks.new()
     track.name = act.name
     track.strips.new(act.name, start=0, action=act)
 
-# Export
 bpy.ops.export_scene.gltf(
     filepath=os.path.abspath(OUTPUT),
     export_format='GLB',
@@ -364,4 +388,4 @@ bpy.ops.export_scene.gltf(
 )
 
 fsize = os.path.getsize(os.path.abspath(OUTPUT))
-print(f"\n✅ Exported: {OUTPUT} ({fsize/1024/1024:.1f} MB)")
+print(f"\n✅ {OUTPUT} ({fsize/1024/1024:.1f} MB)")
