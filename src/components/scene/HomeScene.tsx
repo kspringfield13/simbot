@@ -38,7 +38,7 @@ export function HomeScene() {
       <hemisphereLight color={lighting.hemisphereColor} groundColor="#1a150e" intensity={0.3} />
 
       <directionalLight
-        position={[8 * S, 20 * S, 6 * S]}
+        position={lighting.sunPosition}
         intensity={lighting.sunIntensity}
         castShadow
         shadow-mapSize-width={4096}
