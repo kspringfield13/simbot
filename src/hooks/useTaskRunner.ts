@@ -273,6 +273,7 @@ export const useTaskRunner = () => {
       });
 
       applyRoomTaskResult(activeTask.targetRoom, activeTask.taskType);
+      state.recordTaskCompletion(activeTask.taskType);
 
       setCurrentAnimation('general');
       setRobotState('idle');

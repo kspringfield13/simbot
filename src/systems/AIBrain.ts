@@ -3,7 +3,7 @@ import { useRef } from 'react';
 import { buildAutonomousTask, scoreRoomAttention } from './RoomState';
 import { rooms, windowSpots } from '../utils/homeLayout';
 import { findClearPosition } from './ObstacleMap';
-import { useStore } from '../stores/useStore';
+import { useStore, getTaskSpeedMultiplier } from '../stores/useStore';
 import type { RobotMood, RoomId } from '../types';
 
 const ACTIVE_STATUSES = new Set(['queued', 'walking', 'working']);
@@ -370,7 +370,7 @@ export function AIBrain() {
           progress: 0,
           description: autoTask.description,
           taskType: autoTask.taskType,
-          workDuration: autoTask.workDuration,
+          workDuration: Math.round(autoTask.workDuration * getTaskSpeedMultiplier(autoTask.taskType)),
           createdAt: Date.now(),
         });
 

@@ -87,6 +87,10 @@ interface SimBotStore {
   setDemoMode: (enabled: boolean) => void;
   overrideUntilSimMinute: number;
   setOverrideUntil: (simMinute: number) => void;
+
+  // Learning system — tracks task completions for speed improvement
+  taskExperience: Partial<Record<TaskType, number>>;
+  recordTaskCompletion: (taskType: TaskType) => void;
 }
 
 const initialSimMinutes = (7 * 60) + 20;
@@ -235,4 +239,19 @@ export const useStore = create<SimBotStore>((set) => ({
   setDemoMode: (enabled) => set({ demoMode: enabled }),
   overrideUntilSimMinute: 0,
   setOverrideUntil: (simMinute) => set({ overrideUntilSimMinute: simMinute }),
+
+  // Learning system: robot gets faster with practice
+  taskExperience: {},
+  recordTaskCompletion: (taskType) => set((state) => ({
+    taskExperience: {
+      ...state.taskExperience,
+      [taskType]: (state.taskExperience[taskType] ?? 0) + 1,
+    },
+  })),
 }));
+
+// Each completion reduces duration by ~5%, capping at 30% faster
+export function getTaskSpeedMultiplier(taskType: TaskType): number {
+  const count = useStore.getState().taskExperience[taskType] ?? 0;
+  return Math.max(0.7, 1 - count * 0.05);
+}
