@@ -79,7 +79,7 @@ export function RobotTerminal() {
   if (!hasContent) return null;
 
   return (
-    <div className="pointer-events-none fixed left-4 top-4 z-30 max-w-[340px] font-mono text-xs">
+    <div className="pointer-events-none fixed left-4 top-14 z-30 max-w-[340px] font-mono text-xs">
       {/* History lines */}
       {lines.map((line) => (
         <div

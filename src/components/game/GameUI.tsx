@@ -4,15 +4,8 @@ import { useStore } from '../../stores/useStore';
 import { useTaskRunner } from '../../hooks/useTaskRunner';
 import { useVoice } from '../../hooks/useVoice';
 import { SpeedControls } from './SpeedControls';
-import { TimeBar } from './TimeBar';
 import { RoomStatus } from './RoomStatus';
-import type { CameraMode } from '../../types';
-
-const cams: { mode: CameraMode; label: string }[] = [
-  { mode: 'overview', label: 'Top' },
-  { mode: 'follow', label: 'Follow' },
-  { mode: 'pov', label: 'POV' },
-];
+import { formatSimClock } from '../../systems/TimeSystem';
 
 export function GameUI() {
   const [cmd, setCmd] = useState('');
@@ -24,7 +17,8 @@ export function GameUI() {
   const transcript = useStore((s) => s.transcript);
   const demoMode = useStore((s) => s.demoMode);
   const setDemoMode = useStore((s) => s.setDemoMode);
-  const robotThought = useStore((s) => s.robotThought);
+  const robotState = useStore((s) => s.robotState);
+  const simMinutes = useStore((s) => s.simMinutes);
 
   const { submitCommand } = useTaskRunner();
   const { isSupported, startListening, stopListening } = useVoice();
@@ -45,24 +39,45 @@ export function GameUI() {
     setCmd('');
   };
 
+  const { timeText } = formatSimClock(simMinutes);
+  const isFreeCam = cameraMode === 'overview';
+
   return (
     <>
-      {/* Top bar */}
-      <TimeBar />
+      {/* Minimal top-left: time + state */}
+      <div className="pointer-events-none absolute left-4 top-0 z-20 pt-[max(8px,env(safe-area-inset-top))]">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-white/50">{timeText}</span>
+          <span className={`h-1.5 w-1.5 rounded-full ${
+            robotState === 'idle' ? 'bg-white/25' : 'bg-emerald-400 animate-pulse'
+          }`} />
+        </div>
+      </div>
+
+      {/* Top-right: camera toggle + speed */}
+      <div className="absolute right-3 top-0 z-20 flex items-center gap-2 pt-[max(8px,env(safe-area-inset-top))]">
+        <SpeedControls />
+        <button
+          type="button"
+          onClick={() => setCameraMode(isFreeCam ? 'follow' : 'overview')}
+          className={`pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full border transition-all ${
+            isFreeCam
+              ? 'border-white/20 bg-white/15 text-white'
+              : 'border-white/8 bg-black/50 text-white/40 hover:text-white/70'
+          } backdrop-blur-md`}
+          title={isFreeCam ? 'Follow robot' : 'Free camera'}
+        >
+          {isFreeCam ? '👁' : '🎯'}
+        </button>
+      </div>
+
       <RoomStatus />
 
-      {/* Bottom controls */}
+      {/* Bottom controls — minimal */}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30 p-3 pb-[max(12px,env(safe-area-inset-bottom))]">
-        <div className="pointer-events-auto mx-auto w-full max-w-lg space-y-2">
+        <div className="pointer-events-auto mx-auto w-full max-w-md space-y-2">
 
-          {/* Thought preview */}
-          {robotThought && !showChat && (
-            <div className="truncate rounded-full border border-white/5 bg-black/60 px-4 py-1.5 text-center text-[10px] text-white/35 backdrop-blur-xl">
-              "{robotThought}"
-            </div>
-          )}
-
-          {/* Command input — toggled */}
+          {/* Command input */}
           {showChat && (
             <form onSubmit={handleSubmit} className="flex gap-1.5">
               <button
@@ -77,72 +92,45 @@ export function GameUI() {
               >
                 {isListening ? '■' : '🎤'}
               </button>
-
               <input
                 value={cmd}
                 onChange={(e) => setCmd(e.target.value)}
-                placeholder="Tell SimBot what to do..."
+                placeholder="Command..."
                 autoFocus
                 className="h-10 flex-1 rounded-full border border-white/8 bg-black/70 px-4 text-xs text-white outline-none placeholder:text-white/25 backdrop-blur-xl"
               />
-
               <button
                 type="submit"
-                className="h-10 rounded-full bg-white px-4 text-xs font-medium text-black hover:bg-white/90"
+                className="h-10 rounded-full bg-white px-4 text-xs font-medium text-black"
               >
                 Go
               </button>
             </form>
           )}
 
-          {/* Main control row */}
-          <div className="flex items-center gap-2 rounded-2xl border border-white/6 bg-black/70 p-1.5 backdrop-blur-xl">
-            {/* Camera modes */}
-            <div className="flex gap-0.5 rounded-full bg-white/5 p-0.5">
-              {cams.map((c) => (
-                <button
-                  key={c.mode}
-                  type="button"
-                  onClick={() => setCameraMode(c.mode)}
-                  className={`h-9 rounded-full px-3 text-[11px] font-medium transition-colors ${
-                    cameraMode === c.mode
-                      ? 'bg-white text-black'
-                      : 'text-white/35 hover:text-white/60'
-                  }`}
-                >
-                  {c.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Speed */}
-            <SpeedControls />
-
-            {/* Spacer */}
-            <div className="flex-1" />
-
-            {/* Command toggle */}
+          {/* Bottom bar */}
+          <div className="flex items-center justify-center gap-2">
             <button
               type="button"
               onClick={() => setShowChat(!showChat)}
-              className={`h-9 w-9 rounded-full text-xs transition-colors ${
-                showChat ? 'bg-white text-black' : 'bg-white/8 text-white/40 hover:text-white/70'
+              className={`h-10 w-10 rounded-full border text-sm transition-all backdrop-blur-md ${
+                showChat
+                  ? 'border-white/20 bg-white/15 text-white'
+                  : 'border-white/8 bg-black/50 text-white/30 hover:text-white/60'
               }`}
             >
               💬
             </button>
-
-            {/* Demo */}
             <button
               type="button"
               onClick={() => setDemoMode(!demoMode)}
-              className={`h-9 rounded-full px-3 text-[11px] font-medium transition-colors ${
+              className={`h-10 rounded-full border px-4 text-[11px] font-medium transition-all backdrop-blur-md ${
                 demoMode
-                  ? 'bg-white text-black'
-                  : 'bg-white/8 text-white/35 hover:text-white/60'
+                  ? 'border-emerald-500/30 bg-emerald-500/20 text-emerald-400'
+                  : 'border-white/8 bg-black/50 text-white/30 hover:text-white/60'
               }`}
             >
-              {demoMode ? 'Stop' : 'Demo'}
+              {demoMode ? '● Auto' : 'Auto'}
             </button>
           </div>
         </div>

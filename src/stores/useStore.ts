@@ -105,7 +105,7 @@ export const useStore = create<SimBotStore>((set) => ({
   setRobotThought: (thought) => set({ robotThought: thought }),
   setRobotMood: (mood) => set({ robotMood: mood }),
 
-  cameraMode: 'overview',
+  cameraMode: 'follow',
   cameraSnapTarget: null,
   setCameraMode: (mode) => set({ cameraMode: mode }),
   cycleCameraMode: () => set((state) => {
