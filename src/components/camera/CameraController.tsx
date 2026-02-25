@@ -164,8 +164,12 @@ export function CameraController() {
     controls.enableZoom = state.cameraMode !== 'pov';
     controls.enableRotate = true;
 
-    controls.rotateSpeed = state.cameraMode === 'overview' ? 0.56 : 0.7;
-    controls.panSpeed = state.cameraMode === 'overview' ? 0.7 : 0.5;
+    // Touch-friendly speeds with damping for smooth swipe gestures
+    const isTouch = 'ontouchstart' in window;
+    controls.rotateSpeed = state.cameraMode === 'overview' ? 0.56 : isTouch ? 0.5 : 0.7;
+    controls.panSpeed = state.cameraMode === 'overview' ? (isTouch ? 0.5 : 0.7) : 0.5;
+    controls.enableDamping = true;
+    controls.dampingFactor = isTouch ? 0.12 : 0.08;
 
     controls.touches.ONE = state.cameraMode === 'overview' ? THREE.TOUCH.PAN : THREE.TOUCH.ROTATE;
     controls.touches.TWO = THREE.TOUCH.DOLLY_ROTATE;
