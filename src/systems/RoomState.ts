@@ -108,12 +108,27 @@ export function scoreRoomAttention(
   roomId: RoomId,
   roomState: RoomNeedState,
   period: SimPeriod,
+  robotPosition?: [number, number, number],
 ): number {
   const dirtiness = 100 - roomState.cleanliness;
   const clutter = 100 - roomState.tidiness;
   const routineNeed = 100 - roomState.routine;
 
-  return (dirtiness * 0.48) + (clutter * 0.32) + (routineNeed * 0.2) + getRoutineBias(period, roomId);
+  let score = (dirtiness * 0.48) + (clutter * 0.32) + (routineNeed * 0.2) + getRoutineBias(period, roomId);
+
+  // Proximity bonus: prefer nearby rooms when scores are close
+  if (robotPosition) {
+    const room = rooms.find((r) => r.id === roomId);
+    if (room) {
+      const dx = robotPosition[0] - room.position[0];
+      const dz = robotPosition[2] - room.position[2];
+      const dist = Math.sqrt(dx * dx + dz * dz);
+      // Up to 6 bonus points for being very close, fading over ~10 units
+      score += Math.max(0, 6 - dist * 0.6);
+    }
+  }
+
+  return score;
 }
 
 export function roomOutlineColor(cleanliness: number): string {

@@ -149,7 +149,7 @@ export function AIBrain() {
     for (const room of rooms) {
       const roomNeed = state.roomNeeds[room.id];
       if (!roomNeed) continue;
-      const score = scoreRoomAttention(room.id, roomNeed, state.simPeriod);
+      const score = scoreRoomAttention(room.id, roomNeed, state.simPeriod, state.robotPosition);
       roomScores.push({ id: room.id, score });
     }
     roomScores.sort((a, b) => b.score - a.score);
