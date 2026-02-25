@@ -15,23 +15,68 @@ function pickWindowSpot(): [number, number, number] {
   return windowSpots[Math.floor(Math.random() * windowSpots.length)] ?? [0, 0, -1];
 }
 
-// Idle thoughts the robot cycles through when everything is clean
+// Context-aware idle thoughts by time of day
+const idleThoughtsByPeriod: Record<string, string[]> = {
+  morning: [
+    'Morning routine complete. House is ready for the day.',
+    'Good start to the day. Everything looks fresh.',
+    'Morning checklist done. Standing by.',
+    'All set for the morning. Monitoring.',
+  ],
+  afternoon: [
+    'Afternoon check — everything is holding up nicely.',
+    'Midday status: all rooms looking good.',
+    'Running a quiet afternoon scan.',
+    'Home is in good shape. Conserving energy.',
+  ],
+  evening: [
+    'Winding down. Home is cozy and clean.',
+    'Evening check complete. Ready for relaxation.',
+    'Getting the house settled for the night.',
+    'Everything is tidy for the evening.',
+  ],
+  night: [
+    'Night mode. Minimal activity, just monitoring.',
+    'House is quiet. All systems nominal.',
+    'Running overnight passive checks.',
+    'Night watch. Everything is secure.',
+  ],
+};
+
+// Fallback idle thoughts
 const idleThoughts = [
   'All clear. Monitoring ambient conditions.',
   'Systems nominal. Scanning for changes.',
   'Home looks good. Standing by.',
-  'Running passive environment check.',
   'No urgent tasks detected.',
-  'Efficient. Everything is in order.',
-  'Sensors are clear. Waiting for next trigger.',
-  'Home status: stable.',
 ];
 
-// Transition thoughts when moving between tasks
+// Context-aware transition thoughts
+const transitionThoughtsByPeriod: Record<string, string[]> = {
+  morning: [
+    'Part of the morning routine.',
+    'Keeping the morning flow going.',
+    'Next on the morning checklist.',
+  ],
+  afternoon: [
+    'Afternoon maintenance pass.',
+    'Staying on top of things.',
+    'Keeping the house fresh.',
+  ],
+  evening: [
+    'Evening reset — one more spot.',
+    'Prepping the house for tonight.',
+    'Almost done with the evening round.',
+  ],
+  night: [
+    'Quick nighttime touch-up.',
+    'One more thing before quiet hours.',
+  ],
+};
+
 const transitionThoughts = [
   'Let me check on the next area.',
   'Moving to assess the situation.',
-  'Time to address that.',
   'On it.',
   'Heading over now.',
   'Prioritizing this next.',
@@ -45,6 +90,11 @@ const patrolThoughts = [
   'Doing a quick walkthrough.',
   'Scanning exterior conditions.',
 ];
+
+function pickFromPeriod(periodMap: Record<string, string[]>, fallback: string[], period: string): string {
+  const list = periodMap[period] ?? fallback;
+  return list[Math.floor(Math.random() * list.length)];
+}
 
 export function AIBrain() {
   const nextDecisionAtRef = useRef(0);
@@ -120,10 +170,10 @@ export function AIBrain() {
       const autoTask = buildAutonomousTask(targetRoom.id, state.simPeriod);
       const roomName = rooms.find((room) => room.id === targetRoom.id)?.name ?? targetRoom.id;
 
-      // Pick a natural transition thought
+      // Pick a natural transition thought, context-aware by time of day
       const thought = consecutiveTasksRef.current === 0
         ? autoTask.thought
-        : transitionThoughts[Math.floor(Math.random() * transitionThoughts.length)];
+        : pickFromPeriod(transitionThoughtsByPeriod, transitionThoughts, state.simPeriod);
 
       state.addTask({
         id: crypto.randomUUID(),
@@ -180,8 +230,8 @@ export function AIBrain() {
       lastWindowTripRef.current = now;
       consecutiveTasksRef.current = 0;
     } else {
-      // Cycle through idle thoughts
-      const thought = idleThoughts[idleThoughtIndexRef.current % idleThoughts.length];
+      // Cycle through time-aware idle thoughts
+      const thought = pickFromPeriod(idleThoughtsByPeriod, idleThoughts, state.simPeriod);
       idleThoughtIndexRef.current += 1;
       state.setRobotThought(thought);
       state.setRobotMood('content');
