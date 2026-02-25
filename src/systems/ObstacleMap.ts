@@ -1,5 +1,6 @@
 // Obstacle map for furniture collision avoidance
 // Each obstacle is defined as a circle (x, z, radius) for simplicity
+// Updated to match FurnitureModels.tsx positions (human-scale, 2.0x Kenney)
 
 export interface Obstacle {
   x: number;
@@ -7,102 +8,70 @@ export interface Obstacle {
   r: number; // avoidance radius
 }
 
-// Derived from FurnitureModels.tsx positions
-// Using circular approximations with padding for avoidance
 export const OBSTACLES: Obstacle[] = [
-  // === LIVING ROOM ===
-  // Sofa
-  { x: -7, z: -6, r: 0.7 },
-  // Coffee table
-  { x: -5, z: -6, r: 0.5 },
-  // Lounge chair
-  { x: -5, z: -4, r: 0.5 },
-  // TV stand
-  { x: -3, z: -6, r: 0.5 },
-  // Floor lamp
-  { x: -7.3, z: -9.3, r: 0.3 },
-  // Bookcase
-  { x: -6, z: -9.3, r: 0.6 },
-  // Side table
-  { x: -7, z: -8, r: 0.3 },
-  // Ottoman
-  { x: -5, z: -7.5, r: 0.4 },
-  // Speakers
-  { x: -3, z: -4.5, r: 0.25 },
-  { x: -3, z: -7.5, r: 0.25 },
-  // Plants
-  { x: -7.5, z: -3, r: 0.3 },
-  { x: -0.5, z: -9.3, r: 0.3 },
+  // === LIVING ROOM (x: -8 to 0, z: -10 to -2) ===
+  { x: -7.2, z: -6, r: 1.0 },    // Sofa-long (west wall)
+  { x: -5.5, z: -8, r: 0.8 },    // Sofa-corner
+  { x: -5, z: -6, r: 0.6 },      // Coffee table
+  { x: -3.5, z: -5, r: 0.4 },    // Ottoman
+  { x: -3, z: -8, r: 0.5 },      // Lounge chair
+  { x: -4.5, z: -9.3, r: 0.8 },  // TV stand + TV
+  { x: -6.5, z: -9.3, r: 0.3 },  // Speaker L
+  { x: -2.5, z: -9.3, r: 0.3 },  // Speaker R
+  { x: -7.5, z: -9.3, r: 0.3 },  // Floor lamp
+  { x: -7.2, z: -8.5, r: 0.3 },  // Side table
+  { x: -7.5, z: -2.8, r: 0.7 },  // Bookcase
+  { x: -0.5, z: -9.3, r: 0.3 },  // Plant
+  { x: -7.5, z: -3.8, r: 0.3 },  // Plant
 
-  // === KITCHEN ===
-  // Counter run (north wall - treated as wall-adjacent, less avoidance needed)
-  { x: 1.5, z: -9.5, r: 0.4 },
-  { x: 2.5, z: -9.5, r: 0.4 },
-  { x: 3.5, z: -9.5, r: 0.4 },
-  { x: 5.5, z: -9.5, r: 0.4 },
-  { x: 6.5, z: -9.5, r: 0.4 },
-  // Fridge
-  { x: 7.3, z: -9.5, r: 0.5 },
-  // Stove
-  { x: 4.5, z: -9.5, r: 0.4 },
-  // East wall cabinets
-  { x: 7.5, z: -8, r: 0.4 },
-  { x: 7.5, z: -7, r: 0.4 },
-  // Kitchen island
-  { x: 3, z: -6, r: 0.5 },
-  { x: 4, z: -6, r: 0.5 },
-  { x: 5, z: -6, r: 0.5 },
-  // Bar stools
-  { x: 3, z: -5, r: 0.3 },
-  { x: 4, z: -5, r: 0.3 },
-  { x: 5, z: -5, r: 0.3 },
-  // Dining table
-  { x: 1.5, z: -4.5, r: 0.6 },
-  // Trashcan
-  { x: 7.3, z: -5, r: 0.25 },
+  // === KITCHEN (x: 0 to 8, z: -10 to -2) ===
+  { x: 0.8, z: -9.4, r: 0.5 },   // Fridge
+  { x: 2, z: -9.4, r: 0.4 },     // Cabinet
+  { x: 3, z: -9.4, r: 0.4 },     // Cabinet-drawer
+  { x: 4, z: -9.4, r: 0.4 },     // Stove
+  { x: 5, z: -9.4, r: 0.4 },     // Cabinet
+  { x: 6, z: -9.4, r: 0.4 },     // Sink
+  { x: 7, z: -9.4, r: 0.4 },     // Cabinet-drawer
+  { x: 7.4, z: -8.2, r: 0.4 },   // East wall cabinet
+  { x: 7.4, z: -9, r: 0.4 },     // Corner cabinet
+  { x: 3, z: -6, r: 0.5 },       // Island L
+  { x: 4.2, z: -6, r: 0.5 },     // Island mid
+  { x: 5.4, z: -6, r: 0.5 },     // Island R
+  { x: 3, z: -5, r: 0.3 },       // Bar stool
+  { x: 4.2, z: -5, r: 0.3 },     // Bar stool
+  { x: 5.4, z: -5, r: 0.3 },     // Bar stool
+  { x: 1.5, z: -4, r: 0.7 },     // Dining table + chairs
+  { x: 7.4, z: -5.5, r: 0.25 },  // Trashcan
+  { x: 7.4, z: -2.8, r: 0.3 },   // Plant
 
-  // === LAUNDRY ===
-  { x: 4.5, z: -1.5, r: 0.4 },
-  { x: 5.5, z: -1.5, r: 0.4 },
+  // === LAUNDRY (x: 3.5 to 6.5, z: -2 to 0) ===
+  { x: 4.5, z: -1, r: 0.5 },     // Washer
+  { x: 5.7, z: -1, r: 0.5 },     // Dryer
 
-  // === BEDROOM ===
-  // Bed (large obstacle)
-  { x: -4, z: 6.5, r: 1.2 },
-  // Nightstands
-  { x: -6, z: 6.5, r: 0.35 },
-  { x: -2, z: 6.5, r: 0.35 },
-  // Desk
-  { x: -1.5, z: 1, r: 0.5 },
-  // Desk chair
-  { x: -2.5, z: 1, r: 0.4 },
-  // Dresser/bookcase
-  { x: -7.3, z: 3.5, r: 0.5 },
-  // Bench
-  { x: -4, z: 5, r: 0.5 },
-  // Plants
-  { x: -7.3, z: 7.3, r: 0.3 },
-  { x: -0.5, z: 7.3, r: 0.3 },
+  // === BEDROOM (x: -8 to 0, z: 0 to 8) ===
+  { x: -4, z: 6.8, r: 1.3 },     // Bed (large)
+  { x: -6.5, z: 6.8, r: 0.4 },   // Nightstand L
+  { x: -1.5, z: 6.8, r: 0.4 },   // Nightstand R
+  { x: -0.8, z: 2.5, r: 0.6 },   // Desk
+  { x: -2, z: 2.5, r: 0.4 },     // Desk chair
+  { x: -7.5, z: 3.5, r: 0.6 },   // Dresser/bookcase
+  { x: -4, z: 5.2, r: 0.5 },     // Bench
+  { x: -7.5, z: 7.5, r: 0.3 },   // Plant
+  { x: -0.5, z: 7.5, r: 0.3 },   // Plant
 
-  // === BATHROOM ===
-  // Vanity
-  { x: 2, z: 0.5, r: 0.4 },
-  { x: 3, z: 0.5, r: 0.4 },
-  { x: 4.5, z: 0.5, r: 0.4 },
-  { x: 5.5, z: 0.5, r: 0.4 },
-  // Bathtub
-  { x: 5.5, z: 7, r: 0.8 },
-  // Shower
-  { x: 7, z: 3.5, r: 0.7 },
-  // Toilet
-  { x: 1, z: 7, r: 0.4 },
-  // Trashcan
-  { x: 1, z: 3.5, r: 0.25 },
+  // === BATHROOM (x: 0 to 8, z: 0 to 8) ===
+  { x: 2, z: 0.8, r: 0.4 },      // Bath cabinet
+  { x: 3.2, z: 0.8, r: 0.4 },    // Sink L
+  { x: 5, z: 0.8, r: 0.4 },      // Sink R
+  { x: 6.2, z: 0.8, r: 0.4 },    // Bath cabinet
+  { x: 5.5, z: 7, r: 0.9 },      // Bathtub
+  { x: 7, z: 4, r: 0.7 },        // Shower
+  { x: 1.2, z: 7, r: 0.4 },      // Toilet
+  { x: 0.8, z: 3.5, r: 0.25 },   // Trashcan
 
-  // === HALLWAY ===
-  // Bench
-  { x: -4, z: -1, r: 0.5 },
-  // Plant
-  { x: -7, z: -1, r: 0.3 },
+  // === HALLWAY (x: -8 to 3.5, z: -2 to 0) ===
+  { x: -5, z: -1, r: 0.5 },      // Bench
+  { x: -7.2, z: -1, r: 0.3 },    // Plant
 ];
 
 /**
@@ -127,18 +96,15 @@ export function getAvoidanceForce(
     const minDist = obs.r + robotRadius;
 
     if (dist < minDist + lookAhead) {
-      // Check if we're moving toward this obstacle
       const toDirX = obs.x - posX;
       const toDirZ = obs.z - posZ;
       const dot = dirX * toDirX + dirZ * toDirZ;
 
       if (dot > 0 || dist < minDist) {
-        // We're heading toward it or already overlapping
         const strength = dist < minDist
-          ? 2.0  // strong push if overlapping
-          : 1.0 / Math.max(dist - minDist, 0.1);
+          ? 2.5  // strong push if overlapping
+          : 1.2 / Math.max(dist - minDist, 0.1);
 
-        // Push away from obstacle
         const nx = dx / Math.max(dist, 0.01);
         const nz = dz / Math.max(dist, 0.01);
         forceX += nx * strength;
@@ -147,11 +113,10 @@ export function getAvoidanceForce(
     }
   }
 
-  // Clamp force magnitude
   const forceMag = Math.sqrt(forceX * forceX + forceZ * forceZ);
-  if (forceMag > 2.0) {
-    forceX = (forceX / forceMag) * 2.0;
-    forceZ = (forceZ / forceMag) * 2.0;
+  if (forceMag > 2.5) {
+    forceX = (forceX / forceMag) * 2.5;
+    forceZ = (forceZ / forceMag) * 2.5;
   }
 
   return [forceX, forceZ];
