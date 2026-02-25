@@ -8,122 +8,142 @@ import { TimeBar } from './TimeBar';
 import { RoomStatus } from './RoomStatus';
 import type { CameraMode } from '../../types';
 
-const cameraModes: { mode: CameraMode; label: string }[] = [
-  { mode: 'overview', label: 'Overview' },
+const cams: { mode: CameraMode; label: string }[] = [
+  { mode: 'overview', label: 'Top' },
   { mode: 'follow', label: 'Follow' },
   { mode: 'pov', label: 'POV' },
 ];
 
 export function GameUI() {
-  const [command, setCommand] = useState('');
+  const [cmd, setCmd] = useState('');
+  const [showChat, setShowChat] = useState(false);
 
-  const cameraMode = useStore((state) => state.cameraMode);
-  const setCameraMode = useStore((state) => state.setCameraMode);
-  const isListening = useStore((state) => state.isListening);
-  const transcript = useStore((state) => state.transcript);
-  const demoMode = useStore((state) => state.demoMode);
-  const setDemoMode = useStore((state) => state.setDemoMode);
-  const messages = useStore((state) => state.messages);
+  const cameraMode = useStore((s) => s.cameraMode);
+  const setCameraMode = useStore((s) => s.setCameraMode);
+  const isListening = useStore((s) => s.isListening);
+  const transcript = useStore((s) => s.transcript);
+  const demoMode = useStore((s) => s.demoMode);
+  const setDemoMode = useStore((s) => s.setDemoMode);
+  const robotThought = useStore((s) => s.robotThought);
 
   const { submitCommand } = useTaskRunner();
   const { isSupported, startListening, stopListening } = useVoice();
 
-  const previousListening = useRef(isListening);
-
+  const prevListening = useRef(isListening);
   useEffect(() => {
-    if (previousListening.current && !isListening && transcript.trim()) {
+    if (prevListening.current && !isListening && transcript.trim()) {
       submitCommand(transcript.trim(), 'user');
     }
-
-    previousListening.current = isListening;
+    prevListening.current = isListening;
   }, [isListening, transcript, submitCommand]);
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const trimmed = command.trim();
-    if (!trimmed) return;
-
-    submitCommand(trimmed, demoMode ? 'demo' : 'user');
-    setCommand('');
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const t = cmd.trim();
+    if (!t) return;
+    submitCommand(t, demoMode ? 'demo' : 'user');
+    setCmd('');
   };
-
-  const latestMessage = messages[messages.length - 1];
 
   return (
     <>
+      {/* Top bar */}
       <TimeBar />
       <RoomStatus />
 
+      {/* Bottom controls */}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30 p-3 pb-[max(12px,env(safe-area-inset-bottom))]">
-        <div className="pointer-events-auto mx-auto w-full max-w-3xl rounded-3xl border border-white/10 bg-black/58 p-3 backdrop-blur-2xl">
-          <div className="mb-2 grid gap-2 sm:grid-cols-[1fr_auto]">
-            <div className="grid grid-cols-3 gap-1 rounded-xl bg-black/45 p-1 backdrop-blur-md">
-              {cameraModes.map((entry) => (
+        <div className="pointer-events-auto mx-auto w-full max-w-lg space-y-2">
+
+          {/* Thought preview */}
+          {robotThought && !showChat && (
+            <div className="truncate rounded-full border border-white/5 bg-black/60 px-4 py-1.5 text-center text-[10px] text-white/35 backdrop-blur-xl">
+              "{robotThought}"
+            </div>
+          )}
+
+          {/* Command input — toggled */}
+          {showChat && (
+            <form onSubmit={handleSubmit} className="flex gap-1.5">
+              <button
+                type="button"
+                disabled={!isSupported}
+                onClick={isListening ? stopListening : startListening}
+                className={`h-10 w-10 shrink-0 rounded-full text-xs transition-colors ${
+                  isListening
+                    ? 'bg-white text-black'
+                    : 'bg-white/8 text-white/50 hover:text-white/80'
+                }`}
+              >
+                {isListening ? '■' : '🎤'}
+              </button>
+
+              <input
+                value={cmd}
+                onChange={(e) => setCmd(e.target.value)}
+                placeholder="Tell SimBot what to do..."
+                autoFocus
+                className="h-10 flex-1 rounded-full border border-white/8 bg-black/70 px-4 text-xs text-white outline-none placeholder:text-white/25 backdrop-blur-xl"
+              />
+
+              <button
+                type="submit"
+                className="h-10 rounded-full bg-white px-4 text-xs font-medium text-black hover:bg-white/90"
+              >
+                Go
+              </button>
+            </form>
+          )}
+
+          {/* Main control row */}
+          <div className="flex items-center gap-2 rounded-2xl border border-white/6 bg-black/70 p-1.5 backdrop-blur-xl">
+            {/* Camera modes */}
+            <div className="flex gap-0.5 rounded-full bg-white/5 p-0.5">
+              {cams.map((c) => (
                 <button
-                  key={entry.mode}
+                  key={c.mode}
                   type="button"
-                  onClick={() => setCameraMode(entry.mode)}
-                  className={`h-11 min-w-11 rounded-lg px-3 text-xs font-semibold transition ${
-                    cameraMode === entry.mode
-                      ? 'bg-cyan-500/30 text-cyan-100'
-                      : 'bg-white/5 text-white/70 hover:bg-white/10'
+                  onClick={() => setCameraMode(c.mode)}
+                  className={`h-9 rounded-full px-3 text-[11px] font-medium transition-colors ${
+                    cameraMode === c.mode
+                      ? 'bg-white text-black'
+                      : 'text-white/35 hover:text-white/60'
                   }`}
                 >
-                  {entry.label}
+                  {c.label}
                 </button>
               ))}
             </div>
 
+            {/* Speed */}
             <SpeedControls />
-          </div>
 
-          <form onSubmit={handleSubmit} className="grid grid-cols-[auto_1fr_auto] gap-1.5">
+            {/* Spacer */}
+            <div className="flex-1" />
+
+            {/* Command toggle */}
             <button
               type="button"
-              disabled={!isSupported}
-              onClick={isListening ? stopListening : startListening}
-              className={`h-11 min-w-11 rounded-xl px-3 text-xs font-semibold transition ${
-                !isSupported
-                  ? 'bg-white/10 text-white/35'
-                  : isListening
-                    ? 'bg-rose-500/70 text-white'
-                    : 'bg-white/15 text-white/90 hover:bg-white/20'
+              onClick={() => setShowChat(!showChat)}
+              className={`h-9 w-9 rounded-full text-xs transition-colors ${
+                showChat ? 'bg-white text-black' : 'bg-white/8 text-white/40 hover:text-white/70'
               }`}
             >
-              {isListening ? 'Stop' : 'Mic'}
+              💬
             </button>
 
-            <input
-              value={command}
-              onChange={(event) => setCommand(event.target.value)}
-              placeholder="Tell SimBot what to do..."
-              className="h-11 w-full rounded-xl border border-white/10 bg-black/45 px-3 text-sm text-white outline-none placeholder:text-white/45"
-            />
-
-            <button
-              type="submit"
-              className="h-11 min-w-11 rounded-xl bg-cyan-500/70 px-4 text-xs font-semibold text-white hover:bg-cyan-500/85"
-            >
-              Send
-            </button>
-          </form>
-
-          <div className="mt-2 flex items-center justify-between gap-2">
+            {/* Demo */}
             <button
               type="button"
               onClick={() => setDemoMode(!demoMode)}
-              className={`h-11 min-w-11 rounded-xl px-3 text-xs font-semibold transition ${
+              className={`h-9 rounded-full px-3 text-[11px] font-medium transition-colors ${
                 demoMode
-                  ? 'bg-violet-500/65 text-white'
-                  : 'bg-white/10 text-white/80 hover:bg-white/15'
+                  ? 'bg-white text-black'
+                  : 'bg-white/8 text-white/35 hover:text-white/60'
               }`}
             >
-              {demoMode ? 'Stop Demo' : 'Demo'}
+              {demoMode ? 'Stop' : 'Demo'}
             </button>
-
-            <p className="truncate text-xs text-white/70">
-              {latestMessage ? latestMessage.text : 'Tap a room for status. Double-tap to snap camera.'}
-            </p>
           </div>
         </div>
       </div>

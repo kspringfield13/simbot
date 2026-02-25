@@ -4,7 +4,7 @@ import { HomeScene } from './components/scene/HomeScene';
 
 function App() {
   return (
-    <div className="relative h-screen w-screen overflow-hidden bg-[#04050a]">
+    <div className="relative h-screen w-screen overflow-hidden bg-black">
       <Canvas
         shadows="soft"
         camera={{ position: [14, 16, 14], fov: 48, near: 0.1, far: 120 }}

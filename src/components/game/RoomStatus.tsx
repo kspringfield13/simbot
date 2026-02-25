@@ -1,71 +1,54 @@
-import { roomAttentionLabel, roomOutlineColor } from '../../systems/RoomState';
 import { useStore } from '../../stores/useStore';
 import { rooms } from '../../utils/homeLayout';
 
-function MetricBar({ value, color }: { value: number; color: string }) {
+function Bar({ value }: { value: number }) {
   return (
-    <div className="h-2.5 w-full rounded-full bg-white/10">
+    <div className="h-1 w-full rounded-full bg-white/8">
       <div
-        className="h-2.5 rounded-full transition-all duration-300"
-        style={{ width: `${Math.max(0, Math.min(100, value))}%`, backgroundColor: color }}
+        className="h-1 rounded-full bg-white/60 transition-all duration-500"
+        style={{ width: `${Math.max(0, Math.min(100, value))}%` }}
       />
     </div>
   );
 }
 
 export function RoomStatus() {
-  const selectedRoomId = useStore((state) => state.selectedRoomId);
-  const setSelectedRoomId = useStore((state) => state.setSelectedRoomId);
-  const roomNeed = useStore((state) => (selectedRoomId ? state.roomNeeds[selectedRoomId] : null));
+  const selectedRoomId = useStore((s) => s.selectedRoomId);
+  const setSelectedRoomId = useStore((s) => s.setSelectedRoomId);
+  const roomNeed = useStore((s) => (selectedRoomId ? s.roomNeeds[selectedRoomId] : null));
 
   if (!selectedRoomId || !roomNeed) return null;
-
-  const room = rooms.find((entry) => entry.id === selectedRoomId);
+  const room = rooms.find((r) => r.id === selectedRoomId);
   if (!room) return null;
 
-  const cleanlinessColor = roomOutlineColor(roomNeed.cleanliness);
-
   return (
-    <div className="pointer-events-auto absolute left-3 right-3 top-[84px] z-20 sm:left-auto sm:right-3 sm:w-72">
-      <div className="rounded-2xl border border-white/10 bg-black/55 p-3 backdrop-blur-xl">
+    <div className="pointer-events-auto absolute right-3 top-16 z-20 w-56">
+      <div className="rounded-2xl border border-white/6 bg-black/80 p-3 backdrop-blur-xl">
         <div className="mb-3 flex items-center justify-between">
-          <div>
-            <p className="text-xs font-semibold text-white">{room.name}</p>
-            <p className="text-[11px] text-white/70">{roomAttentionLabel(roomNeed.cleanliness)}</p>
-          </div>
+          <span className="text-xs font-medium text-white/90">{room.name}</span>
           <button
             type="button"
             onClick={() => setSelectedRoomId(null)}
-            className="h-9 min-w-9 rounded-lg bg-white/10 px-2 text-xs text-white/80"
+            className="text-[10px] text-white/30 hover:text-white/60"
           >
-            Close
+            ✕
           </button>
         </div>
 
-        <div className="space-y-2">
-          <div>
-            <div className="mb-1 flex justify-between text-[11px] text-white/70">
-              <span>Cleanliness</span>
-              <span>{roomNeed.cleanliness.toFixed(0)}%</span>
+        <div className="space-y-2.5">
+          {[
+            { label: 'Clean', value: roomNeed.cleanliness },
+            { label: 'Tidy', value: roomNeed.tidiness },
+            { label: 'Routine', value: roomNeed.routine },
+          ].map((m) => (
+            <div key={m.label}>
+              <div className="mb-1 flex justify-between text-[10px]">
+                <span className="text-white/40">{m.label}</span>
+                <span className="text-white/50">{m.value.toFixed(0)}%</span>
+              </div>
+              <Bar value={m.value} />
             </div>
-            <MetricBar value={roomNeed.cleanliness} color={cleanlinessColor} />
-          </div>
-
-          <div>
-            <div className="mb-1 flex justify-between text-[11px] text-white/70">
-              <span>Tidiness</span>
-              <span>{roomNeed.tidiness.toFixed(0)}%</span>
-            </div>
-            <MetricBar value={roomNeed.tidiness} color="#60a5fa" />
-          </div>
-
-          <div>
-            <div className="mb-1 flex justify-between text-[11px] text-white/70">
-              <span>Routine</span>
-              <span>{roomNeed.routine.toFixed(0)}%</span>
-            </div>
-            <MetricBar value={roomNeed.routine} color="#a78bfa" />
-          </div>
+          ))}
         </div>
       </div>
     </div>

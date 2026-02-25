@@ -3,22 +3,16 @@ import { useMemo } from 'react';
 import { useStore } from '../../stores/useStore';
 
 export function ThoughtBubble() {
-  const robotPosition = useStore((state) => state.robotPosition);
-  const robotThought = useStore((state) => state.robotThought);
-  const robotState = useStore((state) => state.robotState);
+  const robotPosition = useStore((s) => s.robotPosition);
+  const robotThought = useStore((s) => s.robotThought);
 
-  const bubbleText = useMemo(() => {
-    if (!robotThought.trim()) return 'Scanning home state...';
-    return robotThought;
-  }, [robotThought]);
+  const text = useMemo(() => robotThought.trim() || '...', [robotThought]);
 
   return (
-    <group position={[robotPosition[0], robotPosition[1] + 2.25, robotPosition[2]]}>
-      <Html center distanceFactor={9} transform>
-        <div className="pointer-events-none max-w-[180px] rounded-xl border border-white/20 bg-black/55 px-3 py-2 text-[11px] leading-snug text-white backdrop-blur-md">
-          <p className="font-medium text-cyan-200/90">Thought</p>
-          <p className="text-white/85">{bubbleText}</p>
-          <p className="mt-1 text-[10px] uppercase tracking-[0.12em] text-white/50">{robotState}</p>
+    <group position={[robotPosition[0], robotPosition[1] + 2.2, robotPosition[2]]}>
+      <Html center distanceFactor={10} transform>
+        <div className="pointer-events-none max-w-[160px] rounded-lg border border-white/10 bg-black/75 px-2.5 py-1.5 text-[10px] leading-snug text-white/70 backdrop-blur-md">
+          {text}
         </div>
       </Html>
     </group>

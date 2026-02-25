@@ -1,31 +1,31 @@
 import { useStore } from '../../stores/useStore';
 import type { SimSpeed } from '../../stores/useStore';
 
-const speedOptions: { label: string; value: SimSpeed }[] = [
-  { label: 'Pause', value: 0 },
-  { label: '1x', value: 1 },
-  { label: '2x', value: 2 },
-  { label: '3x', value: 3 },
+const speeds: { label: string; value: SimSpeed }[] = [
+  { label: '⏸', value: 0 },
+  { label: '›', value: 1 },
+  { label: '››', value: 2 },
+  { label: '›››', value: 3 },
 ];
 
 export function SpeedControls() {
-  const simSpeed = useStore((state) => state.simSpeed);
-  const setSimSpeed = useStore((state) => state.setSimSpeed);
+  const simSpeed = useStore((s) => s.simSpeed);
+  const setSimSpeed = useStore((s) => s.setSimSpeed);
 
   return (
-    <div className="grid grid-cols-4 gap-1 rounded-xl bg-black/45 p-1 backdrop-blur-md">
-      {speedOptions.map((option) => (
+    <div className="flex gap-0.5 rounded-full bg-white/5 p-0.5">
+      {speeds.map((s) => (
         <button
-          key={option.label}
+          key={s.value}
           type="button"
-          onClick={() => setSimSpeed(option.value)}
-          className={`h-11 min-w-11 rounded-lg px-2 text-xs font-semibold transition ${
-            simSpeed === option.value
-              ? 'bg-cyan-500/30 text-cyan-100'
-              : 'bg-white/5 text-white/70 hover:bg-white/10'
+          onClick={() => setSimSpeed(s.value)}
+          className={`h-9 min-w-9 rounded-full px-2 text-xs font-medium transition-colors ${
+            simSpeed === s.value
+              ? 'bg-white text-black'
+              : 'text-white/40 hover:text-white/70'
           }`}
         >
-          {option.label}
+          {s.label}
         </button>
       ))}
     </div>
