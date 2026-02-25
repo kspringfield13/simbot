@@ -71,8 +71,8 @@ export function Robot() {
         groupRef.current.rotation.y += diff * rotSpeed;
 
         if (absDiff > 1.0) {
-          // Large angle — decelerate to turn in place
-          currentSpeedRef.current = THREE.MathUtils.lerp(currentSpeedRef.current, 0.15, 0.08);
+          // Large angle — stop and turn in place before walking
+          currentSpeedRef.current = THREE.MathUtils.lerp(currentSpeedRef.current, 0, 0.12);
         } else {
           // Target speed: full speed normally, decelerate near waypoint
           const targetSpeed = distance < 0.6 ? 0.5 : distance < 1.2 ? 0.9 : 1.3;
