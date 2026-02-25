@@ -1,49 +1,60 @@
-import { useRef, useMemo } from 'react';
+import { useRef, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { useGLTF } from '@react-three/drei';
+import { useGLTF, useAnimations } from '@react-three/drei';
 import { useStore } from '../../stores/useStore';
 import { getAvoidanceForce } from '../../systems/ObstacleMap';
 import * as THREE from 'three';
 
 /*
- * Tesla Optimus: single mesh, 6 material groups.
- * Model is ~16.6 units tall. We split it into body part groups via clipping planes
- * on separate copies, each in its own group node for bone-like animation.
- *
- * Approach: duplicate the model for each body part, clip vertices outside
- * the part's Y range by making them transparent, and rotate each group
- * around its pivot point. This gives us articulated animation without
- * needing a real skeleton.
- *
- * Simpler approach: just animate the whole model with procedural body motion
- * (bob, lean, sway) and add a helper skeleton overlay for limb indication.
- * Since the mesh is a single draw call, we get great performance.
+ * Tesla Optimus — rigged via Blender headless auto-rig.
+ * 24 joints, 5 animations: Walk, Idle, Run, Work, Wave
+ * Envelope-weighted skinning on 93K vertices.
  */
 
 const ROBOT_SCALE = 0.22;
 
+const TASK_ANIM_MAP: Record<string, string> = {
+  dishes: 'Work',
+  scrubbing: 'Work',
+  cooking: 'Work',
+  cleaning: 'Work',
+  vacuuming: 'Walk',
+  sweeping: 'Walk',
+  'bed-making': 'Wave',
+  laundry: 'Wave',
+  organizing: 'Work',
+  'grocery-list': 'Idle',
+  general: 'Work',
+};
+
 export function Robot() {
   const groupRef = useRef<THREE.Group>(null);
-  const modelRef = useRef<THREE.Group>(null);
-  const headGroupRef = useRef<THREE.Group>(null);
   const currentSpeedRef = useRef(0);
-  const walkPhaseRef = useRef(0);
-  const animTimeRef = useRef(0);
+  const currentAnimRef = useRef<string>('Idle');
 
-  const { scene } = useGLTF('/models/optimus.glb');
+  const { scene, animations } = useGLTF('/models/optimus-rigged.glb');
 
-  // Split model into head (y > 11.5) and body groups for basic articulation
-  const { bodyScene } = useMemo(() => {
-    const clone = scene.clone(true);
-    clone.traverse((child: any) => {
-      if (child.isMesh) {
+  // Setup shadows
+  useEffect(() => {
+    scene.traverse((child: any) => {
+      if (child.isMesh || child.isSkinnedMesh) {
         child.castShadow = true;
         child.receiveShadow = true;
+        // Enhance materials for Optimus look
+        if (child.material) {
+          const mats = Array.isArray(child.material) ? child.material : [child.material];
+          mats.forEach((m: any) => {
+            if (m.isMeshStandardMaterial) {
+              m.metalness = Math.max(m.metalness, 0.3);
+              m.roughness = Math.min(m.roughness, 0.6);
+            }
+          });
+        }
       }
     });
-
-    return { bodyScene: clone };
   }, [scene]);
+
+  const { actions, mixer } = useAnimations(animations, groupRef);
 
   const {
     robotPosition,
@@ -55,12 +66,34 @@ export function Robot() {
     setRobotRotationY,
   } = useStore();
 
+  // Crossfade to animation
+  const playAnim = (name: string, fadeTime = 0.35) => {
+    if (currentAnimRef.current === name) return;
+    const prev = actions[currentAnimRef.current];
+    const next = actions[name];
+    if (!next) return;
+
+    if (prev) prev.fadeOut(fadeTime);
+    next.reset().fadeIn(fadeTime).play();
+    currentAnimRef.current = name;
+  };
+
+  // Start with idle
+  useEffect(() => {
+    const idle = actions['Idle'];
+    if (idle) {
+      idle.play();
+      currentAnimRef.current = 'Idle';
+    }
+  }, [actions]);
+
   useFrame((_, delta) => {
-    if (!groupRef.current || !modelRef.current) return;
+    if (!groupRef.current) return;
 
     const timeScale = Math.max(simSpeed, 0);
     const scaledDelta = Math.min(delta * timeScale, 0.08);
-    if (timeScale > 0) animTimeRef.current += scaledDelta;
+
+    if (mixer) mixer.timeScale = timeScale;
 
     // === MOVEMENT ===
     if (timeScale > 0 && robotTarget && robotState === 'walking') {
@@ -105,110 +138,60 @@ export function Robot() {
           robotPosition[2] + (steerZ / steerLen) * speed,
         ]);
 
-        walkPhaseRef.current += currentSpeedRef.current * scaledDelta * 3.0;
+        // Walk vs Run based on speed
+        if (currentSpeedRef.current > 2.0) {
+          playAnim('Run', 0.3);
+          const runAction = actions['Run'];
+          if (runAction) runAction.timeScale = currentSpeedRef.current / 2.2;
+        } else {
+          playAnim('Walk', 0.3);
+          const walkAction = actions['Walk'];
+          if (walkAction) walkAction.timeScale = Math.max(currentSpeedRef.current / 1.2, 0.4);
+        }
       } else {
         currentSpeedRef.current = THREE.MathUtils.lerp(currentSpeedRef.current, 0, 0.15);
       }
     } else if (timeScale > 0 && robotState === 'idle') {
       currentSpeedRef.current = THREE.MathUtils.lerp(currentSpeedRef.current, 0, 0.1);
+      playAnim('Idle', 0.5);
+    } else if (timeScale > 0 && robotState === 'working') {
+      currentSpeedRef.current = 0;
+      const animName = TASK_ANIM_MAP[currentAnimation] ?? 'Work';
+      playAnim(animName, 0.4);
+
+      // Vacuuming: robot moves around area
+      if (currentAnimation === 'vacuuming') {
+        const t = performance.now() / 1000;
+        groupRef.current.position.x = robotPosition[0] + Math.sin(t * 0.4) * 0.4;
+        groupRef.current.position.z = robotPosition[2] + Math.cos(t * 0.55) * 0.4;
+        return;
+      }
     }
 
     groupRef.current.position.set(robotPosition[0], robotPosition[1], robotPosition[2]);
     setRobotRotationY(groupRef.current.rotation.y);
-
-    const t = animTimeRef.current;
-    const wp = walkPhaseRef.current;
-    const sf = Math.min(currentSpeedRef.current / 2.6, 1);
-
-    // === BODY ANIMATION ===
-    // Since the mesh is a single piece, we animate the model group for full-body motion
-    // and use the head group for head-specific movement.
-
-    if (robotState === 'walking') {
-      // Walk bob
-      const bob = Math.abs(Math.sin(wp)) * 0.15 * sf;
-      modelRef.current.position.y = bob;
-
-      // Forward lean at speed
-      modelRef.current.rotation.x = THREE.MathUtils.lerp(modelRef.current.rotation.x, -sf * 0.06, 0.08);
-      // Lateral sway (hip shift)
-      modelRef.current.rotation.z = THREE.MathUtils.lerp(modelRef.current.rotation.z, Math.sin(wp) * 0.035 * sf, 0.1);
-      // Pelvis twist
-      modelRef.current.rotation.y = THREE.MathUtils.lerp(modelRef.current.rotation.y, Math.sin(wp) * 0.04 * sf, 0.08);
-
-    } else if (robotState === 'idle') {
-      const breath = Math.sin(t * 1.8) * 0.02;
-      modelRef.current.position.y = THREE.MathUtils.lerp(modelRef.current.position.y, breath, 0.05);
-      modelRef.current.rotation.x = THREE.MathUtils.lerp(modelRef.current.rotation.x, 0, 0.03);
-      modelRef.current.rotation.z = THREE.MathUtils.lerp(modelRef.current.rotation.z, Math.sin(t * 0.4) * 0.008, 0.02);
-      modelRef.current.rotation.y = THREE.MathUtils.lerp(modelRef.current.rotation.y, Math.sin(t * 0.25) * 0.015, 0.02);
-
-    } else if (robotState === 'working') {
-      const workSpeed = currentAnimation === 'scrubbing' || currentAnimation === 'dishes' ? 3.5
-        : currentAnimation === 'vacuuming' ? 1.8 : 2.0;
-      const intensity = currentAnimation === 'scrubbing' ? 0.04
-        : currentAnimation === 'vacuuming' ? 0.03 : 0.02;
-
-      modelRef.current.position.y = Math.sin(t * workSpeed) * intensity * 3;
-      modelRef.current.rotation.x = THREE.MathUtils.lerp(modelRef.current.rotation.x, -0.06, 0.03);
-      modelRef.current.rotation.y = THREE.MathUtils.lerp(modelRef.current.rotation.y, Math.sin(t * workSpeed * 0.5) * 0.08, 0.05);
-      modelRef.current.rotation.z = THREE.MathUtils.lerp(modelRef.current.rotation.z, Math.sin(t * workSpeed) * 0.03, 0.05);
-
-      if (currentAnimation === 'vacuuming') {
-        groupRef.current.position.x = robotPosition[0] + Math.sin(t * 0.4) * 0.4;
-        groupRef.current.position.z = robotPosition[2] + Math.cos(t * 0.55) * 0.4;
-      }
-    }
-
-    // Head can move independently — scan/look around
-    // Since head meshes are part of the same geometry, we animate via a parent transform node
-    // The headGroupRef wraps the pivot point near the neck
-    if (headGroupRef.current) {
-      if (robotState === 'idle') {
-        headGroupRef.current.rotation.y = THREE.MathUtils.lerp(
-          headGroupRef.current.rotation.y,
-          Math.sin(t * 0.25) * 0.15 + Math.sin(t * 0.7) * 0.05, 0.015);
-        headGroupRef.current.rotation.x = THREE.MathUtils.lerp(
-          headGroupRef.current.rotation.x,
-          Math.sin(t * 0.35) * 0.05, 0.015);
-      } else if (robotState === 'walking') {
-        // Head stabilizes (counter-rotates vs body sway)
-        headGroupRef.current.rotation.y = THREE.MathUtils.lerp(
-          headGroupRef.current.rotation.y,
-          -Math.sin(wp) * 0.02 * sf, 0.05);
-        headGroupRef.current.rotation.x = THREE.MathUtils.lerp(
-          headGroupRef.current.rotation.x, -0.03, 0.05);
-      } else if (robotState === 'working') {
-        // Head looks down at work surface with focused small movements
-        const focusX = currentAnimation === 'scrubbing' || currentAnimation === 'dishes'
-          ? -0.18 + Math.sin(t * 2.5) * 0.03  // look closely at hands
-          : currentAnimation === 'vacuuming'
-          ? -0.08 + Math.sin(t * 1.8) * 0.04  // scan floor ahead
-          : -0.12 + Math.sin(t * 1.2) * 0.03; // general downward focus
-        const focusY = currentAnimation === 'vacuuming'
-          ? Math.sin(t * 0.4) * 0.15  // track vacuum path
-          : Math.sin(t * 0.8) * 0.05; // subtle task-tracking
-        headGroupRef.current.rotation.x = THREE.MathUtils.lerp(
-          headGroupRef.current.rotation.x, focusX, 0.04);
-        headGroupRef.current.rotation.y = THREE.MathUtils.lerp(
-          headGroupRef.current.rotation.y, focusY, 0.04);
-      }
-    }
   });
 
   return (
     <group ref={groupRef}>
-      <group ref={modelRef} scale={[ROBOT_SCALE, ROBOT_SCALE, ROBOT_SCALE]}>
-        <primitive object={bodyScene} />
-      </group>
+      <primitive
+        object={scene}
+        scale={[ROBOT_SCALE, ROBOT_SCALE, ROBOT_SCALE]}
+      />
       {/* Ground glow */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.004, 0]}>
         <circleGeometry args={[0.4, 32]} />
-        <meshStandardMaterial color="#00b8e8" emissive="#00b8e8" emissiveIntensity={0.2} transparent opacity={0.1} />
+        <meshStandardMaterial
+          color="#00b8e8"
+          emissive="#00b8e8"
+          emissiveIntensity={0.2}
+          transparent
+          opacity={0.1}
+        />
       </mesh>
       <pointLight position={[0, 1.0, 0.3]} color="#00b8e8" intensity={0.25} distance={3} />
     </group>
   );
 }
 
-useGLTF.preload('/models/optimus.glb');
+useGLTF.preload('/models/optimus-rigged.glb');
