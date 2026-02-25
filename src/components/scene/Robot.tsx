@@ -6,7 +6,9 @@ import { getAvoidanceForce } from '../../systems/ObstacleMap';
 import * as THREE from 'three';
 
 // Robot height in model units is ~3.76. We want ~1.7 scene units tall.
-const ROBOT_SCALE = 0.45;
+// Model is 3.76 units tall. Rooms are 8x8 with 2.8 wall height.
+// A human-scale robot should be ~0.8-0.9 scene units tall (roughly 1/3 wall height)
+const ROBOT_SCALE = 0.22;
 
 export function Robot() {
   const groupRef = useRef<THREE.Group>(null);
