@@ -40,7 +40,9 @@ export function GameUI() {
   };
 
   const { timeText } = formatSimClock(simMinutes);
-  const isFreeCam = cameraMode === 'overview';
+  const modeIcon = cameraMode === 'follow' ? '🎯' : cameraMode === 'pov' ? '👤' : '👁';
+  const nextMode = cameraMode === 'follow' ? 'pov' : cameraMode === 'pov' ? 'overview' : 'follow';
+  const modeLabel = cameraMode === 'follow' ? 'First person' : cameraMode === 'pov' ? 'Free roam' : 'Follow robot';
 
   return (
     <>
@@ -59,15 +61,11 @@ export function GameUI() {
         <SpeedControls />
         <button
           type="button"
-          onClick={() => setCameraMode(isFreeCam ? 'follow' : 'overview')}
-          className={`pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full border transition-all ${
-            isFreeCam
-              ? 'border-white/20 bg-white/15 text-white'
-              : 'border-white/8 bg-black/50 text-white/40 hover:text-white/70'
-          } backdrop-blur-md`}
-          title={isFreeCam ? 'Follow robot' : 'Free camera'}
+          onClick={() => setCameraMode(nextMode)}
+          className="pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-black/50 text-white/60 hover:text-white/90 backdrop-blur-md transition-all"
+          title={modeLabel}
         >
-          {isFreeCam ? '👁' : '🎯'}
+          {modeIcon}
         </button>
       </div>
 

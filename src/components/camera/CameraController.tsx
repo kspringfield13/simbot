@@ -42,15 +42,16 @@ function getFollowPose(
   const x = robotPosition[0];
   const z = robotPosition[2];
 
-  const distance = 10;
-  const height = 5;
+  // Slightly overhead third-person — high angle so walls don't block
+  const distance = 6;
+  const height = 14;
 
   const behindX = x - (Math.sin(robotRotationY) * distance);
   const behindZ = z - (Math.cos(robotRotationY) * distance);
 
   return {
     position: new THREE.Vector3(behindX, height, behindZ),
-    target: new THREE.Vector3(x, 1.1, z),
+    target: new THREE.Vector3(x, 0, z),
   };
 }
 
