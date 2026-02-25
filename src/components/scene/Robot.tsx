@@ -13,7 +13,7 @@ import * as THREE from 'three';
  */
 
 // XBot is ~1.8 units tall. Target ~0.83 scene units.
-const ROBOT_SCALE = 0.46;
+const ROBOT_SCALE = 1.55;
 
 const TASK_ANIM_MAP: Record<string, string> = {
   dishes: 'idle',
