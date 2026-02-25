@@ -233,6 +233,6 @@ export const useStore = create<SimBotStore>((set) => ({
 
   demoMode: false,
   setDemoMode: (enabled) => set({ demoMode: enabled }),
-  overrideUntilSimMinute: initialSimMinutes,
+  overrideUntilSimMinute: 0,
   setOverrideUntil: (simMinute) => set({ overrideUntilSimMinute: simMinute }),
 }));

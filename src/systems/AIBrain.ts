@@ -318,17 +318,16 @@ export function AIBrain() {
       s.setRobotMood('happy');
     }
 
-    // Demo mode handles its own tasks
-    if (s.demoMode) return;
+    // AI always runs — no demo mode gate
 
     if (nextDecisionRef.current <= 0) {
-      nextDecisionRef.current = now + rand(10, 20);
+      nextDecisionRef.current = now + rand(2, 5); // start quickly
       return;
     }
     if (now < nextDecisionRef.current) return;
 
-    // Respect user tasks
-    if (s.tasks.some((t) => ACTIVE_STATUSES.has(t.status) && t.source !== 'ai')) {
+    // If user gave a command, let it finish
+    if (s.tasks.some((t) => ACTIVE_STATUSES.has(t.status) && t.source === 'user')) {
       nextDecisionRef.current = now + rand(8, 14);
       return;
     }

@@ -1,8 +1,7 @@
 import { Canvas } from '@react-three/fiber';
-import { GameUI } from './components/game/GameUI';
 import { HomeScene } from './components/scene/HomeScene';
 import { RobotTerminal } from './components/ui/RobotTerminal';
-import { NeedsIndicator } from './components/ui/NeedsIndicator';
+import { TaskProcessor } from './components/systems/TaskProcessor';
 
 function App() {
   return (
@@ -20,9 +19,8 @@ function App() {
         <HomeScene />
       </Canvas>
 
+      <TaskProcessor />
       <RobotTerminal />
-      <NeedsIndicator />
-      <GameUI />
     </div>
   );
 }
