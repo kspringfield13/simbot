@@ -64,19 +64,11 @@ export function KitchenFurniture() {
       <GLBModel url="/models/coffee-machine.glb" position={[2.8 * S, 0.9 * S, -9.4 * S]} scale={1.4 * S} />
       <GLBModel url="/models/toaster.glb" position={[5 * S, 0.9 * S, -9.4 * S]} scale={1.4 * S} />
 
-      <GLBModel url="/models/kitchen-bar.glb" position={[3 * S, 0, -6 * S]} scale={2.0 * S} />
-      <GLBModel url="/models/kitchen-bar-mid.glb" position={[4.2 * S, 0, -6 * S]} scale={2.0 * S} />
-      <GLBModel url="/models/kitchen-bar.glb" position={[5.4 * S, 0, -6 * S]} scale={2.0 * S} />
-
-      <GLBModel url="/models/bar-stool.glb" position={[3 * S, 0, -5 * S]} scale={1.8 * S} rotation={[0, PI, 0]} />
-      <GLBModel url="/models/bar-stool.glb" position={[4.2 * S, 0, -5 * S]} scale={1.8 * S} rotation={[0, PI, 0]} />
-      <GLBModel url="/models/bar-stool.glb" position={[5.4 * S, 0, -5 * S]} scale={1.8 * S} rotation={[0, PI, 0]} />
-
-      <GLBModel url="/models/coffee-table.glb" position={[1.5 * S, 0, -4 * S]} scale={2.2 * S} />
-      <GLBModel url="/models/modern-chair.glb" position={[0.5 * S, 0, -4 * S]} scale={1.8 * S} rotation={[0, PI / 2, 0]} />
-      <GLBModel url="/models/modern-chair.glb" position={[2.5 * S, 0, -4 * S]} scale={1.8 * S} rotation={[0, -PI / 2, 0]} />
-      <GLBModel url="/models/modern-chair.glb" position={[1.5 * S, 0, -3.2 * S]} scale={1.8 * S} rotation={[0, PI, 0]} />
-      <GLBModel url="/models/modern-chair.glb" position={[1.5 * S, 0, -4.8 * S]} scale={1.8 * S} />
+      {/* Kitchen island with 2 stools — centered, open space around it */}
+      <GLBModel url="/models/kitchen-bar.glb" position={[3.5 * S, 0, -6 * S]} scale={2.0 * S} />
+      <GLBModel url="/models/kitchen-bar-mid.glb" position={[4.5 * S, 0, -6 * S]} scale={2.0 * S} />
+      <GLBModel url="/models/bar-stool.glb" position={[3.5 * S, 0, -4.8 * S]} scale={1.8 * S} rotation={[0, PI, 0]} />
+      <GLBModel url="/models/bar-stool.glb" position={[4.5 * S, 0, -4.8 * S]} scale={1.8 * S} rotation={[0, PI, 0]} />
 
       <GLBModel url="/models/trashcan.glb" position={[7.4 * S, 0, -5.5 * S]} scale={1.6 * S} />
       <GLBModel url="/models/plant1.glb" position={[7.4 * S, 0, -2.8 * S]} scale={1.5 * S} />

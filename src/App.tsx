@@ -2,10 +2,17 @@ import { Canvas } from '@react-three/fiber';
 import { HomeScene } from './components/scene/HomeScene';
 import { RobotTerminal } from './components/ui/RobotTerminal';
 import { TaskProcessor } from './components/systems/TaskProcessor';
+import { useAmbientSounds } from './hooks/useAmbientSounds';
+
+function AmbientSounds() {
+  useAmbientSounds();
+  return null;
+}
 
 function App() {
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-black">
+      <AmbientSounds />
       <Canvas
         shadows="soft"
         camera={{ position: [28, 32, 28], fov: 48, near: 0.1, far: 250 }}
