@@ -16,6 +16,7 @@ import {
   LivingRoomFurniture,
 } from './FurnitureModels';
 import { Robot } from './Robot';
+import { WindowGlow } from './WindowGlow';
 // ThoughtBubble removed — replaced by RobotTerminal overlay
 
 const S = 2; // environment scale
@@ -93,7 +94,7 @@ export function HomeScene() {
       <LaundryClosetFurniture />
 
       <Robot />
-      {/* ThoughtBubble removed — replaced by terminal overlay in App */}
+      <WindowGlow />
 
       <Environment preset="apartment" background={false} environmentIntensity={0.15} />
 
