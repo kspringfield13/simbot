@@ -17,6 +17,7 @@ import {
 } from './FurnitureModels';
 import { Robot } from './Robot';
 import { WindowGlow } from './WindowGlow';
+import { DustMotes } from './DustMotes';
 // ThoughtBubble removed — replaced by RobotTerminal overlay
 
 const S = 2; // environment scale
@@ -95,6 +96,7 @@ export function HomeScene() {
 
       <Robot />
       <WindowGlow />
+      <DustMotes />
 
       <Environment preset="apartment" background={false} environmentIntensity={0.15} />
 
