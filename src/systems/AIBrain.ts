@@ -7,6 +7,15 @@ import type { RoomId } from '../types';
 
 const ACTIVE_STATUSES = new Set(['queued', 'walking', 'working']);
 
+// Robot personality traits — influences decision-making and work style
+const personality = {
+  urgency: 0.7,        // 0-1: how quickly it responds to dirty rooms (higher = lower score threshold)
+  thoroughness: 0.8,   // 0-1: affects work duration multiplier (higher = longer, more thorough cleaning)
+  preferredRooms: ['kitchen', 'bathroom'] as RoomId[],  // gets a scoring bonus for these rooms
+  preferredRoomBonus: 8,  // extra score points for preferred rooms
+  breakFrequency: 3,   // consecutive tasks before taking a break (lower = more breaks)
+} as const;
+
 function randomRange(min: number, max: number): number {
   return min + Math.random() * (max - min);
 }
@@ -135,8 +144,8 @@ export function AIBrain() {
       return;
     }
 
-    // After consecutive tasks, take a natural break
-    if (consecutiveTasksRef.current >= 3) {
+    // After consecutive tasks, take a natural break (personality-driven)
+    if (consecutiveTasksRef.current >= personality.breakFrequency) {
       consecutiveTasksRef.current = 0;
       state.setRobotThought('Taking a brief pause between routines.');
       state.setRobotMood('content');
@@ -149,7 +158,11 @@ export function AIBrain() {
     for (const room of rooms) {
       const roomNeed = state.roomNeeds[room.id];
       if (!roomNeed) continue;
-      const score = scoreRoomAttention(room.id, roomNeed, state.simPeriod, state.robotPosition);
+      let score = scoreRoomAttention(room.id, roomNeed, state.simPeriod, state.robotPosition);
+      // Personality: bonus for preferred rooms
+      if ((personality.preferredRooms as readonly string[]).includes(room.id)) {
+        score += personality.preferredRoomBonus;
+      }
       roomScores.push({ id: room.id, score });
     }
     roomScores.sort((a, b) => b.score - a.score);
@@ -166,8 +179,12 @@ export function AIBrain() {
       targetRoom = roomScores[1];
     }
 
-    if (targetRoom.score >= 25) {
+    // Personality: urgency lowers the threshold to act (0.7 urgency → threshold ~20)
+    const scoreThreshold = 25 * (1.2 - personality.urgency * 0.4);
+    if (targetRoom.score >= scoreThreshold) {
       const autoTask = buildAutonomousTask(targetRoom.id, state.simPeriod);
+      // Personality: thoroughness scales work duration (0.8 → 1.1x duration)
+      autoTask.workDuration = Math.round(autoTask.workDuration * (0.7 + personality.thoroughness * 0.5));
       const roomName = rooms.find((room) => room.id === targetRoom.id)?.name ?? targetRoom.id;
 
       // Pick a natural transition thought, context-aware by time of day
