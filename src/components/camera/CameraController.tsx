@@ -26,8 +26,8 @@ const OVERVIEW_DIRECTION = new THREE.Vector3(0.66, 0.72, 0.64).normalize();
 function getOverviewPose(snapTarget?: [number, number, number] | null): CameraPose {
   const target = snapTarget
     ? new THREE.Vector3(snapTarget[0], 0, snapTarget[2])
-    : new THREE.Vector3(0, 0, -1);
-  const distance = 20;
+    : new THREE.Vector3(0, 0, -2);
+  const distance = 40;
 
   return {
     target,
@@ -42,8 +42,8 @@ function getFollowPose(
   const x = robotPosition[0];
   const z = robotPosition[2];
 
-  const distance = 6;
-  const height = 3.2;
+  const distance = 10;
+  const height = 5;
 
   const behindX = x - (Math.sin(robotRotationY) * distance);
   const behindZ = z - (Math.cos(robotRotationY) * distance);
@@ -112,8 +112,8 @@ export function CameraController() {
   const { camera, gl } = useThree();
 
   const orbitConfig = useMemo(() => ({
-    minDistance: 3,
-    maxDistance: 30,
+    minDistance: 5,
+    maxDistance: 60,
     minPolarAngle: 0.28,
     maxPolarAngle: Math.PI / 2.04,
   }), []);
@@ -170,8 +170,8 @@ export function CameraController() {
     controls.touches.TWO = THREE.TOUCH.DOLLY_ROTATE;
 
     if (state.cameraMode === 'follow') {
-      controls.minDistance = 2.6;
-      controls.maxDistance = 14;
+      controls.minDistance = 4;
+      controls.maxDistance = 25;
       controls.minPolarAngle = 0.15;
       controls.maxPolarAngle = Math.PI / 1.9;
     } else if (state.cameraMode === 'pov') {
@@ -221,8 +221,8 @@ export function CameraController() {
       zoomSpeed={0.78}
       rotateSpeed={0.56}
       panSpeed={0.7}
-      minDistance={3}
-      maxDistance={30}
+      minDistance={5}
+      maxDistance={60}
     />
   );
 }

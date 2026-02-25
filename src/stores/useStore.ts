@@ -86,7 +86,7 @@ interface SimBotStore {
 const initialSimMinutes = (7 * 60) + 20;
 
 export const useStore = create<SimBotStore>((set) => ({
-  robotPosition: [0, 0, -1],
+  robotPosition: [0, 0, -2],
   robotTarget: null,
   robotState: 'idle',
   robotPath: [],

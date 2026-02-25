@@ -18,6 +18,8 @@ import {
 import { Robot } from './Robot';
 import { ThoughtBubble } from '../game/ThoughtBubble';
 
+const S = 2; // environment scale
+
 export function HomeScene() {
   const simMinutes = useStore((state) => state.simMinutes);
   const cameraMode = useStore((state) => state.cameraMode);
@@ -34,45 +36,47 @@ export function HomeScene() {
       <hemisphereLight color={lighting.hemisphereColor} groundColor="#1a150e" intensity={0.3} />
 
       <directionalLight
-        position={[8, 20, 6]}
+        position={[8 * S, 20 * S, 6 * S]}
         intensity={lighting.sunIntensity}
         castShadow
         shadow-mapSize-width={4096}
         shadow-mapSize-height={4096}
-        shadow-camera-far={50}
-        shadow-camera-left={-14}
-        shadow-camera-right={14}
-        shadow-camera-top={14}
-        shadow-camera-bottom={-14}
+        shadow-camera-far={80}
+        shadow-camera-left={-20 * S}
+        shadow-camera-right={20 * S}
+        shadow-camera-top={20 * S}
+        shadow-camera-bottom={-20 * S}
         shadow-bias={-0.0003}
         shadow-normalBias={0.02}
         color={lighting.sunColor}
       />
-      <directionalLight position={[-6, 10, -4]} intensity={0.25} color="#c8dbef" />
+      <directionalLight position={[-6 * S, 10 * S, -4 * S]} intensity={0.25} color="#c8dbef" />
 
-      <pointLight position={[-4, 2.5, -6]} intensity={0.6} color="#ffe8c0" distance={12} decay={2} />
-      <pointLight position={[4, 2.5, -6]} intensity={0.7} color="#fff0d0" distance={12} decay={2} />
-      <pointLight position={[-4, 2.5, 4]} intensity={0.45} color="#e0e0ff" distance={12} decay={2} />
-      <pointLight position={[4, 2.5, 4]} intensity={0.55} color="#f0f5ff" distance={12} decay={2} />
-      <pointLight position={[0, 2.5, -1]} intensity={0.35} color="#ffe0b0" distance={8} decay={2} />
-      <pointLight position={[5, 2.5, -1]} intensity={0.3} color="#fff5e0" distance={4} decay={2} />
+      <pointLight position={[-4 * S, 2.5 * S, -6 * S]} intensity={0.6} color="#ffe8c0" distance={12 * S} decay={2} />
+      <pointLight position={[4 * S, 2.5 * S, -6 * S]} intensity={0.7} color="#fff0d0" distance={12 * S} decay={2} />
+      <pointLight position={[-4 * S, 2.5 * S, 4 * S]} intensity={0.45} color="#e0e0ff" distance={12 * S} decay={2} />
+      <pointLight position={[4 * S, 2.5 * S, 4 * S]} intensity={0.55} color="#f0f5ff" distance={12 * S} decay={2} />
+      <pointLight position={[0, 2.5 * S, -1 * S]} intensity={0.35} color="#ffe0b0" distance={8 * S} decay={2} />
+      <pointLight position={[5 * S, 2.5 * S, -1 * S]} intensity={0.3} color="#fff5e0" distance={4 * S} decay={2} />
 
       <ContactShadows
-        position={[0, 0, 1]}
+        position={[0, 0, -1 * S]}
         opacity={0.4}
-        scale={30}
+        scale={50}
         blur={2.6}
-        far={5}
+        far={8}
         color="#000"
       />
 
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.005, -1]} receiveShadow>
-        <planeGeometry args={[24, 24]} />
+      {/* House floor */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.005, -1 * S]} receiveShadow>
+        <planeGeometry args={[40, 40]} />
         <meshStandardMaterial color="#1c1a17" roughness={0.85} metalness={0.05} />
       </mesh>
 
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, -1]}>
-        <planeGeometry args={[100, 100]} />
+      {/* Ground beyond house */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, -1 * S]}>
+        <planeGeometry args={[200, 200]} />
         <meshStandardMaterial color="#0e0d0c" roughness={1} />
       </mesh>
 
@@ -97,8 +101,8 @@ export function HomeScene() {
         attach="fog"
         args={[
           '#0c0b0a',
-          cameraMode === 'overview' ? 20 : 12,
-          cameraMode === 'overview' ? 48 : 34,
+          cameraMode === 'overview' ? 30 * S : 16 * S,
+          cameraMode === 'overview' ? 60 * S : 45 * S,
         ]}
       />
 

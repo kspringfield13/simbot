@@ -7,7 +7,7 @@ function App() {
     <div className="relative h-screen w-screen overflow-hidden bg-black">
       <Canvas
         shadows="soft"
-        camera={{ position: [14, 16, 14], fov: 48, near: 0.1, far: 120 }}
+        camera={{ position: [28, 32, 28], fov: 48, near: 0.1, far: 250 }}
         gl={{
           antialias: true,
           toneMapping: 3,
