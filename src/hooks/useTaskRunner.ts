@@ -2,126 +2,340 @@ import { useCallback, useEffect, useRef } from 'react';
 import { useStore } from '../stores/useStore';
 import { findTaskTarget } from '../utils/homeLayout';
 import { getNavigationPath } from '../utils/pathfinding';
-import type { Task } from '../types';
+import { demoCommands } from '../utils/demoTasks';
+import type { Task, TaskSource, TaskType } from '../types';
+
+const ACTIVE_STATUSES = new Set(['queued', 'walking', 'working']);
+
+const completionMessages: Record<TaskType, string> = {
+  dishes: 'Dishes complete. Kitchen is reset.',
+  cooking: 'Meal prep complete. Kitchen is warm and ready.',
+  vacuuming: 'Vacuuming complete. Floor pass done.',
+  cleaning: 'Cleanup complete. Area looks fresh.',
+  'bed-making': 'Bed made. Bedroom looks reset.',
+  laundry: 'Laundry cycle done and folded.',
+  organizing: 'Organization complete. Items are back in place.',
+  scrubbing: 'Bathroom scrub complete. Surfaces are spotless.',
+  sweeping: 'Sweep complete. Walkways are clear.',
+  'grocery-list': 'Inventory check complete. Grocery list generated.',
+  general: 'Done. Awaiting next priority.',
+};
+
+const completionThoughts: Record<TaskType, string> = {
+  dishes: 'Sink zone is clear now.',
+  cooking: 'Kitchen routine complete.',
+  vacuuming: 'Floors look better after that pass.',
+  cleaning: 'That room feels balanced again.',
+  'bed-making': 'Bed is tidy and ready.',
+  laundry: 'Laundry stack reduced.',
+  organizing: 'Everything is back to a stable state.',
+  scrubbing: 'Bathroom reset complete.',
+  sweeping: 'Traffic path is clean again.',
+  'grocery-list': 'Inventory status updated.',
+  general: 'Monitoring for the next need.',
+};
 
 export const useTaskRunner = () => {
-  const {
-    tasks, addTask, updateTask, removeTask,
-    setRobotTarget, setRobotState, setRobotPath, setCurrentAnimation,
-    robotPosition, addMessage,
-  } = useStore();
-  const timerRef = useRef<number | null>(null);
+  const tasks = useStore((state) => state.tasks);
+  const robotPosition = useStore((state) => state.robotPosition);
+  const demoMode = useStore((state) => state.demoMode);
 
-  const submitCommand = useCallback(
-    (command: string) => {
-      const target = findTaskTarget(command);
-      if (!target) {
-        addMessage({ id: crypto.randomUUID(), sender: 'robot', text: "I'm not sure what to do with that. Try asking me to clean, vacuum, do dishes, or make the bed!", timestamp: Date.now() });
+  const addTask = useStore((state) => state.addTask);
+  const updateTask = useStore((state) => state.updateTask);
+  const removeTask = useStore((state) => state.removeTask);
+  const addMessage = useStore((state) => state.addMessage);
+
+  const setRobotTarget = useStore((state) => state.setRobotTarget);
+  const setRobotPath = useStore((state) => state.setRobotPath);
+  const setRobotState = useStore((state) => state.setRobotState);
+  const setCurrentPathIndex = useStore((state) => state.setCurrentPathIndex);
+  const setCurrentAnimation = useStore((state) => state.setCurrentAnimation);
+  const setRobotThought = useStore((state) => state.setRobotThought);
+  const setRobotMood = useStore((state) => state.setRobotMood);
+  const applyRoomTaskResult = useStore((state) => state.applyRoomTaskResult);
+  const clearQueuedAiTasks = useStore((state) => state.clearQueuedAiTasks);
+  const setOverrideUntil = useStore((state) => state.setOverrideUntil);
+
+  const doorwayPauseTimerRef = useRef<number | null>(null);
+  const doorwayPauseKeyRef = useRef<string | null>(null);
+  const demoIndexRef = useRef(0);
+
+  const submitCommand = useCallback((command: string, source: TaskSource = 'user') => {
+    const trimmed = command.trim();
+    if (!trimmed) return;
+
+    const target = findTaskTarget(trimmed);
+
+    if (!target) {
+      addMessage({
+        id: crypto.randomUUID(),
+        sender: 'robot',
+        text: 'I could not map that command to a task. Try: clean kitchen, vacuum living room, or make the bed.',
+        timestamp: Date.now(),
+      });
+      setRobotThought('Command unclear. Waiting for a clearer instruction.');
+      return;
+    }
+
+    const state = useStore.getState();
+
+    if (source === 'user') {
+      clearQueuedAiTasks();
+      setOverrideUntil(state.simMinutes + 90);
+
+      const blockingAiTasks = state.tasks.filter(
+        (task) => task.source === 'ai' && (task.status === 'walking' || task.status === 'working'),
+      );
+
+      if (blockingAiTasks.length > 0) {
+        for (const task of blockingAiTasks) {
+          removeTask(task.id);
+        }
+
+        setRobotPath([]);
+        setRobotTarget(null);
+        setRobotState('idle');
+        setCurrentAnimation('general');
+      }
+    }
+
+    addMessage({
+      id: crypto.randomUUID(),
+      sender: 'user',
+      text: trimmed,
+      timestamp: Date.now(),
+    });
+
+    const task: Task = {
+      id: crypto.randomUUID(),
+      command: trimmed,
+      source,
+      targetRoom: target.roomId,
+      targetPosition: target.position,
+      status: 'queued',
+      progress: 0,
+      description: target.description,
+      taskType: target.taskType,
+      workDuration: target.workDuration,
+      createdAt: Date.now(),
+    };
+
+    addTask(task);
+    setRobotThought(target.thought);
+    setRobotMood(source === 'ai' ? 'routine' : 'focused');
+
+    addMessage({
+      id: crypto.randomUUID(),
+      sender: 'robot',
+      text: target.response,
+      timestamp: Date.now(),
+    });
+  }, [
+    addMessage,
+    addTask,
+    clearQueuedAiTasks,
+    removeTask,
+    setCurrentAnimation,
+    setOverrideUntil,
+    setRobotMood,
+    setRobotPath,
+    setRobotState,
+    setRobotTarget,
+    setRobotThought,
+  ]);
+
+  useEffect(() => {
+    const state = useStore.getState();
+    const hasActiveTask = state.tasks.some((task) => task.status === 'walking' || task.status === 'working');
+    if (hasActiveTask) return;
+
+    const nextTask = state.tasks
+      .filter((task) => task.status === 'queued')
+      .sort((a, b) => a.createdAt - b.createdAt)[0];
+
+    if (!nextTask) return;
+
+    const path = getNavigationPath(state.robotPosition, nextTask.targetPosition);
+    if (path.length === 0) return;
+
+    setRobotPath(path);
+    setCurrentPathIndex(0);
+    setRobotTarget(path[0].position);
+    setRobotState('walking');
+    setCurrentAnimation('general');
+    setRobotThought(`Heading to ${nextTask.targetRoom.replace('-', ' ')}.`);
+    setRobotMood('focused');
+    updateTask(nextTask.id, { status: 'walking', progress: Math.max(nextTask.progress, 2) });
+  }, [
+    tasks,
+    setCurrentAnimation,
+    setCurrentPathIndex,
+    setRobotMood,
+    setRobotPath,
+    setRobotState,
+    setRobotTarget,
+    setRobotThought,
+    updateTask,
+  ]);
+
+  useEffect(() => {
+    const state = useStore.getState();
+    const activeTask = state.tasks.find((task) => task.status === 'walking');
+    if (!activeTask) {
+      doorwayPauseKeyRef.current = null;
+      return;
+    }
+
+    const currentNode = state.robotPath[state.currentPathIndex];
+    if (!currentNode) return;
+
+    const dx = state.robotPosition[0] - currentNode.position[0];
+    const dz = state.robotPosition[2] - currentNode.position[2];
+    const distance = Math.hypot(dx, dz);
+
+    if (distance > 0.26) return;
+
+    const nextIndex = state.currentPathIndex + 1;
+
+    if (nextIndex < state.robotPath.length) {
+      const nextNode = state.robotPath[nextIndex];
+      if (!nextNode) return;
+
+      const pauseKey = `${activeTask.id}:${state.currentPathIndex}:${currentNode.id}`;
+
+      if (currentNode.pauseAtDoorway && doorwayPauseKeyRef.current !== pauseKey) {
+        doorwayPauseKeyRef.current = pauseKey;
+        setRobotState('idle');
+
+        if (doorwayPauseTimerRef.current) {
+          window.clearTimeout(doorwayPauseTimerRef.current);
+        }
+
+        const pauseMs = 700 / Math.max(state.simSpeed, 1);
+
+        doorwayPauseTimerRef.current = window.setTimeout(() => {
+          const latest = useStore.getState();
+          const walkingTask = latest.tasks.find((task) => task.status === 'walking' && task.id === activeTask.id);
+          if (!walkingTask) return;
+
+          setCurrentPathIndex(nextIndex);
+          setRobotTarget(nextNode.position);
+          setRobotState('walking');
+          doorwayPauseKeyRef.current = null;
+        }, pauseMs);
+
         return;
       }
 
-      addMessage({ id: crypto.randomUUID(), sender: 'user', text: command, timestamp: Date.now() });
-
-      const task: Task = {
-        id: crypto.randomUUID(),
-        command,
-        targetRoom: target.roomId,
-        targetPosition: target.position,
-        status: 'pending',
-        progress: 0,
-        description: target.description,
-        taskType: target.taskType,
-        workDuration: target.workDuration,
-      };
-
-      addTask(task);
-      addMessage({ id: crypto.randomUUID(), sender: 'robot', text: target.response, timestamp: Date.now() });
-    },
-    [addTask, addMessage]
-  );
-
-  // Process pending tasks — calculate path
-  useEffect(() => {
-    const currentTask = tasks.find((t) => t.status === 'pending');
-    if (!currentTask) return;
-
-    // Calculate navigation path through doorways
-    const path = getNavigationPath(robotPosition, currentTask.targetPosition);
-    setRobotPath(path);
-    setRobotTarget(path[0]);
-    setRobotState('walking');
-    updateTask(currentTask.id, { status: 'walking' });
-  }, [tasks, setRobotTarget, setRobotState, updateTask, robotPosition, setRobotPath]);
-
-  // Check if robot arrived at current path waypoint
-  useEffect(() => {
-    const currentTask = tasks.find((t) => t.status === 'walking');
-    if (!currentTask) return;
-
-    const { robotPath, currentPathIndex } = useStore.getState();
-    if (robotPath.length === 0) return;
-
-    const target = robotPath[currentPathIndex];
-    if (!target) return;
-
-    const dx = robotPosition[0] - target[0];
-    const dz = robotPosition[2] - target[2];
-    const dist = Math.sqrt(dx * dx + dz * dz);
-
-    if (dist < 0.25) {
-      // Arrived at waypoint — next waypoint or start working
-      const nextIndex = currentPathIndex + 1;
-      if (nextIndex < robotPath.length) {
-        useStore.getState().setCurrentPathIndex(nextIndex);
-        setRobotTarget(robotPath[nextIndex]);
-      } else {
-        // Arrived at destination — start working
-        updateTask(currentTask.id, { status: 'working' });
-        setRobotState('working');
-        setRobotTarget(null);
-        setCurrentAnimation(currentTask.taskType);
-
-        // Work progress based on task duration
-        let progress = 0;
-        const increment = 100 / (currentTask.workDuration * 10);
-        if (timerRef.current) clearInterval(timerRef.current);
-        timerRef.current = window.setInterval(() => {
-          progress += increment;
-          if (progress >= 100) {
-            updateTask(currentTask.id, { status: 'completed', progress: 100 });
-            setCurrentAnimation('general');
-            setRobotState('idle');
-            setRobotPath([]);
-
-            // Contextual completion messages
-            const completionMsgs: Record<string, string> = {
-              'dishes': 'Dishes are done! Everything is clean and put away. ✨',
-              'cooking': 'Meal is ready! Smells great in here. 🍳',
-              'vacuuming': 'Finished vacuuming! Floors are spotless. 🧹',
-              'cleaning': 'All cleaned up! Looking fresh. ✨',
-              'bed-making': 'Bed is made! Crisp sheets and fluffy pillows. 🛏️',
-              'laundry': 'Laundry is sorted and folded! 👕',
-              'organizing': 'Everything is organized and in its place! 📋',
-              'scrubbing': 'Bathroom is sparkling clean! 🚿',
-              'sweeping': 'Floors are swept! Nice and tidy. 🧹',
-              'grocery-list': 'Checked the fridge — here\'s what we need: milk, eggs, bread, veggies, and chicken. Want me to add anything? 🛒',
-              'general': 'Done! What\'s next? 👍',
-            };
-            addMessage({
-              id: crypto.randomUUID(),
-              sender: 'robot',
-              text: completionMsgs[currentTask.taskType] || 'Done!',
-              timestamp: Date.now(),
-            });
-            if (timerRef.current) clearInterval(timerRef.current);
-            setTimeout(() => removeTask(currentTask.id), 3000);
-          } else {
-            updateTask(currentTask.id, { progress });
-          }
-        }, 100);
-      }
+      setCurrentPathIndex(nextIndex);
+      setRobotTarget(nextNode.position);
+      setRobotState('walking');
+      return;
     }
-  }, [robotPosition, tasks, updateTask, setRobotState, setRobotTarget, addMessage, removeTask, setCurrentAnimation]);
+
+    updateTask(activeTask.id, { status: 'working', progress: Math.max(activeTask.progress, 5) });
+    setRobotState('working');
+    setRobotTarget(null);
+    setRobotPath([]);
+    setCurrentPathIndex(0);
+    setCurrentAnimation(activeTask.taskType);
+    setRobotThought(activeTask.description);
+    doorwayPauseKeyRef.current = null;
+  }, [
+    robotPosition,
+    tasks,
+    setCurrentAnimation,
+    setCurrentPathIndex,
+    setRobotPath,
+    setRobotState,
+    setRobotTarget,
+    setRobotThought,
+    updateTask,
+  ]);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      const state = useStore.getState();
+      const activeTask = state.tasks.find((task) => task.status === 'working');
+      if (!activeTask) return;
+      if (state.simSpeed === 0) return;
+
+      const step = (100 / activeTask.workDuration) * 0.1 * state.simSpeed;
+      const nextProgress = Math.min(100, activeTask.progress + step);
+
+      updateTask(activeTask.id, { progress: nextProgress });
+
+      if (nextProgress < 100) return;
+
+      updateTask(activeTask.id, {
+        status: 'completed',
+        progress: 100,
+      });
+
+      applyRoomTaskResult(activeTask.targetRoom, activeTask.taskType);
+
+      setCurrentAnimation('general');
+      setRobotState('idle');
+      setRobotTarget(null);
+      setRobotMood('content');
+      setRobotThought(completionThoughts[activeTask.taskType] ?? completionThoughts.general);
+
+      addMessage({
+        id: crypto.randomUUID(),
+        sender: 'robot',
+        text: completionMessages[activeTask.taskType] ?? completionMessages.general,
+        timestamp: Date.now(),
+      });
+
+      window.setTimeout(() => {
+        removeTask(activeTask.id);
+      }, 1500);
+    }, 100);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [
+    addMessage,
+    applyRoomTaskResult,
+    removeTask,
+    setCurrentAnimation,
+    setRobotMood,
+    setRobotState,
+    setRobotTarget,
+    setRobotThought,
+    updateTask,
+  ]);
+
+  useEffect(() => {
+    if (!demoMode) {
+      demoIndexRef.current = 0;
+      return;
+    }
+
+    submitCommand(demoCommands[0], 'demo');
+    demoIndexRef.current = 1;
+
+    const interval = window.setInterval(() => {
+      const state = useStore.getState();
+      const hasActiveTask = state.tasks.some((task) => ACTIVE_STATUSES.has(task.status));
+      if (hasActiveTask || state.robotState !== 'idle') return;
+
+      const nextCommand = demoCommands[demoIndexRef.current % demoCommands.length];
+      submitCommand(nextCommand, 'demo');
+      demoIndexRef.current += 1;
+    }, 1800);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [demoMode, submitCommand]);
+
+  useEffect(() => () => {
+    if (doorwayPauseTimerRef.current) {
+      window.clearTimeout(doorwayPauseTimerRef.current);
+    }
+  }, []);
 
   return { submitCommand };
 };

@@ -1,5 +1,13 @@
+export type RoomId =
+  | 'living-room'
+  | 'kitchen'
+  | 'hallway'
+  | 'laundry'
+  | 'bedroom'
+  | 'bathroom';
+
 export interface Room {
-  id: string;
+  id: RoomId;
   name: string;
   position: [number, number, number];
   size: [number, number];
@@ -16,6 +24,13 @@ export interface Furniture {
   interactable?: boolean;
 }
 
+export interface Wall {
+  start: [number, number];
+  end: [number, number];
+  height: number;
+  thickness: number;
+}
+
 export type TaskType =
   | 'cleaning'
   | 'vacuuming'
@@ -29,16 +44,21 @@ export type TaskType =
   | 'grocery-list'
   | 'general';
 
+export type TaskStatus = 'queued' | 'walking' | 'working' | 'completed';
+export type TaskSource = 'user' | 'ai' | 'demo';
+
 export interface Task {
   id: string;
   command: string;
-  targetRoom: string;
+  source: TaskSource;
+  targetRoom: RoomId;
   targetPosition: [number, number, number];
-  status: 'pending' | 'walking' | 'working' | 'completed';
+  status: TaskStatus;
   progress: number;
   description: string;
   taskType: TaskType;
-  workDuration: number; // seconds
+  workDuration: number;
+  createdAt: number;
 }
 
 export interface ChatMessage {
@@ -49,4 +69,31 @@ export interface ChatMessage {
 }
 
 export type RobotState = 'idle' | 'walking' | 'working';
-export type AnimationType = TaskType;
+export type RobotMood = 'content' | 'focused' | 'curious' | 'routine';
+export type CameraMode = 'overview' | 'follow' | 'pov';
+export type SimPeriod = 'morning' | 'afternoon' | 'evening' | 'night';
+
+export interface RoomNeedState {
+  cleanliness: number;
+  tidiness: number;
+  routine: number;
+  decayCleanliness: number;
+  decayTidiness: number;
+  lastServicedAt: number;
+}
+
+export interface NavigationPoint {
+  id: string;
+  position: [number, number, number];
+  pauseAtDoorway?: boolean;
+}
+
+export interface TaskTarget {
+  roomId: RoomId;
+  position: [number, number, number];
+  description: string;
+  taskType: TaskType;
+  workDuration: number;
+  response: string;
+  thought: string;
+}
