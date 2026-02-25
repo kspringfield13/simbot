@@ -33,6 +33,7 @@ export function Robot() {
   const currentAnimRef = useRef<string>('Idle');
 
   const { scene, animations } = useGLTF('/models/optimus-rigged.glb');
+  const sceneRef = useRef<THREE.Group>(null);
 
   // Setup shadows
   useEffect(() => {
@@ -40,7 +41,6 @@ export function Robot() {
       if (child.isMesh || child.isSkinnedMesh) {
         child.castShadow = true;
         child.receiveShadow = true;
-        // Enhance materials for Optimus look
         if (child.material) {
           const mats = Array.isArray(child.material) ? child.material : [child.material];
           mats.forEach((m: any) => {
@@ -54,7 +54,9 @@ export function Robot() {
     });
   }, [scene]);
 
-  const { actions, mixer } = useAnimations(animations, groupRef);
+  // useAnimations needs a ref to the root that contains the animated nodes
+  // Pass scene directly so the mixer finds the bones
+  const { actions, mixer } = useAnimations(animations, sceneRef);
 
   const {
     robotPosition,
@@ -80,10 +82,14 @@ export function Robot() {
 
   // Start with idle
   useEffect(() => {
+    console.log('[Robot] Available animations:', Object.keys(actions));
     const idle = actions['Idle'];
     if (idle) {
-      idle.play();
+      idle.reset().play();
       currentAnimRef.current = 'Idle';
+      console.log('[Robot] Playing Idle animation');
+    } else {
+      console.warn('[Robot] Idle animation not found!');
     }
   }, [actions]);
 
@@ -174,10 +180,9 @@ export function Robot() {
 
   return (
     <group ref={groupRef}>
-      <primitive
-        object={scene}
-        scale={[ROBOT_SCALE, ROBOT_SCALE, ROBOT_SCALE]}
-      />
+      <group ref={sceneRef} scale={[ROBOT_SCALE, ROBOT_SCALE, ROBOT_SCALE]}>
+        <primitive object={scene} />
+      </group>
       {/* Ground glow */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.004, 0]}>
         <circleGeometry args={[0.4, 32]} />
