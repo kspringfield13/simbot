@@ -6,57 +6,49 @@ import { getAvoidanceForce } from '../../systems/ObstacleMap';
 import * as THREE from 'three';
 
 /*
- * Tesla Optimus — rigged via Blender headless auto-rig.
- * 24 joints, 5 animations: Walk, Idle, Run, Work, Wave
- * Envelope-weighted skinning on 93K vertices.
+ * XBot — Mixamo humanoid robot model.
+ * 67 joints (full Mixamo rig), 7 animations: idle, walk, run, agree, headShake, sad_pose, sneak_pose
+ * Properly rigged with professional skinning weights.
+ * Robot aesthetic: metallic angular body, glowing eyes.
  */
 
-const ROBOT_SCALE = 0.22;
+// XBot is ~1.8 units tall. Target ~0.83 scene units.
+const ROBOT_SCALE = 0.46;
 
 const TASK_ANIM_MAP: Record<string, string> = {
-  dishes: 'Work',
-  scrubbing: 'Work',
-  cooking: 'Work',
-  cleaning: 'Work',
-  vacuuming: 'Walk',
-  sweeping: 'Walk',
-  'bed-making': 'Wave',
-  laundry: 'Wave',
-  organizing: 'Work',
-  'grocery-list': 'Idle',
-  general: 'Work',
+  dishes: 'idle',
+  scrubbing: 'idle',
+  cooking: 'idle',
+  cleaning: 'walk',
+  vacuuming: 'walk',
+  sweeping: 'walk',
+  'bed-making': 'idle',
+  laundry: 'idle',
+  organizing: 'idle',
+  'grocery-list': 'idle',
+  general: 'idle',
 };
 
 export function Robot() {
   const groupRef = useRef<THREE.Group>(null);
+  const modelRef = useRef<THREE.Group>(null);
   const currentSpeedRef = useRef(0);
-  const currentAnimRef = useRef<string>('Idle');
+  const currentAnimRef = useRef<string>('idle');
 
-  const { scene, animations } = useGLTF('/models/optimus-rigged.glb');
-  const sceneRef = useRef<THREE.Group>(null);
+  const { scene, animations } = useGLTF('/models/xbot.glb');
 
-  // Setup shadows
+  // Setup shadows and enhance materials
   useEffect(() => {
     scene.traverse((child: any) => {
       if (child.isMesh || child.isSkinnedMesh) {
         child.castShadow = true;
         child.receiveShadow = true;
-        if (child.material) {
-          const mats = Array.isArray(child.material) ? child.material : [child.material];
-          mats.forEach((m: any) => {
-            if (m.isMeshStandardMaterial) {
-              m.metalness = Math.max(m.metalness, 0.3);
-              m.roughness = Math.min(m.roughness, 0.6);
-            }
-          });
-        }
+        child.frustumCulled = false; // Prevent skinned mesh culling
       }
     });
   }, [scene]);
 
-  // useAnimations needs a ref to the root that contains the animated nodes
-  // Pass scene directly so the mixer finds the bones
-  const { actions, mixer } = useAnimations(animations, sceneRef);
+  const { actions, mixer } = useAnimations(animations, modelRef);
 
   const {
     robotPosition,
@@ -71,10 +63,9 @@ export function Robot() {
   // Crossfade to animation
   const playAnim = (name: string, fadeTime = 0.35) => {
     if (currentAnimRef.current === name) return;
+    if (!actions[name]) return;
     const prev = actions[currentAnimRef.current];
-    const next = actions[name];
-    if (!next) return;
-
+    const next = actions[name]!;
     if (prev) prev.fadeOut(fadeTime);
     next.reset().fadeIn(fadeTime).play();
     currentAnimRef.current = name;
@@ -82,18 +73,12 @@ export function Robot() {
 
   // Start with idle
   useEffect(() => {
-    console.log('[Robot] animations:', Object.keys(actions));
-    // Try playing each to verify they work
-    Object.entries(actions).forEach(([name, action]) => {
-      if (action) {
-        console.log(`[Robot] Found animation: ${name}, duration: ${action.getClip().duration}`);
-      }
-    });
-    const idle = actions['Idle'];
+    console.log('[Robot] XBot animations:', Object.keys(actions));
+    const idle = actions['idle'];
     if (idle) {
       idle.reset().play();
-      currentAnimRef.current = 'Idle';
-      console.log('[Robot] ✅ Playing Idle');
+      currentAnimRef.current = 'idle';
+      console.log('[Robot] ✅ Playing idle');
     }
   }, [actions]);
 
@@ -150,12 +135,12 @@ export function Robot() {
 
         // Walk vs Run based on speed
         if (currentSpeedRef.current > 2.0) {
-          playAnim('Run', 0.3);
-          const runAction = actions['Run'];
+          playAnim('run', 0.3);
+          const runAction = actions['run'];
           if (runAction) runAction.timeScale = currentSpeedRef.current / 2.2;
         } else {
-          playAnim('Walk', 0.3);
-          const walkAction = actions['Walk'];
+          playAnim('walk', 0.3);
+          const walkAction = actions['walk'];
           if (walkAction) walkAction.timeScale = Math.max(currentSpeedRef.current / 1.2, 0.4);
         }
       } else {
@@ -163,13 +148,12 @@ export function Robot() {
       }
     } else if (timeScale > 0 && robotState === 'idle') {
       currentSpeedRef.current = THREE.MathUtils.lerp(currentSpeedRef.current, 0, 0.1);
-      playAnim('Idle', 0.5);
+      playAnim('idle', 0.5);
     } else if (timeScale > 0 && robotState === 'working') {
       currentSpeedRef.current = 0;
-      const animName = TASK_ANIM_MAP[currentAnimation] ?? 'Work';
+      const animName = TASK_ANIM_MAP[currentAnimation] ?? 'idle';
       playAnim(animName, 0.4);
 
-      // Vacuuming: robot moves around area
       if (currentAnimation === 'vacuuming') {
         const t = performance.now() / 1000;
         groupRef.current.position.x = robotPosition[0] + Math.sin(t * 0.4) * 0.4;
@@ -184,7 +168,7 @@ export function Robot() {
 
   return (
     <group ref={groupRef}>
-      <group ref={sceneRef} scale={[ROBOT_SCALE, ROBOT_SCALE, ROBOT_SCALE]}>
+      <group ref={modelRef} scale={[ROBOT_SCALE, ROBOT_SCALE, ROBOT_SCALE]}>
         <primitive object={scene} />
       </group>
       {/* Ground glow */}
@@ -203,4 +187,4 @@ export function Robot() {
   );
 }
 
-useGLTF.preload('/models/optimus-rigged.glb');
+useGLTF.preload('/models/xbot.glb');
