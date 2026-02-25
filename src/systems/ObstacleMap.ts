@@ -13,15 +13,17 @@ export const OBSTACLES: Obstacle[] = [
   { x: -7.5 * S, z: -9.3 * S, r: 0.3 * S },
   { x: -7.2 * S, z: -8.5 * S, r: 0.3 * S },
   { x: -7.5 * S, z: -2.8 * S, r: 0.7 * S },
-  // KITCHEN
-  { x: 0.8 * S, z: -9.4 * S, r: 0.5 * S },
-  { x: 4 * S, z: -9.4 * S, r: 0.4 * S },
-  { x: 6 * S, z: -9.4 * S, r: 0.4 * S },
-  { x: 7.4 * S, z: -8.2 * S, r: 0.4 * S },
-  { x: 3 * S, z: -6 * S, r: 0.5 * S },
-  { x: 4.2 * S, z: -6 * S, r: 0.5 * S },
-  { x: 5.4 * S, z: -6 * S, r: 0.5 * S },
-  { x: 1.5 * S, z: -4 * S, r: 0.7 * S },
+  // KITCHEN — back counter (fridge through cabinets along wall)
+  { x: 0.8 * S, z: -9.4 * S, r: 0.6 * S },   // fridge
+  { x: 2.5 * S, z: -9.4 * S, r: 1.2 * S },    // cabinets cluster left
+  { x: 5 * S, z: -9.4 * S, r: 1.5 * S },       // stove+sink+cabinets cluster right
+  { x: 7.4 * S, z: -9 * S, r: 0.6 * S },       // corner cabinet
+  { x: 7.4 * S, z: -8.2 * S, r: 0.6 * S },     // side cabinet+microwave
+  // KITCHEN — island + stools
+  { x: 4 * S, z: -6 * S, r: 1.2 * S },          // island (merged)
+  { x: 3.5 * S, z: -4.8 * S, r: 0.5 * S },     // bar stool left
+  { x: 4.5 * S, z: -4.8 * S, r: 0.5 * S },     // bar stool right
+  { x: 7.4 * S, z: -5.5 * S, r: 0.4 * S },     // trashcan
   // LAUNDRY
   { x: 4.5 * S, z: -1 * S, r: 0.5 * S },
   { x: 5.7 * S, z: -1 * S, r: 0.5 * S },
@@ -80,7 +82,7 @@ export function getAvoidanceForce(
 ): [number, number] {
   let forceX = 0;
   let forceZ = 0;
-  const robotRadius = 0.35;
+  const robotRadius = 0.6;
   for (const obs of OBSTACLES) {
     const dx = posX - obs.x;
     const dz = posZ - obs.z;

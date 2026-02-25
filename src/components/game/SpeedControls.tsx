@@ -18,7 +18,7 @@ export function SpeedControls() {
         <button
           key={s.value}
           type="button"
-          onClick={() => setSimSpeed(s.value)}
+          onClick={() => { if (navigator.vibrate) navigator.vibrate(8); setSimSpeed(s.value); }}
           className={`h-9 min-w-9 rounded-full px-2 text-xs font-medium transition-colors ${
             simSpeed === s.value
               ? 'bg-white text-black'

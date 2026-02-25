@@ -42,9 +42,13 @@ export function Room({ room }: { room: RoomType }) {
 
     setSelectedRoomId(room.id);
 
+    // Haptic feedback on supported devices
+    if (navigator.vibrate) navigator.vibrate(10);
+
     if (delta > 0 && delta < 280) {
       setCameraMode('overview');
       requestCameraSnap([room.position[0], 0, room.position[2]]);
+      if (navigator.vibrate) navigator.vibrate([15, 30, 15]);
     }
 
     lastTapRef.current = now;

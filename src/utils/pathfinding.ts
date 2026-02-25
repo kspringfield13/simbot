@@ -14,11 +14,11 @@ const waypoints: Waypoint[] = [
   { id: 'living-tv', pos: [-4 * S, -8.5 * S], connections: ['living-center'] },
   { id: 'living-south', pos: [-4 * S, -3.5 * S], connections: ['living-center', 'hall-entry'] },
 
-  { id: 'dining-area', pos: [0, -5 * S], connections: ['living-center', 'kitchen-island'] },
+  { id: 'dining-area', pos: [0, -5 * S], connections: ['living-center', 'kitchen-center'] },
 
-  { id: 'kitchen-island', pos: [4 * S, -5 * S], connections: ['dining-area', 'kitchen-counter', 'kitchen-south'] },
-  { id: 'kitchen-counter', pos: [5 * S, -8.5 * S], connections: ['kitchen-island'] },
-  { id: 'kitchen-south', pos: [4 * S, -3 * S], connections: ['kitchen-island', 'hall-east'] },
+  { id: 'kitchen-center', pos: [2 * S, -7 * S], connections: ['dining-area', 'kitchen-counter', 'kitchen-south'] },
+  { id: 'kitchen-counter', pos: [3 * S, -8.5 * S], connections: ['kitchen-center'] },
+  { id: 'kitchen-south', pos: [2 * S, -3 * S], connections: ['kitchen-center', 'hall-east'] },
 
   { id: 'hall-entry', pos: [-2 * S, -1 * S], connections: ['living-south', 'hall-center'], pauseAtDoorway: true },
   { id: 'hall-center', pos: [0, -1 * S], connections: ['hall-entry', 'hall-east', 'bedroom-door', 'bathroom-door'] },
