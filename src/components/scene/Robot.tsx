@@ -179,10 +179,19 @@ export function Robot() {
         headGroupRef.current.rotation.x = THREE.MathUtils.lerp(
           headGroupRef.current.rotation.x, -0.03, 0.05);
       } else if (robotState === 'working') {
+        // Head looks down at work surface with focused small movements
+        const focusX = currentAnimation === 'scrubbing' || currentAnimation === 'dishes'
+          ? -0.18 + Math.sin(t * 2.5) * 0.03  // look closely at hands
+          : currentAnimation === 'vacuuming'
+          ? -0.08 + Math.sin(t * 1.8) * 0.04  // scan floor ahead
+          : -0.12 + Math.sin(t * 1.2) * 0.03; // general downward focus
+        const focusY = currentAnimation === 'vacuuming'
+          ? Math.sin(t * 0.4) * 0.15  // track vacuum path
+          : Math.sin(t * 0.8) * 0.05; // subtle task-tracking
         headGroupRef.current.rotation.x = THREE.MathUtils.lerp(
-          headGroupRef.current.rotation.x, -0.1, 0.03);
+          headGroupRef.current.rotation.x, focusX, 0.04);
         headGroupRef.current.rotation.y = THREE.MathUtils.lerp(
-          headGroupRef.current.rotation.y, Math.sin(t * 0.6) * 0.08, 0.03);
+          headGroupRef.current.rotation.y, focusY, 0.04);
       }
     }
   });
