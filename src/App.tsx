@@ -2,6 +2,7 @@ import { Canvas } from '@react-three/fiber';
 import { Suspense } from 'react';
 import { HomeScene } from './components/scene/HomeScene';
 import { RobotTerminal } from './components/ui/RobotTerminal';
+import { ReactionsOverlay, RobotScreenTracker } from './components/ui/ReactionsOverlay';
 import { TaskProcessor } from './components/systems/TaskProcessor';
 import { useStore } from './stores/useStore';
 
@@ -35,10 +36,12 @@ function App() {
         <Suspense fallback={null}>
           <HomeScene />
         </Suspense>
+        <RobotScreenTracker />
       </Canvas>
 
       <TaskProcessor />
       <RobotTerminal />
+      <ReactionsOverlay />
       <CameraToggle />
     </div>
   );

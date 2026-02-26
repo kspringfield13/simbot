@@ -29,3 +29,25 @@ input, button { font: inherit; }
 .animate-slide-up {
   animation: slide-up 0.25s ease-out;
 }
+
+@keyframes reaction-float {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -100%) translateY(0);
+  }
+  15% {
+    opacity: 1;
+    transform: translate(-50%, -100%) translateY(-10px);
+  }
+  60% {
+    opacity: 1;
+    transform: translate(-50%, -100%) translateY(-40px);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -100%) translateY(-60px);
+  }
+}
+.reaction-float {
+  animation: reaction-float 2s ease-out forwards;
+}
