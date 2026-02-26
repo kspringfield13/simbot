@@ -48,7 +48,7 @@ export function EmojiReaction() {
 
         if (prev !== undefined) {
           if (prev <= 90 && cur > 90) addReaction('😍');
-          if (prev >= 30 && cur < 30) addReaction('😰');
+          if (prev >= 30 && cur < 30) addReaction('💦');
         }
         prevCleanRef.current[roomId] = cur;
       }
@@ -87,7 +87,7 @@ export function EmojiReaction() {
       const boredom = state.robotNeeds.boredom;
       const prevBoredom = prevBoredomRef.current;
       if (currentState === 'idle' && prevBoredom <= 75 && boredom > 75) {
-        addReaction('😴');
+        addReaction('💤');
       }
 
       prevRobotStateRef.current = currentState;
