@@ -39,13 +39,21 @@ export function Robot() {
 
   const { scene, animations } = useGLTF('/models/xbot.glb');
 
-  // Setup shadows and enhance materials
+  // Setup shadows and shiny silver material
   useEffect(() => {
     scene.traverse((child: any) => {
       if (child.isMesh || child.isSkinnedMesh) {
         child.castShadow = true;
         child.receiveShadow = true;
-        child.frustumCulled = false; // Prevent skinned mesh culling
+        child.frustumCulled = false;
+        if (child.material) {
+          child.material = new THREE.MeshStandardMaterial({
+            color: new THREE.Color('#c0c0c0'),
+            metalness: 0.9,
+            roughness: 0.15,
+            envMapIntensity: 1.5,
+          });
+        }
       }
     });
   }, [scene]);
@@ -58,55 +66,11 @@ export function Robot() {
     robotState,
     currentAnimation,
     simSpeed,
-    robotMood,
-    robotTheme,
     setRobotPosition,
     setRobotRotationY,
   } = useStore();
 
-  // Theme accent colors for the robot shell
-  const themeAccents: Record<string, string> = {
-    blue: '#1a8cff',
-    red: '#e63946',
-    green: '#2dd4bf',
-    gold: '#f59e0b',
-  };
-  const themeAccent = themeAccents[robotTheme] ?? themeAccents.blue;
-
-  // Mood → visor/glow color mapping
-  const moodColors: Record<string, string> = {
-    content: '#00b8e8',   // calm blue (default)
-    focused: '#ff8800',   // orange — working hard
-    curious: '#a855f7',   // purple — exploring
-    routine: '#00b8e8',   // blue — standard ops
-    tired: '#64748b',     // dim gray — low energy
-    lonely: '#6366f1',    // indigo — social need
-    bored: '#eab308',     // yellow — restless
-    happy: '#22c55e',     // green — satisfied
-  };
-  const visorColor = moodColors[robotMood] ?? '#00b8e8';
-
-  // Update emissive materials to reflect mood + theme accent tint on body
-  useEffect(() => {
-    const emissiveColor = new THREE.Color(visorColor);
-    const accent = new THREE.Color(themeAccent);
-    scene.traverse((child: any) => {
-      if ((child.isMesh || child.isSkinnedMesh) && child.material) {
-        const mat = child.material;
-        if (mat.emissive && mat.emissiveIntensity > 0) {
-          mat.emissive.copy(emissiveColor);
-        }
-        // Tint non-emissive dark materials with theme accent
-        if (mat.color && (!mat.emissive || mat.emissiveIntensity === 0)) {
-          const lum = mat.color.r * 0.299 + mat.color.g * 0.587 + mat.color.b * 0.114;
-          if (lum < 0.35) {
-            // Blend dark panels with theme accent (subtle 15% tint)
-            mat.color.lerp(accent, 0.15);
-          }
-        }
-      }
-    });
-  }, [scene, visorColor, themeAccent]);
+  const glowColor = '#88ccff';
 
   // Crossfade to animation
   const playAnim = (name: string, fadeTime = 0.35) => {
@@ -239,7 +203,27 @@ export function Robot() {
       }
     } else if (timeScale > 0 && robotState === 'idle') {
       currentSpeedRef.current = THREE.MathUtils.lerp(currentSpeedRef.current, 0, 0.1);
-      playAnim('idle', 0.5);
+
+      // Cycle idle animations — look around, nod, shift weight
+      const t = performance.now() / 1000;
+      const idleCycle = Math.floor(t / 6) % 4; // change every 6s
+      if (idleCycle === 1 && actions['agree']) {
+        playAnim('agree', 0.5);
+      } else if (idleCycle === 2 && actions['headShake']) {
+        playAnim('headShake', 0.5);
+      } else {
+        playAnim('idle', 0.5);
+      }
+
+      // Procedural head look-around during idle
+      const skeleton = scene.getObjectByProperty('type', 'SkinnedMesh') as any;
+      if (skeleton?.skeleton) {
+        const head = (skeleton.skeleton.bones as THREE.Bone[]).find((b: THREE.Bone) => b.name === 'mixamorig:Head');
+        if (head) {
+          head.rotation.y = Math.sin(t * 0.3) * 0.25;
+          head.rotation.x = Math.sin(t * 0.2) * 0.1 - 0.05;
+        }
+      }
     } else if (timeScale > 0 && robotState === 'working') {
       currentSpeedRef.current = 0;
       const animName = TASK_ANIM_MAP[currentAnimation] ?? 'idle';
@@ -360,14 +344,14 @@ export function Robot() {
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.004, 0]}>
         <circleGeometry args={[0.4, 32]} />
         <meshStandardMaterial
-          color={visorColor}
-          emissive={visorColor}
+          color={glowColor}
+          emissive={glowColor}
           emissiveIntensity={0.25}
           transparent
           opacity={0.1}
         />
       </mesh>
-      <pointLight position={[0, 1.0, 0.3]} color={visorColor} intensity={0.25} distance={3} />
+      <pointLight position={[0, 1.0, 0.3]} color={glowColor} intensity={0.25} distance={3} />
     </group>
   );
 }
