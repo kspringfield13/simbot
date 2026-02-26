@@ -2,7 +2,7 @@ import { useRef, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useGLTF, useAnimations } from '@react-three/drei';
 import { useStore } from '../../stores/useStore';
-import { getAvoidanceForce } from '../../systems/ObstacleMap';
+import { getAvoidanceForce, isPositionClear, findClearPosition } from '../../systems/ObstacleMap';
 import * as THREE from 'three';
 
 /*
@@ -120,31 +120,56 @@ export function Robot() {
         }
 
         const speed = currentSpeedRef.current * scaledDelta;
+        // Avoidance with escalating strength when stuck
+        const stuckTime = stuckTimerRef.current;
+        const avoidStrength = stuckTime > 1.5 ? 2.0 : stuckTime > 0.8 ? 1.2 : 0.7;
+        const lookAhead = 2.0 + currentSpeedRef.current * 0.4;
         const [avoidX, avoidZ] = getAvoidanceForce(
           robotPosition[0], robotPosition[2],
           direction.x, direction.z,
-          1.5 + currentSpeedRef.current * 0.3,
+          lookAhead,
         );
-        const steerX = direction.x + avoidX * 0.5;
-        const steerZ = direction.z + avoidZ * 0.5;
+
+        let steerX = direction.x + avoidX * avoidStrength;
+        let steerZ = direction.z + avoidZ * avoidStrength;
+
+        // If stuck for a while, add lateral escape — move perpendicular to direction
+        if (stuckTime > 1.0) {
+          const escapeAngle = stuckTime > 2.0 ? Math.PI * 0.7 : Math.PI * 0.4;
+          const sign = ((Math.floor(stuckTime * 2) % 2) === 0) ? 1 : -1;
+          steerX += Math.cos(Math.atan2(direction.x, direction.z) + escapeAngle * sign) * 1.5;
+          steerZ += Math.sin(Math.atan2(direction.x, direction.z) + escapeAngle * sign) * 1.5;
+        }
+
         const steerLen = Math.sqrt(steerX * steerX + steerZ * steerZ) || 1;
 
-        setRobotPosition([
-          robotPosition[0] + (steerX / steerLen) * speed,
-          0,
-          robotPosition[2] + (steerZ / steerLen) * speed,
-        ]);
+        const newX = robotPosition[0] + (steerX / steerLen) * speed;
+        const newZ = robotPosition[2] + (steerZ / steerLen) * speed;
 
-        // Stuck detection: if distance hasn't decreased meaningfully in ~3 seconds, skip this target
+        // Only move if new position is clear
+        if (isPositionClear(newX, newZ, 0.4)) {
+          setRobotPosition([newX, 0, newZ]);
+        } else {
+          // Try sliding along one axis
+          if (isPositionClear(newX, robotPosition[2], 0.4)) {
+            setRobotPosition([newX, 0, robotPosition[2]]);
+          } else if (isPositionClear(robotPosition[0], newZ, 0.4)) {
+            setRobotPosition([robotPosition[0], 0, newZ]);
+          }
+          // else don't move — stuck detection will escalate
+        }
+
+        // Stuck detection
         if (Math.abs(distance - lastDistRef.current) < 0.05) {
           stuckTimerRef.current += scaledDelta;
-          if (stuckTimerRef.current > 3) {
-            // Force arrival — we're stuck
-            console.log('[Robot] Stuck detected, forcing arrival');
+          if (stuckTimerRef.current > 4) {
+            // Truly stuck — find nearest clear position and teleport slightly
+            console.log('[Robot] Stuck >4s, finding clear position');
+            const [clearX, clearZ] = findClearPosition(robotPosition[0], robotPosition[2], 1.0);
+            setRobotPosition([clearX, 0, clearZ]);
             stuckTimerRef.current = 0;
             lastDistRef.current = 999;
-            currentSpeedRef.current = 0;
-            // Don't set position to target (it's in an obstacle), just stop where we are
+            currentSpeedRef.current = 0.5;
           }
         } else {
           stuckTimerRef.current = 0;
