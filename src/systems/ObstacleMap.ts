@@ -1,31 +1,28 @@
 export interface Obstacle { x: number; z: number; r: number; }
 
-const S = 2;
-
-// Only actual furniture — no invisible wall buffers
 export const OBSTACLES: Obstacle[] = [
   // LIVING ROOM
-  { x: -7 * S, z: -6 * S, r: 1.2 * S },      // sofa
-  { x: -5 * S, z: -6 * S, r: 0.7 * S },       // coffee table
-  { x: -4.5 * S, z: -9.3 * S, r: 1.0 * S },   // tv stand
+  { x: -14, z: -12, r: 2.5 },    // sofa
+  { x: -11, z: -12, r: 1.5 },    // coffee table
+  { x: -8, z: -18.5, r: 2 },     // tv stand
 
-  // KITCHEN — back wall appliances (generous radius to keep robot in open area)
-  { x: 1 * S, z: -9.4 * S, r: 1.3 * S },      // fridge
-  { x: 3.5 * S, z: -9.4 * S, r: 1.3 * S },    // stove
-  { x: 6 * S, z: -9.4 * S, r: 1.3 * S },       // sink
+  // KITCHEN (back wall)
+  { x: 2, z: -18.5, r: 1.5 },    // fridge
+  { x: 6, z: -18.5, r: 1.5 },    // stove
+  { x: 10, z: -18.5, r: 1.5 },   // sink
 
   // LAUNDRY
-  { x: 5.1 * S, z: -1 * S, r: 1.0 * S },      // washer+dryer combined
+  { x: 10, z: -3.5, r: 2 },      // washer+dryer
 
   // BEDROOM
-  { x: -4 * S, z: 6.8 * S, r: 1.5 * S },      // bed
-  { x: -6.5 * S, z: 6.8 * S, r: 0.5 * S },    // nightstand
-  { x: -1.4 * S, z: 2.5 * S, r: 0.9 * S },    // desk+chair combined
+  { x: -8, z: 14, r: 3 },        // bed
+  { x: -12, z: 14, r: 1 },       // nightstand
+  { x: -2.5, z: 4, r: 1.5 },     // desk+chair
 
   // BATHROOM
-  { x: 3.5 * S, z: 0.8 * S, r: 0.5 * S },     // sink
-  { x: 7 * S, z: 4 * S, r: 1.0 * S },          // shower
-  { x: 1.2 * S, z: 7 * S, r: 0.5 * S },        // toilet
+  { x: 5, z: 1, r: 1 },          // sink
+  { x: 14, z: 14, r: 2 },        // shower
+  { x: 1.5, z: 10, r: 1 },       // toilet
 ];
 
 export function isPositionClear(x: number, z: number, margin: number = 0.5): boolean {

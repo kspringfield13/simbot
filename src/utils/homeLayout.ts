@@ -82,32 +82,31 @@ export const walls: Wall[] = [
 
 export const roomTaskAnchors: Record<RoomId, [number, number, number][]> = {
   'living-room': [
-    [-4 * S, 0, -6 * S],
-    [-3.5 * S, 0, -4.8 * S],
-    [-4 * S, 0, -8.5 * S],
+    [-8, 0, -12],    // center of room
+    [-8, 0, -8],     // near front
+    [-6, 0, -14],    // near tv
   ],
   kitchen: [
-    [3.5 * S, 0, -7 * S],
-    [3.5 * S, 0, -5 * S],
-    [5 * S, 0, -6 * S],
+    [6, 0, -14],     // center open area
+    [8, 0, -12],     // mid room
+    [4, 0, -10],     // near entry
   ],
   hallway: [
-    [-2 * S, 0, -1 * S],
-    [0, 0, -1 * S],
+    [-4, 0, -2],     // hallway center
+    [0, 0, -2],      // hallway mid
   ],
   laundry: [
-    [5 * S, 0, -1 * S],
-    [4.8 * S, 0, -1.2 * S],
+    [10, 0, -1.5],   // center of laundry
   ],
   bedroom: [
-    [-4 * S, 0, 4 * S],
-    [-5 * S, 0, 5.8 * S],
-    [-1.5 * S, 0, 1.5 * S],
+    [-8, 0, 8],      // center of room
+    [-8, 0, 10],     // near bed
+    [-6, 0, 4],      // near desk area
   ],
   bathroom: [
-    [4 * S, 0, 4 * S],
-    [3 * S, 0, 1.5 * S],
-    [6 * S, 0, 6 * S],
+    [8, 0, 8],       // center of room
+    [5, 0, 4],       // near sink
+    [8, 0, 12],      // mid room
   ],
 };
 
