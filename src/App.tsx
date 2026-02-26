@@ -2,6 +2,8 @@ import { Canvas } from '@react-three/fiber';
 import { HomeScene } from './components/scene/HomeScene';
 import { RobotTerminal } from './components/ui/RobotTerminal';
 import { StatsPanel } from './components/ui/StatsPanel';
+import { NeedsIndicator } from './components/ui/NeedsIndicator';
+import { MiniMap } from './components/ui/MiniMap';
 import { TaskProcessor } from './components/systems/TaskProcessor';
 import { useAmbientSounds } from './hooks/useAmbientSounds';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
@@ -37,6 +39,8 @@ function App() {
       <TaskProcessor />
       <RobotTerminal />
       <StatsPanel />
+      <NeedsIndicator />
+      <MiniMap />
     </div>
   );
 }
