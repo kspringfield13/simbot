@@ -160,7 +160,8 @@ export function Robot() {
         if (absDiff > 1.0) {
           currentSpeedRef.current = THREE.MathUtils.lerp(currentSpeedRef.current, 0.3, 0.08);
         } else {
-          const targetSpeed = distance < 1.2 ? 1.0 : distance < 2.5 ? 1.8 : 2.6;
+          // Always walk, never run — calm deliberate movement
+          const targetSpeed = distance < 1.0 ? 0.8 : distance < 3.0 ? 1.2 : 1.5;
           const accelRate = currentSpeedRef.current < targetSpeed ? 0.04 : 0.08;
           currentSpeedRef.current = THREE.MathUtils.lerp(currentSpeedRef.current, targetSpeed, accelRate);
         }
@@ -205,33 +206,34 @@ export function Robot() {
           // else don't move — stuck detection will escalate
         }
 
-        // Stuck detection
-        if (Math.abs(distance - lastDistRef.current) < 0.05) {
+        // Stuck detection — aggressive recovery
+        if (Math.abs(distance - lastDistRef.current) < 0.08) {
           stuckTimerRef.current += scaledDelta;
-          if (stuckTimerRef.current > 2) {
-            // Truly stuck — find nearest clear position and teleport slightly
-            console.log('[Robot] Stuck >4s, finding clear position');
-            const [clearX, clearZ] = findClearPosition(robotPosition[0], robotPosition[2], 1.0);
-            setRobotPosition([clearX, 0, clearZ]);
-            stuckTimerRef.current = 0;
-            lastDistRef.current = 999;
-            currentSpeedRef.current = 0.5;
+          if (stuckTimerRef.current > 1.5) {
+            // Find a clear position nearby and nudge there
+            const [clearX, clearZ] = findClearPosition(robotPosition[0], robotPosition[2], 1.2);
+            if (clearX !== robotPosition[0] || clearZ !== robotPosition[2]) {
+              setRobotPosition([clearX, 0, clearZ]);
+            }
+            if (stuckTimerRef.current > 3) {
+              // Truly stuck — force arrival at current position, skip this target
+              console.log('[Robot] Stuck >3s, skipping target');
+              stuckTimerRef.current = 0;
+              lastDistRef.current = 999;
+              currentSpeedRef.current = 0;
+              // Signal arrival by setting position close enough
+              setRobotPosition([robotTarget[0], 0, robotTarget[2]]);
+            }
           }
         } else {
           stuckTimerRef.current = 0;
           lastDistRef.current = distance;
         }
 
-        // Walk vs Run based on speed
-        if (currentSpeedRef.current > 2.0) {
-          playAnim('run', 0.3);
-          const runAction = actions['run'];
-          if (runAction) runAction.timeScale = currentSpeedRef.current / 2.2;
-        } else {
-          playAnim('walk', 0.3);
-          const walkAction = actions['walk'];
-          if (walkAction) walkAction.timeScale = Math.max(currentSpeedRef.current / 1.2, 0.4);
-        }
+        // Always walk — calm, deliberate movement
+        playAnim('walk', 0.3);
+        const walkAction = actions['walk'];
+        if (walkAction) walkAction.timeScale = Math.max(currentSpeedRef.current / 1.2, 0.4);
       } else {
         currentSpeedRef.current = THREE.MathUtils.lerp(currentSpeedRef.current, 0, 0.15);
       }
@@ -243,11 +245,105 @@ export function Robot() {
       const animName = TASK_ANIM_MAP[currentAnimation] ?? 'idle';
       playAnim(animName, 0.4);
 
-      if (currentAnimation === 'vacuuming') {
-        const t = performance.now() / 1000;
-        groupRef.current.position.x = robotPosition[0] + Math.sin(t * 0.4) * 0.4;
-        groupRef.current.position.z = robotPosition[2] + Math.cos(t * 0.55) * 0.4;
-        return;
+      // Procedural arm/hand animations for specific tasks
+      const t = performance.now() / 1000;
+      const skeleton = scene.getObjectByProperty('type', 'SkinnedMesh') as any;
+      if (skeleton?.skeleton) {
+        const bones = skeleton.skeleton.bones as THREE.Bone[];
+        const findBone = (name: string) => bones.find(b => b.name === name);
+
+        const rArm = findBone('mixamorig:RightArm');
+        const lArm = findBone('mixamorig:LeftArm');
+        const rForeArm = findBone('mixamorig:RightForeArm');
+        const lForeArm = findBone('mixamorig:LeftForeArm');
+        const rHand = findBone('mixamorig:RightHand');
+        const lHand = findBone('mixamorig:LeftHand');
+        const spine = findBone('mixamorig:Spine1');
+
+        switch (currentAnimation) {
+          case 'dishes':
+          case 'scrubbing': {
+            // Arms forward, hands scrubbing motion
+            if (rArm) rArm.rotation.x = -1.2 + Math.sin(t * 4) * 0.15;
+            if (lArm) lArm.rotation.x = -1.2 + Math.cos(t * 4) * 0.15;
+            if (rForeArm) rForeArm.rotation.x = -0.6 + Math.sin(t * 6) * 0.2;
+            if (lForeArm) lForeArm.rotation.x = -0.6 + Math.cos(t * 6) * 0.2;
+            if (rHand) rHand.rotation.z = Math.sin(t * 8) * 0.3;
+            if (lHand) lHand.rotation.z = Math.cos(t * 8) * 0.3;
+            if (spine) spine.rotation.x = -0.1 + Math.sin(t * 2) * 0.03;
+            break;
+          }
+          case 'cooking': {
+            // Stirring motion — one hand stirs, other holds
+            if (rArm) rArm.rotation.x = -1.0;
+            if (lArm) lArm.rotation.x = -0.8;
+            if (rForeArm) rForeArm.rotation.x = -0.8;
+            if (lForeArm) lForeArm.rotation.x = -0.4;
+            // Circular stirring with right hand
+            if (rHand) {
+              rHand.rotation.x = Math.sin(t * 3) * 0.4;
+              rHand.rotation.z = Math.cos(t * 3) * 0.4;
+            }
+            if (spine) spine.rotation.x = -0.08;
+            break;
+          }
+          case 'vacuuming': {
+            // Push/pull motion, body sways
+            if (rArm) rArm.rotation.x = -0.9 + Math.sin(t * 2) * 0.3;
+            if (lArm) lArm.rotation.x = -0.9 + Math.sin(t * 2) * 0.3;
+            if (rForeArm) rForeArm.rotation.x = -0.3;
+            if (lForeArm) lForeArm.rotation.x = -0.3;
+            if (spine) spine.rotation.x = -0.05 + Math.sin(t * 2) * 0.05;
+            // Slight body sway
+            groupRef.current.position.x = robotPosition[0] + Math.sin(t * 0.5) * 0.3;
+            groupRef.current.position.z = robotPosition[2] + Math.cos(t * 0.7) * 0.3;
+            return;
+          }
+          case 'sweeping': {
+            // Wide sweeping arm motions
+            if (rArm) rArm.rotation.x = -0.7;
+            if (lArm) lArm.rotation.x = -1.0;
+            if (rForeArm) rForeArm.rotation.x = -0.2;
+            if (lForeArm) lForeArm.rotation.x = -0.5;
+            // Sweep side to side
+            if (rArm) rArm.rotation.z = Math.sin(t * 2.5) * 0.4;
+            if (lArm) lArm.rotation.z = Math.sin(t * 2.5) * 0.4;
+            if (spine) spine.rotation.y = Math.sin(t * 2.5) * 0.1;
+            break;
+          }
+          case 'cleaning': {
+            // Wiping motion — one arm moves side to side
+            if (rArm) rArm.rotation.x = -1.1;
+            if (rForeArm) rForeArm.rotation.x = -0.5;
+            if (rHand) rHand.rotation.z = Math.sin(t * 5) * 0.5;
+            if (rArm) rArm.rotation.z = Math.sin(t * 3) * 0.3;
+            if (lArm) lArm.rotation.x = -0.3;
+            break;
+          }
+          case 'bed-making': {
+            // Both arms smoothing/tucking
+            if (rArm) rArm.rotation.x = -1.3 + Math.sin(t * 1.5) * 0.2;
+            if (lArm) lArm.rotation.x = -1.3 + Math.cos(t * 1.5) * 0.2;
+            if (rForeArm) rForeArm.rotation.x = -0.4;
+            if (lForeArm) lForeArm.rotation.x = -0.4;
+            if (spine) spine.rotation.x = -0.15 + Math.sin(t * 1.5) * 0.05;
+            break;
+          }
+          case 'laundry': {
+            // Loading/unloading — arms reach forward and back
+            if (rArm) rArm.rotation.x = -1.0 + Math.sin(t * 1.8) * 0.4;
+            if (lArm) lArm.rotation.x = -1.0 + Math.cos(t * 1.8) * 0.4;
+            if (rForeArm) rForeArm.rotation.x = -0.5 + Math.sin(t * 1.8) * 0.2;
+            if (lForeArm) lForeArm.rotation.x = -0.5 + Math.cos(t * 1.8) * 0.2;
+            break;
+          }
+          default: {
+            // General organizing — subtle hand movements
+            if (rArm) rArm.rotation.x = -0.6 + Math.sin(t * 2) * 0.15;
+            if (lArm) lArm.rotation.x = -0.5 + Math.cos(t * 2.3) * 0.15;
+            break;
+          }
+        }
       }
     }
 
