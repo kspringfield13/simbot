@@ -1,6 +1,7 @@
 import { Canvas } from '@react-three/fiber';
 import { HomeScene } from './components/scene/HomeScene';
 import { RobotTerminal } from './components/ui/RobotTerminal';
+import { StatsPanel } from './components/ui/StatsPanel';
 import { TaskProcessor } from './components/systems/TaskProcessor';
 import { useAmbientSounds } from './hooks/useAmbientSounds';
 
@@ -28,6 +29,7 @@ function App() {
 
       <TaskProcessor />
       <RobotTerminal />
+      <StatsPanel />
     </div>
   );
 }

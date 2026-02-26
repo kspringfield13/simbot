@@ -1,0 +1,155 @@
+import { useStore } from '../../stores/useStore';
+import { rooms } from '../../utils/homeLayout';
+
+const taskTypeLabels: Record<string, string> = {
+  cleaning: '🧹 Cleaning',
+  vacuuming: '🧽 Vacuuming',
+  dishes: '🍽️ Dishes',
+  laundry: '👕 Laundry',
+  organizing: '📦 Organizing',
+  cooking: '🍳 Cooking',
+  'bed-making': '🛏️ Bed Making',
+  scrubbing: '🪣 Scrubbing',
+  sweeping: '🧹 Sweeping',
+  'grocery-list': '📝 Grocery List',
+  general: '⚙️ General',
+};
+
+export function StatsPanel() {
+  const showStats = useStore((s) => s.showStats);
+  const setShowStats = useStore((s) => s.setShowStats);
+  const totalTasksCompleted = useStore((s) => s.totalTasksCompleted);
+  const tasksByType = useStore((s) => s.tasksByType);
+  const tasksByRoom = useStore((s) => s.tasksByRoom);
+  const roomNeeds = useStore((s) => s.roomNeeds);
+  const simMinutes = useStore((s) => s.simMinutes);
+
+  if (!showStats) {
+    return (
+      <button
+        onClick={() => setShowStats(true)}
+        style={{
+          position: 'fixed',
+          bottom: 16,
+          left: 16,
+          background: 'rgba(0,0,0,0.7)',
+          color: '#ccc',
+          border: '1px solid rgba(255,255,255,0.1)',
+          borderRadius: 8,
+          padding: '8px 14px',
+          fontSize: 13,
+          cursor: 'pointer',
+          zIndex: 50,
+          backdropFilter: 'blur(8px)',
+        }}
+      >
+        📊 Stats
+      </button>
+    );
+  }
+
+  const hours = Math.floor(simMinutes / 60) % 24;
+  const mins = Math.floor(simMinutes % 60);
+  const timeStr = `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+
+  // Sort tasks by count descending
+  const sortedTypes = Object.entries(tasksByType)
+    .sort(([, a], [, b]) => (b ?? 0) - (a ?? 0));
+
+  const sortedRooms = Object.entries(tasksByRoom)
+    .sort(([, a], [, b]) => (b ?? 0) - (a ?? 0));
+
+  // Average cleanliness
+  const roomIds = Object.keys(roomNeeds);
+  const avgCleanliness = roomIds.length > 0
+    ? Math.round(roomIds.reduce((sum, id) => sum + (roomNeeds[id as keyof typeof roomNeeds]?.cleanliness ?? 0), 0) / roomIds.length)
+    : 0;
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        bottom: 16,
+        left: 16,
+        background: 'rgba(0,0,0,0.85)',
+        color: '#e0e0e0',
+        border: '1px solid rgba(255,255,255,0.1)',
+        borderRadius: 12,
+        padding: 18,
+        fontSize: 13,
+        zIndex: 50,
+        backdropFilter: 'blur(12px)',
+        width: 260,
+        maxHeight: '70vh',
+        overflowY: 'auto',
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+        <span style={{ fontSize: 15, fontWeight: 600, color: '#fff' }}>📊 Stats</span>
+        <button
+          onClick={() => setShowStats(false)}
+          style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: 16 }}
+        >
+          ✕
+        </button>
+      </div>
+
+      {/* Overview */}
+      <div style={{ marginBottom: 14, padding: '10px 12px', background: 'rgba(255,255,255,0.05)', borderRadius: 8 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+          <span style={{ color: '#999' }}>Sim Time</span>
+          <span style={{ color: '#00b8e8', fontFamily: 'monospace' }}>{timeStr}</span>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+          <span style={{ color: '#999' }}>Tasks Done</span>
+          <span style={{ color: '#4ade80', fontWeight: 600 }}>{totalTasksCompleted}</span>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <span style={{ color: '#999' }}>Avg Cleanliness</span>
+          <span style={{ color: avgCleanliness >= 74 ? '#4ade80' : avgCleanliness >= 45 ? '#facc15' : '#f87171', fontWeight: 600 }}>
+            {avgCleanliness}%
+          </span>
+        </div>
+      </div>
+
+      {/* Tasks by Type */}
+      {sortedTypes.length > 0 && (
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ color: '#999', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
+            By Task Type
+          </div>
+          {sortedTypes.map(([type, count]) => (
+            <div key={type} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+              <span>{taskTypeLabels[type] ?? type}</span>
+              <span style={{ color: '#00b8e8', fontFamily: 'monospace' }}>{count}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Tasks by Room */}
+      {sortedRooms.length > 0 && (
+        <div>
+          <div style={{ color: '#999', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
+            By Room
+          </div>
+          {sortedRooms.map(([roomId, count]) => {
+            const roomName = rooms.find((r) => r.id === roomId)?.name ?? roomId;
+            return (
+              <div key={roomId} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                <span>{roomName}</span>
+                <span style={{ color: '#00b8e8', fontFamily: 'monospace' }}>{count}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {totalTasksCompleted === 0 && (
+        <div style={{ color: '#666', textAlign: 'center', padding: '12px 0' }}>
+          No tasks completed yet. Watch the robot work!
+        </div>
+      )}
+    </div>
+  );
+}

@@ -91,6 +91,14 @@ interface SimBotStore {
   // Learning system — tracks task completions for speed improvement
   taskExperience: Partial<Record<TaskType, number>>;
   recordTaskCompletion: (taskType: TaskType) => void;
+
+  // Stats
+  showStats: boolean;
+  setShowStats: (show: boolean) => void;
+  totalTasksCompleted: number;
+  tasksByType: Partial<Record<TaskType, number>>;
+  tasksByRoom: Partial<Record<RoomId, number>>;
+  recordStats: (taskType: TaskType, roomId: RoomId) => void;
 }
 
 const initialSimMinutes = (7 * 60) + 20;
@@ -247,6 +255,18 @@ export const useStore = create<SimBotStore>((set) => ({
       ...state.taskExperience,
       [taskType]: (state.taskExperience[taskType] ?? 0) + 1,
     },
+  })),
+
+  // Stats
+  showStats: false,
+  setShowStats: (show) => set({ showStats: show }),
+  totalTasksCompleted: 0,
+  tasksByType: {},
+  tasksByRoom: {},
+  recordStats: (taskType, roomId) => set((state) => ({
+    totalTasksCompleted: state.totalTasksCompleted + 1,
+    tasksByType: { ...state.tasksByType, [taskType]: (state.tasksByType[taskType] ?? 0) + 1 },
+    tasksByRoom: { ...state.tasksByRoom, [roomId]: (state.tasksByRoom[roomId] ?? 0) + 1 },
   })),
 }));
 
