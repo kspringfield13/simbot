@@ -58,9 +58,36 @@ export function Robot() {
     robotState,
     currentAnimation,
     simSpeed,
+    robotMood,
     setRobotPosition,
     setRobotRotationY,
   } = useStore();
+
+  // Mood → visor/glow color mapping
+  const moodColors: Record<string, string> = {
+    content: '#00b8e8',   // calm blue (default)
+    focused: '#ff8800',   // orange — working hard
+    curious: '#a855f7',   // purple — exploring
+    routine: '#00b8e8',   // blue — standard ops
+    tired: '#64748b',     // dim gray — low energy
+    lonely: '#6366f1',    // indigo — social need
+    bored: '#eab308',     // yellow — restless
+    happy: '#22c55e',     // green — satisfied
+  };
+  const visorColor = moodColors[robotMood] ?? '#00b8e8';
+
+  // Update emissive materials on the model to reflect mood color
+  useEffect(() => {
+    const color = new THREE.Color(visorColor);
+    scene.traverse((child: any) => {
+      if ((child.isMesh || child.isSkinnedMesh) && child.material) {
+        const mat = child.material;
+        if (mat.emissive && mat.emissiveIntensity > 0) {
+          mat.emissive.copy(color);
+        }
+      }
+    });
+  }, [scene, visorColor]);
 
   // Crossfade to animation
   const playAnim = (name: string, fadeTime = 0.35) => {
@@ -218,14 +245,14 @@ export function Robot() {
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.004, 0]}>
         <circleGeometry args={[0.4, 32]} />
         <meshStandardMaterial
-          color="#00b8e8"
-          emissive="#00b8e8"
-          emissiveIntensity={0.2}
+          color={visorColor}
+          emissive={visorColor}
+          emissiveIntensity={0.25}
           transparent
           opacity={0.1}
         />
       </mesh>
-      <pointLight position={[0, 1.0, 0.3]} color="#00b8e8" intensity={0.25} distance={3} />
+      <pointLight position={[0, 1.0, 0.3]} color={visorColor} intensity={0.25} distance={3} />
     </group>
   );
 }
