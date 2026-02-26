@@ -16,7 +16,7 @@ import type {
   TaskType,
 } from '../types';
 
-export type SimSpeed = 0 | 1 | 2 | 3;
+export type SimSpeed = 0 | 1 | 10 | 60;
 
 interface SimBotStore {
   // Robot

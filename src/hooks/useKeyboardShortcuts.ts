@@ -25,10 +25,10 @@ export function useKeyboardShortcuts() {
           setSimSpeed(1 as SimSpeed);
           break;
         case '2':
-          setSimSpeed(2 as SimSpeed);
+          setSimSpeed(10 as SimSpeed);
           break;
         case '3':
-          setSimSpeed(3 as SimSpeed);
+          setSimSpeed(60 as SimSpeed);
           break;
         case 's':
         case 'S':

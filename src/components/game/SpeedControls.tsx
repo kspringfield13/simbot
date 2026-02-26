@@ -2,10 +2,9 @@ import { useStore } from '../../stores/useStore';
 import type { SimSpeed } from '../../stores/useStore';
 
 const speeds: { label: string; value: SimSpeed }[] = [
-  { label: '⏸', value: 0 },
-  { label: '›', value: 1 },
-  { label: '››', value: 2 },
-  { label: '›››', value: 3 },
+  { label: '1x', value: 1 },
+  { label: '10x', value: 10 },
+  { label: '60x', value: 60 },
 ];
 
 export function SpeedControls() {

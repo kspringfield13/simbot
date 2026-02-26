@@ -94,9 +94,10 @@ export function Robot() {
     if (!groupRef.current) return;
 
     const timeScale = Math.max(simSpeed, 0);
-    const scaledDelta = Math.min(delta * timeScale, 0.08);
+    const scaledDelta = Math.min(delta * timeScale, 0.25);
 
-    if (mixer) mixer.timeScale = timeScale;
+    // Cap animation speed so it looks natural even at 60x sim speed
+    if (mixer) mixer.timeScale = Math.min(timeScale, 3);
 
     // === MOVEMENT ===
     if (timeScale > 0 && robotTarget && robotState === 'walking') {
