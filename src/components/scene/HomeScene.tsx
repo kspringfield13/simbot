@@ -34,7 +34,7 @@ export function HomeScene() {
       <AIBrain />
       <CameraController />
 
-      <ambientLight intensity={lighting.ambientIntensity} color={lighting.hemisphereColor} />
+      <ambientLight intensity={Math.max(lighting.ambientIntensity, 0.5)} color={lighting.hemisphereColor} />
       <hemisphereLight color={lighting.hemisphereColor} groundColor="#1a150e" intensity={0.3} />
 
       <directionalLight
@@ -73,13 +73,13 @@ export function HomeScene() {
       {/* House floor */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.005, -1 * S]} receiveShadow>
         <planeGeometry args={[40, 40]} />
-        <meshStandardMaterial color="#1c1a17" roughness={0.85} metalness={0.05} />
+        <meshStandardMaterial color="#3a3632" roughness={0.8} metalness={0.02} />
       </mesh>
 
       {/* Ground beyond house */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, -1 * S]}>
         <planeGeometry args={[200, 200]} />
-        <meshStandardMaterial color="#0e0d0c" roughness={1} />
+        <meshStandardMaterial color="#1a1918" roughness={1} />
       </mesh>
 
       {rooms.map((room) => (
@@ -98,14 +98,14 @@ export function HomeScene() {
       <WindowGlow />
       <DustMotes />
 
-      <Environment preset="apartment" background={false} environmentIntensity={0.15} />
+      <Environment preset="apartment" background={false} environmentIntensity={0.4} />
 
       <fog
         attach="fog"
         args={[
           '#0c0b0a',
-          cameraMode === 'overview' ? 30 * S : 16 * S,
-          cameraMode === 'overview' ? 60 * S : 45 * S,
+          cameraMode === 'overview' ? 50 * S : 30 * S,
+          cameraMode === 'overview' ? 100 * S : 70 * S,
         ]}
       />
 

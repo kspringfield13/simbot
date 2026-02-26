@@ -1,7 +1,7 @@
 import type { Room as RoomType } from '../../types';
 
 // Single natural floor color — clean warm gray for all rooms
-const FLOOR_COLOR = '#2a2826';
+const FLOOR_COLOR = '#4a4644';
 
 export function Room({ room }: { room: RoomType }) {
   const hw = room.size[0] / 2;
