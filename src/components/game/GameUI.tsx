@@ -113,7 +113,7 @@ export function GameUI() {
       <RoomStatus />
 
       {/* Bottom controls — minimal */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30 p-3 pb-[max(12px,env(safe-area-inset-bottom))]">
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30 p-3 pb-[max(24px,env(safe-area-inset-bottom))]">
         <div className="pointer-events-auto mx-auto w-full max-w-md space-y-2">
 
           {/* Command input */}
