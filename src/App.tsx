@@ -2,7 +2,8 @@ import { Canvas } from '@react-three/fiber';
 import { Suspense, useCallback } from 'react';
 import { HomeScene } from './components/scene/HomeScene';
 import { RobotTerminal } from './components/ui/RobotTerminal';
-import { ReactionsOverlay, RobotScreenTracker } from './components/ui/ReactionsOverlay';
+import { RobotScreenTracker } from './components/ui/ReactionsOverlay';
+import { EmojiReaction } from './components/ui/EmojiReaction';
 import { ScreenshotModal } from './components/ui/ScreenshotModal';
 import { TaskProcessor } from './components/systems/TaskProcessor';
 import { useStore } from './stores/useStore';
@@ -83,7 +84,7 @@ function App() {
       {!screenshotMode && (
         <>
           <RobotTerminal />
-          <ReactionsOverlay />
+          <EmojiReaction />
           <div
             className="pointer-events-none fixed right-4 top-4 z-30 flex gap-2"
             style={{ marginTop: 'env(safe-area-inset-top, 0px)' }}

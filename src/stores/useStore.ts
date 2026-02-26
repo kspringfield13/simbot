@@ -107,6 +107,12 @@ interface SimBotStore {
   tasksByRoom: Partial<Record<RoomId, number>>;
   recordStats: (taskType: TaskType, roomId: RoomId) => void;
 
+  // Emoji reactions
+  currentEmoji: string | null;
+  showEmoji: boolean;
+  triggerEmoji: (emoji: string) => void;
+  clearEmoji: () => void;
+
   // Screenshot
   screenshotMode: boolean;
   screenshotData: string | null;
@@ -287,6 +293,12 @@ export const useStore = create<SimBotStore>((set) => ({
     tasksByType: { ...state.tasksByType, [taskType]: (state.tasksByType[taskType] ?? 0) + 1 },
     tasksByRoom: { ...state.tasksByRoom, [roomId]: (state.tasksByRoom[roomId] ?? 0) + 1 },
   })),
+
+  // Emoji reactions
+  currentEmoji: null,
+  showEmoji: false,
+  triggerEmoji: (emoji) => set({ currentEmoji: emoji, showEmoji: true }),
+  clearEmoji: () => set({ currentEmoji: null, showEmoji: false }),
 
   // Screenshot
   screenshotMode: false,
