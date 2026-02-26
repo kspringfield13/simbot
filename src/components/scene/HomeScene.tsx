@@ -13,6 +13,7 @@ import {
   LivingRoomFurniture,
 } from './FurnitureModels';
 import { Robot } from './Robot';
+import { SeasonalDecorations } from './SeasonalDecorations';
 
 export function HomeScene() {
   return (
@@ -48,6 +49,7 @@ export function HomeScene() {
       <LaundryClosetFurniture />
 
       <Robot />
+      <SeasonalDecorations />
     </>
   );
 }

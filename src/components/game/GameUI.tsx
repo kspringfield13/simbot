@@ -47,6 +47,26 @@ function ThemePicker() {
   );
 }
 
+function SeasonToggle() {
+  const seasonalDecorations = useStore((s) => s.seasonalDecorations);
+  const setSeasonalDecorations = useStore((s) => s.setSeasonalDecorations);
+
+  return (
+    <button
+      type="button"
+      onClick={() => { setSeasonalDecorations(!seasonalDecorations); if (navigator.vibrate) navigator.vibrate(8); }}
+      className={`flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-black/50 backdrop-blur-md transition-all ${
+        seasonalDecorations ? 'text-white/60 hover:text-white/90' : 'text-white/30'
+      }`}
+      title={seasonalDecorations ? 'Disable seasonal decorations' : 'Enable seasonal decorations'}
+    >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+        <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+      </svg>
+    </button>
+  );
+}
+
 function MuteToggle() {
   const soundMuted = useStore((s) => s.soundMuted);
   const setSoundMuted = useStore((s) => s.setSoundMuted);
@@ -131,6 +151,7 @@ export function GameUI() {
       {/* Top-right: theme + mute + camera toggle + speed */}
       <div className="absolute right-3 top-0 z-20 flex items-center gap-2 pt-[max(8px,env(safe-area-inset-top))]">
         <ThemePicker />
+        <SeasonToggle />
         <MuteToggle />
         <SpeedControls />
         <button

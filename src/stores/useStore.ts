@@ -118,6 +118,10 @@ interface SimBotStore {
   screenshotData: string | null;
   setScreenshotMode: (mode: boolean) => void;
   setScreenshotData: (data: string | null) => void;
+
+  // Seasonal decorations
+  seasonalDecorations: boolean;
+  setSeasonalDecorations: (enabled: boolean) => void;
 }
 
 const initialSimMinutes = (7 * 60) + 20;
@@ -305,6 +309,10 @@ export const useStore = create<SimBotStore>((set) => ({
   screenshotData: null,
   setScreenshotMode: (mode) => set({ screenshotMode: mode }),
   setScreenshotData: (data) => set({ screenshotData: data }),
+
+  // Seasonal decorations
+  seasonalDecorations: true,
+  setSeasonalDecorations: (enabled) => set({ seasonalDecorations: enabled }),
 }));
 
 // Each completion reduces duration by ~5%, capping at 30% faster
