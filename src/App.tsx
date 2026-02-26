@@ -1,14 +1,9 @@
 import { Canvas } from '@react-three/fiber';
+import { Suspense } from 'react';
 import { HomeScene } from './components/scene/HomeScene';
 import { RobotTerminal } from './components/ui/RobotTerminal';
 import { TaskProcessor } from './components/systems/TaskProcessor';
-import { useAmbientSounds } from './hooks/useAmbientSounds';
 import { useStore } from './stores/useStore';
-
-function AmbientSounds() {
-  useAmbientSounds();
-  return null;
-}
 
 function CameraToggle() {
   const cameraMode = useStore((s) => s.cameraMode);
@@ -31,18 +26,22 @@ function CameraToggle() {
 function App() {
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-black">
-      <AmbientSounds />
       <Canvas
-        shadows="soft"
-        camera={{ position: [28, 32, 28], fov: 48, near: 0.1, far: 250 }}
+        shadows
+        camera={{ position: [0, 20, 20], fov: 50, near: 0.1, far: 500 }}
         gl={{
           antialias: true,
           toneMapping: 3,
-          toneMappingExposure: 1.1,
+          toneMappingExposure: 1.2,
         }}
         dpr={[1, 2]}
+        onCreated={({ gl }) => {
+          console.log('[Canvas] WebGL context created', gl.info);
+        }}
       >
-        <HomeScene />
+        <Suspense fallback={null}>
+          <HomeScene />
+        </Suspense>
       </Canvas>
 
       <TaskProcessor />
