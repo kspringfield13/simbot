@@ -189,7 +189,7 @@ export function Robot() {
         // Stuck detection
         if (Math.abs(distance - lastDistRef.current) < 0.05) {
           stuckTimerRef.current += scaledDelta;
-          if (stuckTimerRef.current > 4) {
+          if (stuckTimerRef.current > 2) {
             // Truly stuck — find nearest clear position and teleport slightly
             console.log('[Robot] Stuck >4s, finding clear position');
             const [clearX, clearZ] = findClearPosition(robotPosition[0], robotPosition[2], 1.0);

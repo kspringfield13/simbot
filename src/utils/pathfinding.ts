@@ -1,6 +1,6 @@
 import type { NavigationPoint } from '../types';
 
-const S = 2; // Same scale factor as homeLayout
+const S = 2;
 
 interface Waypoint {
   id: string;
@@ -10,32 +10,33 @@ interface Waypoint {
 }
 
 const waypoints: Waypoint[] = [
-  { id: 'living-center', pos: [-4 * S, -6 * S], connections: ['living-south', 'living-tv', 'dining-area'] },
-  { id: 'living-tv', pos: [-4 * S, -8.5 * S], connections: ['living-center'] },
-  { id: 'living-south', pos: [-4 * S, -3.5 * S], connections: ['living-center', 'hall-entry'] },
+  // Living room — center of open floor
+  { id: 'living-center', pos: [-3.5 * S, -6 * S], connections: ['living-south', 'dining-area'] },
+  { id: 'living-south', pos: [-3.5 * S, -3.5 * S], connections: ['living-center', 'hall-entry'] },
 
-  { id: 'dining-area', pos: [0, -5 * S], connections: ['living-center', 'kitchen-center'] },
+  // Transition between living + kitchen
+  { id: 'dining-area', pos: [0, -6 * S], connections: ['living-center', 'kitchen-center'] },
 
-  { id: 'kitchen-center', pos: [2 * S, -7 * S], connections: ['dining-area', 'kitchen-counter', 'kitchen-south'] },
-  { id: 'kitchen-counter', pos: [3 * S, -8.5 * S], connections: ['kitchen-center'] },
-  { id: 'kitchen-south', pos: [2 * S, -3 * S], connections: ['kitchen-center', 'hall-east'] },
+  // Kitchen — wide open center, far from back wall appliances
+  { id: 'kitchen-center', pos: [3.5 * S, -6 * S], connections: ['dining-area', 'kitchen-south'] },
+  { id: 'kitchen-south', pos: [3.5 * S, -3.5 * S], connections: ['kitchen-center', 'hall-east'] },
 
+  // Hallway
   { id: 'hall-entry', pos: [-2 * S, -1 * S], connections: ['living-south', 'hall-center'], pauseAtDoorway: true },
   { id: 'hall-center', pos: [0, -1 * S], connections: ['hall-entry', 'hall-east', 'bedroom-door', 'bathroom-door'] },
   { id: 'hall-east', pos: [2 * S, -1 * S], connections: ['hall-center', 'kitchen-south', 'laundry-door'] },
 
+  // Laundry
   { id: 'laundry-door', pos: [3.5 * S, -1 * S], connections: ['hall-east', 'laundry-center'], pauseAtDoorway: true },
   { id: 'laundry-center', pos: [5 * S, -1 * S], connections: ['laundry-door'] },
 
-  { id: 'bedroom-door', pos: [-1.2 * S, 0.45 * S], connections: ['hall-center', 'bedroom-center'], pauseAtDoorway: true },
-  { id: 'bedroom-center', pos: [-4 * S, 4 * S], connections: ['bedroom-door', 'bedroom-bed', 'bedroom-desk'] },
-  { id: 'bedroom-bed', pos: [-5 * S, 6 * S], connections: ['bedroom-center'] },
-  { id: 'bedroom-desk', pos: [-1.5 * S, 1.5 * S], connections: ['bedroom-center', 'bedroom-door'] },
+  // Bedroom — open center
+  { id: 'bedroom-door', pos: [-1.2 * S, 0.5 * S], connections: ['hall-center', 'bedroom-center'], pauseAtDoorway: true },
+  { id: 'bedroom-center', pos: [-4 * S, 4 * S], connections: ['bedroom-door'] },
 
-  { id: 'bathroom-door', pos: [2 * S, 0.45 * S], connections: ['hall-center', 'bathroom-center'], pauseAtDoorway: true },
-  { id: 'bathroom-center', pos: [4 * S, 4 * S], connections: ['bathroom-door', 'bathroom-tub', 'bathroom-vanity'] },
-  { id: 'bathroom-tub', pos: [6 * S, 6 * S], connections: ['bathroom-center'] },
-  { id: 'bathroom-vanity', pos: [3 * S, 1.5 * S], connections: ['bathroom-center', 'bathroom-door'] },
+  // Bathroom — open center
+  { id: 'bathroom-door', pos: [2 * S, 0.5 * S], connections: ['hall-center', 'bathroom-center'], pauseAtDoorway: true },
+  { id: 'bathroom-center', pos: [4 * S, 4 * S], connections: ['bathroom-door'] },
 ];
 
 function findNearestWaypoint(x: number, z: number): Waypoint {
