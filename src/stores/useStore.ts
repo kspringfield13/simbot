@@ -106,6 +106,12 @@ interface SimBotStore {
   tasksByType: Partial<Record<TaskType, number>>;
   tasksByRoom: Partial<Record<RoomId, number>>;
   recordStats: (taskType: TaskType, roomId: RoomId) => void;
+
+  // Screenshot
+  screenshotMode: boolean;
+  screenshotData: string | null;
+  setScreenshotMode: (mode: boolean) => void;
+  setScreenshotData: (data: string | null) => void;
 }
 
 const initialSimMinutes = (7 * 60) + 20;
@@ -281,6 +287,12 @@ export const useStore = create<SimBotStore>((set) => ({
     tasksByType: { ...state.tasksByType, [taskType]: (state.tasksByType[taskType] ?? 0) + 1 },
     tasksByRoom: { ...state.tasksByRoom, [roomId]: (state.tasksByRoom[roomId] ?? 0) + 1 },
   })),
+
+  // Screenshot
+  screenshotMode: false,
+  screenshotData: null,
+  setScreenshotMode: (mode) => set({ screenshotMode: mode }),
+  setScreenshotData: (data) => set({ screenshotData: data }),
 }));
 
 // Each completion reduces duration by ~5%, capping at 30% faster
