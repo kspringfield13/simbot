@@ -1,4 +1,3 @@
-import { Environment } from '@react-three/drei';
 import { rooms } from '../../utils/homeLayout';
 import { AIBrain } from '../../systems/AIBrain';
 import { TimeSystem } from '../../systems/TimeSystem';
@@ -22,29 +21,30 @@ export function HomeScene() {
       <AIBrain />
       <CameraController />
 
-      {/* Strong ambient so scene is never dark */}
-      <ambientLight intensity={0.8} color="#ffffff" />
-      <hemisphereLight color="#ffffff" groundColor="#444444" intensity={0.5} />
-
+      {/* Simple bright lighting — no dynamic time-of-day */}
+      <ambientLight intensity={0.7} />
+      <hemisphereLight color="#ffffff" groundColor="#8888aa" intensity={0.4} />
       <directionalLight
-        position={[10, 20, 10]}
-        intensity={1.2}
+        position={[10, 25, 10]}
+        intensity={1.0}
         castShadow
         shadow-mapSize-width={2048}
         shadow-mapSize-height={2048}
-        shadow-camera-far={80}
-        shadow-camera-left={-30}
-        shadow-camera-right={30}
-        shadow-camera-top={30}
-        shadow-camera-bottom={-30}
+        shadow-camera-far={60}
+        shadow-camera-left={-25}
+        shadow-camera-right={25}
+        shadow-camera-top={25}
+        shadow-camera-bottom={-25}
       />
+      <directionalLight position={[-8, 15, -5]} intensity={0.3} />
 
       {/* Floor */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]} receiveShadow>
-        <planeGeometry args={[100, 100]} />
+        <planeGeometry args={[80, 80]} />
         <meshStandardMaterial color="#3d3a36" roughness={0.8} />
       </mesh>
 
+      {/* Rooms */}
       {rooms.map((room) => (
         <Room key={room.id} room={room} />
       ))}
@@ -58,8 +58,6 @@ export function HomeScene() {
       <LaundryClosetFurniture />
 
       <Robot />
-
-      <Environment preset="apartment" background={false} environmentIntensity={0.5} />
     </>
   );
 }

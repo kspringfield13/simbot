@@ -3,7 +3,6 @@ import { Suspense } from 'react';
 import { HomeScene } from './components/scene/HomeScene';
 import { RobotTerminal } from './components/ui/RobotTerminal';
 import { TaskProcessor } from './components/systems/TaskProcessor';
-import { SoundController } from './audio/SoundController';
 import { useStore } from './stores/useStore';
 
 function CameraToggle() {
@@ -30,15 +29,8 @@ function App() {
       <Canvas
         shadows
         camera={{ position: [0, 20, 20], fov: 50, near: 0.1, far: 500 }}
-        gl={{
-          antialias: true,
-          toneMapping: 3,
-          toneMappingExposure: 1.2,
-        }}
-        dpr={[1, 2]}
-        onCreated={({ gl }) => {
-          console.log('[Canvas] WebGL context created', gl.info);
-        }}
+        gl={{ antialias: true }}
+        dpr={[1, 1.5]}
       >
         <Suspense fallback={null}>
           <HomeScene />
@@ -46,7 +38,6 @@ function App() {
       </Canvas>
 
       <TaskProcessor />
-      <SoundController />
       <RobotTerminal />
       <CameraToggle />
     </div>
