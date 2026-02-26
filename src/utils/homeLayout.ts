@@ -87,9 +87,9 @@ export const roomTaskAnchors: Record<RoomId, [number, number, number][]> = {
     [-4 * S, 0, -8.5 * S],
   ],
   kitchen: [
-    [6 * S, 0, -9 * S],
-    [4 * S, 0, -6 * S],
-    [4 * S, 0, -9 * S],
+    [3.5 * S, 0, -7 * S],
+    [3.5 * S, 0, -5 * S],
+    [5 * S, 0, -6 * S],
   ],
   hallway: [
     [-2 * S, 0, -1 * S],

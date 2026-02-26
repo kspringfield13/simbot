@@ -8,10 +8,13 @@ export const OBSTACLES: Obstacle[] = [
   { x: -5 * S, z: -6 * S, r: 0.7 * S },       // coffee table
   { x: -4.5 * S, z: -9.3 * S, r: 1.0 * S },   // tv stand + tv
 
-  // KITCHEN — appliances along back wall only
-  { x: 1 * S, z: -9.4 * S, r: 0.7 * S },      // fridge
-  { x: 3.5 * S, z: -9.4 * S, r: 0.7 * S },    // stove
-  { x: 6 * S, z: -9.4 * S, r: 0.7 * S },       // sink
+  // KITCHEN — entire back wall as obstacles (robot must stay in open center)
+  { x: 1 * S, z: -9.4 * S, r: 1.5 * S },      // fridge zone
+  { x: 3.5 * S, z: -9.4 * S, r: 1.5 * S },    // stove zone
+  { x: 6 * S, z: -9.4 * S, r: 1.5 * S },       // sink zone
+  // Kitchen walls — prevent robot from going behind appliances or into walls
+  { x: 0.3 * S, z: -6 * S, r: 0.8 * S },       // left wall buffer
+  { x: 7.7 * S, z: -6 * S, r: 0.8 * S },       // right wall buffer
 
   // LAUNDRY
   { x: 4.5 * S, z: -1 * S, r: 0.6 * S },      // washer
