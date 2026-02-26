@@ -4,8 +4,48 @@ import { useStore } from '../../stores/useStore';
 import { useTaskRunner } from '../../hooks/useTaskRunner';
 import { useVoice } from '../../hooks/useVoice';
 import { SpeedControls } from './SpeedControls';
+import type { RobotTheme } from '../../types';
 import { RoomStatus } from './RoomStatus';
 import { formatSimClock } from '../../systems/TimeSystem';
+
+const themes: { id: RobotTheme; color: string }[] = [
+  { id: 'blue', color: '#1a8cff' },
+  { id: 'red', color: '#e63946' },
+  { id: 'green', color: '#2dd4bf' },
+  { id: 'gold', color: '#f59e0b' },
+];
+
+function ThemePicker() {
+  const robotTheme = useStore((s) => s.robotTheme);
+  const setRobotTheme = useStore((s) => s.setRobotTheme);
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-black/50 backdrop-blur-md transition-all"
+        title="Robot theme"
+      >
+        <span className="h-3.5 w-3.5 rounded-full" style={{ background: themes.find(t => t.id === robotTheme)?.color }} />
+      </button>
+      {open && (
+        <div className="absolute right-0 top-11 flex gap-1 rounded-full bg-black/70 p-1 backdrop-blur-xl border border-white/10">
+          {themes.map(t => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => { setRobotTheme(t.id); setOpen(false); if (navigator.vibrate) navigator.vibrate(8); }}
+              className={`h-7 w-7 rounded-full transition-all ${robotTheme === t.id ? 'ring-2 ring-white/50 scale-110' : 'opacity-60 hover:opacity-100'}`}
+              style={{ background: t.color }}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function GameUI() {
   const [cmd, setCmd] = useState('');
@@ -56,8 +96,9 @@ export function GameUI() {
         </div>
       </div>
 
-      {/* Top-right: camera toggle + speed */}
+      {/* Top-right: theme + camera toggle + speed */}
       <div className="absolute right-3 top-0 z-20 flex items-center gap-2 pt-[max(8px,env(safe-area-inset-top))]">
+        <ThemePicker />
         <SpeedControls />
         <button
           type="button"

@@ -8,6 +8,7 @@ import type {
   RobotMood,
   RobotNeeds,
   RobotState,
+  RobotTheme,
   RoomId,
   RoomNeedState,
   SimPeriod,
@@ -28,6 +29,7 @@ interface SimBotStore {
   robotRotationY: number;
   robotThought: string;
   robotMood: RobotMood;
+  robotTheme: RobotTheme;
   setRobotPosition: (position: [number, number, number]) => void;
   setRobotTarget: (target: [number, number, number] | null) => void;
   setRobotState: (state: RobotState) => void;
@@ -37,6 +39,7 @@ interface SimBotStore {
   setRobotRotationY: (rotationY: number) => void;
   setRobotThought: (thought: string) => void;
   setRobotMood: (mood: RobotMood) => void;
+  setRobotTheme: (theme: RobotTheme) => void;
 
   // Tamagotchi needs
   robotNeeds: RobotNeeds;
@@ -113,6 +116,7 @@ export const useStore = create<SimBotStore>((set) => ({
   robotRotationY: 0,
   robotThought: 'Boot complete. Running ambient home scan.',
   robotMood: 'content',
+  robotTheme: 'blue',
   setRobotPosition: (position) => set({ robotPosition: position }),
   setRobotTarget: (target) => set({ robotTarget: target }),
   setRobotState: (state) => set({ robotState: state }),
@@ -122,6 +126,7 @@ export const useStore = create<SimBotStore>((set) => ({
   setRobotRotationY: (rotationY) => set({ robotRotationY: rotationY }),
   setRobotThought: (thought) => set({ robotThought: thought }),
   setRobotMood: (mood) => set({ robotMood: mood }),
+  setRobotTheme: (theme) => set({ robotTheme: theme }),
 
   robotNeeds: { energy: 85, happiness: 70, social: 50, boredom: 10 },
   updateRobotNeeds: (updates) => set((state) => ({

@@ -59,9 +59,19 @@ export function Robot() {
     currentAnimation,
     simSpeed,
     robotMood,
+    robotTheme,
     setRobotPosition,
     setRobotRotationY,
   } = useStore();
+
+  // Theme accent colors for the robot shell
+  const themeAccents: Record<string, string> = {
+    blue: '#1a8cff',
+    red: '#e63946',
+    green: '#2dd4bf',
+    gold: '#f59e0b',
+  };
+  const themeAccent = themeAccents[robotTheme] ?? themeAccents.blue;
 
   // Mood → visor/glow color mapping
   const moodColors: Record<string, string> = {
@@ -76,18 +86,27 @@ export function Robot() {
   };
   const visorColor = moodColors[robotMood] ?? '#00b8e8';
 
-  // Update emissive materials on the model to reflect mood color
+  // Update emissive materials to reflect mood + theme accent tint on body
   useEffect(() => {
-    const color = new THREE.Color(visorColor);
+    const emissiveColor = new THREE.Color(visorColor);
+    const accent = new THREE.Color(themeAccent);
     scene.traverse((child: any) => {
       if ((child.isMesh || child.isSkinnedMesh) && child.material) {
         const mat = child.material;
         if (mat.emissive && mat.emissiveIntensity > 0) {
-          mat.emissive.copy(color);
+          mat.emissive.copy(emissiveColor);
+        }
+        // Tint non-emissive dark materials with theme accent
+        if (mat.color && (!mat.emissive || mat.emissiveIntensity === 0)) {
+          const lum = mat.color.r * 0.299 + mat.color.g * 0.587 + mat.color.b * 0.114;
+          if (lum < 0.35) {
+            // Blend dark panels with theme accent (subtle 15% tint)
+            mat.color.lerp(accent, 0.15);
+          }
         }
       }
     });
-  }, [scene, visorColor]);
+  }, [scene, visorColor, themeAccent]);
 
   // Crossfade to animation
   const playAnim = (name: string, fadeTime = 0.35) => {

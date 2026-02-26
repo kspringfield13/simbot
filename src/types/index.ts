@@ -70,6 +70,7 @@ export interface ChatMessage {
 
 export type RobotState = 'idle' | 'walking' | 'working';
 export type RobotMood = 'content' | 'focused' | 'curious' | 'routine' | 'tired' | 'lonely' | 'bored' | 'happy';
+export type RobotTheme = 'blue' | 'red' | 'green' | 'gold';
 
 export interface RobotNeeds {
   energy: number;     // 0-100: depletes with tasks, recharges when idle/charging
