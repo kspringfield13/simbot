@@ -13,7 +13,9 @@ import {
   LivingRoomFurniture,
 } from './FurnitureModels';
 import { Robot } from './Robot';
+import { VisitorNPC } from './VisitorNPC';
 import { SeasonalDecorations } from './SeasonalDecorations';
+import { VisitorSystem } from '../../systems/VisitorSystem';
 
 export function HomeScene() {
   return (
@@ -49,6 +51,8 @@ export function HomeScene() {
       <LaundryClosetFurniture />
 
       <Robot />
+      <VisitorNPC />
+      <VisitorSystem />
       <SeasonalDecorations />
     </>
   );

@@ -78,6 +78,12 @@ export interface RobotNeeds {
   social: number;     // 0-100: increases with user interaction, decays over time
   boredom: number;    // 0-100: increases when idle too long, decreases with tasks
 }
+export type VisitorEventType = 'doorbell' | 'package' | 'visitor';
+
+export interface VisitorEvent {
+  type: VisitorEventType;
+}
+
 export type CameraMode = 'overview' | 'follow' | 'pov';
 export type SimPeriod = 'morning' | 'afternoon' | 'evening' | 'night';
 

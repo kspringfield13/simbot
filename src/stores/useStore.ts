@@ -14,6 +14,7 @@ import type {
   SimPeriod,
   Task,
   TaskType,
+  VisitorEvent,
 } from '../types';
 
 export type SimSpeed = 0 | 1 | 10 | 60;
@@ -122,6 +123,12 @@ interface SimBotStore {
   // Seasonal decorations
   seasonalDecorations: boolean;
   setSeasonalDecorations: (enabled: boolean) => void;
+
+  // Visitor events
+  visitorEvent: VisitorEvent | null;
+  setVisitorEvent: (event: VisitorEvent | null) => void;
+  visitorToast: string | null;
+  setVisitorToast: (toast: string | null) => void;
 }
 
 const initialSimMinutes = (7 * 60) + 20;
@@ -313,6 +320,12 @@ export const useStore = create<SimBotStore>((set) => ({
   // Seasonal decorations
   seasonalDecorations: true,
   setSeasonalDecorations: (enabled) => set({ seasonalDecorations: enabled }),
+
+  // Visitor events
+  visitorEvent: null,
+  setVisitorEvent: (event) => set({ visitorEvent: event }),
+  visitorToast: null,
+  setVisitorToast: (toast) => set({ visitorToast: toast }),
 }));
 
 // Each completion reduces duration by ~5%, capping at 30% faster

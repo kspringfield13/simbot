@@ -14,8 +14,11 @@ const waypoints: Waypoint[] = [
   { id: 'living-center', pos: [-3.5 * S, -6 * S], connections: ['living-south', 'dining-area'] },
   { id: 'living-south', pos: [-3.5 * S, -3.5 * S], connections: ['living-center', 'hall-entry'] },
 
+  // Front door (south wall center)
+  { id: 'front-door', pos: [0, -9 * S], connections: ['dining-area'] },
+
   // Transition between living + kitchen
-  { id: 'dining-area', pos: [0, -6 * S], connections: ['living-center', 'kitchen-center'] },
+  { id: 'dining-area', pos: [0, -6 * S], connections: ['living-center', 'kitchen-center', 'front-door'] },
 
   // Kitchen — wide open center, far from back wall appliances
   { id: 'kitchen-center', pos: [3.5 * S, -6 * S], connections: ['dining-area', 'kitchen-south'] },

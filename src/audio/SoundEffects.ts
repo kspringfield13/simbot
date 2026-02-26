@@ -189,6 +189,35 @@ function playSweepSwoosh() {
   src.stop(now + dur);
 }
 
+/** Doorbell ding-dong — two-tone sine bell */
+export function playDoorbell() {
+  const ac = getCtx();
+  const now = ac.currentTime;
+
+  // Ding (higher note — C5)
+  const ding = ac.createOscillator();
+  ding.type = 'sine';
+  ding.frequency.value = 523;
+  const dingGain = ac.createGain();
+  dingGain.gain.setValueAtTime(0.2, now);
+  dingGain.gain.exponentialRampToValueAtTime(0.01, now + 0.45);
+  ding.connect(dingGain).connect(getMaster());
+  ding.start(now);
+  ding.stop(now + 0.45);
+
+  // Dong (lower note — G4, delayed)
+  const dong = ac.createOscillator();
+  dong.type = 'sine';
+  dong.frequency.value = 392;
+  const dongGain = ac.createGain();
+  dongGain.gain.setValueAtTime(0.001, now + 0.3);
+  dongGain.gain.linearRampToValueAtTime(0.2, now + 0.32);
+  dongGain.gain.exponentialRampToValueAtTime(0.01, now + 0.85);
+  dong.connect(dongGain).connect(getMaster());
+  dong.start(now + 0.3);
+  dong.stop(now + 0.85);
+}
+
 // ─── Task-to-sound mapping ───
 
 type SoundFn = () => void;
