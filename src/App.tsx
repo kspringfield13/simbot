@@ -3,6 +3,7 @@ import { Suspense } from 'react';
 import { HomeScene } from './components/scene/HomeScene';
 import { RobotTerminal } from './components/ui/RobotTerminal';
 import { TaskProcessor } from './components/systems/TaskProcessor';
+import { SoundController } from './audio/SoundController';
 import { useStore } from './stores/useStore';
 
 function CameraToggle() {
@@ -45,6 +46,7 @@ function App() {
       </Canvas>
 
       <TaskProcessor />
+      <SoundController />
       <RobotTerminal />
       <CameraToggle />
     </div>

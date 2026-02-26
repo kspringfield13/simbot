@@ -95,6 +95,10 @@ interface SimBotStore {
   taskExperience: Partial<Record<TaskType, number>>;
   recordTaskCompletion: (taskType: TaskType) => void;
 
+  // Audio
+  soundMuted: boolean;
+  setSoundMuted: (muted: boolean) => void;
+
   // Stats
   showStats: boolean;
   setShowStats: (show: boolean) => void;
@@ -261,6 +265,10 @@ export const useStore = create<SimBotStore>((set) => ({
       [taskType]: (state.taskExperience[taskType] ?? 0) + 1,
     },
   })),
+
+  // Audio
+  soundMuted: false,
+  setSoundMuted: (muted) => set({ soundMuted: muted }),
 
   // Stats
   showStats: false,
