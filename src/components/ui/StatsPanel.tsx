@@ -1,5 +1,6 @@
 import { useStore } from '../../stores/useStore';
 import { rooms } from '../../utils/homeLayout';
+import { achievements, getUnlockedAchievements } from '../../systems/Achievements';
 
 const taskTypeLabels: Record<string, string> = {
   cleaning: '🧹 Cleaning',
@@ -150,6 +151,39 @@ export function StatsPanel() {
           No tasks completed yet. Watch the robot work!
         </div>
       )}
+
+      {/* Achievements */}
+      <div style={{ marginTop: 14 }}>
+        <div style={{ color: '#999', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
+          Achievements ({getUnlockedAchievements({ totalTasksCompleted, tasksByType, tasksByRoom, simMinutes }).length}/{achievements.length})
+        </div>
+        {achievements.map((a) => {
+          const unlocked = a.check({ totalTasksCompleted, tasksByType, tasksByRoom, simMinutes });
+          return (
+            <div
+              key={a.id}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                marginBottom: 6,
+                opacity: unlocked ? 1 : 0.35,
+                padding: '6px 8px',
+                background: unlocked ? 'rgba(74,222,128,0.08)' : 'transparent',
+                borderRadius: 6,
+              }}
+            >
+              <span style={{ fontSize: 16 }}>{unlocked ? a.emoji : '🔒'}</span>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: unlocked ? 600 : 400, color: unlocked ? '#fff' : '#888' }}>
+                  {a.title}
+                </div>
+                <div style={{ fontSize: 10, color: '#777' }}>{a.description}</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
