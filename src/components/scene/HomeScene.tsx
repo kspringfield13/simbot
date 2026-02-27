@@ -9,6 +9,7 @@ import { Robot } from './Robot';
 import { VisitorNPC } from './VisitorNPC';
 import { SeasonalDecorations } from './SeasonalDecorations';
 import { VisitorSystem } from '../../systems/VisitorSystem';
+import { PetCat } from './PetCat';
 
 export function HomeScene() {
   return (
@@ -47,6 +48,7 @@ export function HomeScene() {
       <AllFurniture />
 
       <Robot />
+      <PetCat />
       <VisitorNPC />
       <VisitorSystem />
       <SeasonalDecorations />
