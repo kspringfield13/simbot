@@ -33,6 +33,14 @@ export function HomeScene() {
       />
       <directionalLight position={[-8, 15, -5]} intensity={0.3} />
 
+      {/* Room ceiling lights — warm per-room ambiance */}
+      <pointLight position={[-8, 4.5, -12]} intensity={0.5} color="#ffe8c0" distance={18} decay={2} />
+      <pointLight position={[8, 4.5, -12]} intensity={0.6} color="#fff5e0" distance={18} decay={2} />
+      <pointLight position={[-8, 4.5, 8]} intensity={0.4} color="#e8e0ff" distance={18} decay={2} />
+      <pointLight position={[8, 4.5, 8]} intensity={0.5} color="#f0f5ff" distance={18} decay={2} />
+      <pointLight position={[0, 4.5, -2]} intensity={0.3} color="#ffe0b0" distance={12} decay={2} />
+      <pointLight position={[10, 4.5, -2]} intensity={0.3} color="#fff5e0" distance={8} decay={2} />
+
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]} receiveShadow>
         <planeGeometry args={[80, 80]} />
         <meshStandardMaterial color="#3d3a36" roughness={0.8} />

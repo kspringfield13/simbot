@@ -77,7 +77,7 @@ function RobotModel() {
         let diff = targetAngle - groupRef.current.rotation.y;
         while (diff > Math.PI) diff -= Math.PI * 2;
         while (diff < -Math.PI) diff += Math.PI * 2;
-        groupRef.current.rotation.y += diff * 0.12;
+        groupRef.current.rotation.y += diff * 0.18;
 
         // Speed — walk only
         const targetSpeed = Math.abs(diff) > 1.0 ? 0.3 : (distance < 1.0 ? 0.8 : 1.3);
@@ -132,7 +132,15 @@ function RobotModel() {
       }
     } else if (robotState === 'idle') {
       currentSpeedRef.current = 0;
-      playAnim('idle', 0.5);
+      const t = performance.now() / 1000;
+      const cycle = Math.floor(t / 8) % 5;
+      if (cycle === 1 && actions['agree']) {
+        playAnim('agree', 0.5);
+      } else if (cycle === 3 && actions['headShake']) {
+        playAnim('headShake', 0.5);
+      } else {
+        playAnim('idle', 0.5);
+      }
     } else if (robotState === 'working') {
       currentSpeedRef.current = 0;
       playAnim('idle', 0.4);

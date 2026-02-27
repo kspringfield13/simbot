@@ -1,7 +1,14 @@
-import type { Room as RoomType } from '../../types';
+import type { Room as RoomType, RoomId } from '../../types';
 
-// Single natural floor color — clean warm gray for all rooms
-const FLOOR_COLOR = '#4a4644';
+// Subtle floor variation per room — not colored, just warm/cool tones
+const FLOOR_COLORS: Record<RoomId, string> = {
+  'living-room': '#4a4644',  // warm
+  kitchen: '#484848',         // neutral
+  bedroom: '#444446',         // cool
+  bathroom: '#464848',        // blue-cool
+  hallway: '#454443',         // warm
+  laundry: '#484646',         // neutral-cool
+};
 
 export function Room({ room }: { room: RoomType }) {
   const hw = room.size[0] / 2;
@@ -19,7 +26,7 @@ export function Room({ room }: { room: RoomType }) {
       >
         <planeGeometry args={room.size} />
         <meshStandardMaterial
-          color={FLOOR_COLOR}
+          color={FLOOR_COLORS[room.id] ?? '#4a4644'}
           roughness={0.75}
           metalness={0.02}
         />
