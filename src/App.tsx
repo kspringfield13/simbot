@@ -7,6 +7,7 @@ import { EmojiReaction } from './components/ui/EmojiReaction';
 import { ScreenshotModal } from './components/ui/ScreenshotModal';
 import { TaskProcessor } from './components/systems/TaskProcessor';
 import { VisitorToast } from './components/ui/VisitorToast';
+import { ChatPanel } from './components/ui/ChatPanel';
 import { useStore } from './stores/useStore';
 
 function CameraToggle() {
@@ -138,6 +139,7 @@ function App() {
 
       <VisitorToast />
       <ScreenshotModal />
+      {!screenshotMode && <ChatPanel />}
     </div>
   );
 }
