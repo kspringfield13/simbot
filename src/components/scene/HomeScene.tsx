@@ -4,14 +4,7 @@ import { TimeSystem } from '../../systems/TimeSystem';
 import { CameraController } from '../camera/CameraController';
 import { Room } from './Room';
 import { Walls } from './Walls';
-import {
-  BathroomFurniture,
-  BedroomFurniture,
-  HallwayDecor,
-  KitchenFurniture,
-  LaundryClosetFurniture,
-  LivingRoomFurniture,
-} from './FurnitureModels';
+import { AllFurniture } from './FurnitureModels';
 import { Robot } from './Robot';
 import { VisitorNPC } from './VisitorNPC';
 import { SeasonalDecorations } from './SeasonalDecorations';
@@ -51,12 +44,7 @@ export function HomeScene() {
       ))}
 
       <Walls />
-      <LivingRoomFurniture />
-      <KitchenFurniture />
-      <BedroomFurniture />
-      <BathroomFurniture />
-      <HallwayDecor />
-      <LaundryClosetFurniture />
+      <AllFurniture />
 
       <Robot />
       <VisitorNPC />

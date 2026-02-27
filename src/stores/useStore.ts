@@ -19,6 +19,24 @@ import type {
 
 export type SimSpeed = 0 | 1 | 10 | 60;
 
+// ── Furniture localStorage persistence ──────────────────────────
+const FURNITURE_STORAGE_KEY = 'simbot-furniture-positions';
+
+function loadFurniturePositions(): Record<string, [number, number]> {
+  try {
+    const stored = localStorage.getItem(FURNITURE_STORAGE_KEY);
+    return stored ? JSON.parse(stored) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveFurniturePositions(positions: Record<string, [number, number]>) {
+  try {
+    localStorage.setItem(FURNITURE_STORAGE_KEY, JSON.stringify(positions));
+  } catch { /* ignore quota errors */ }
+}
+
 interface SimBotStore {
   // Robot
   robotPosition: [number, number, number];
@@ -129,6 +147,15 @@ interface SimBotStore {
   setVisitorEvent: (event: VisitorEvent | null) => void;
   visitorToast: string | null;
   setVisitorToast: (toast: string | null) => void;
+
+  // Furniture rearrangement
+  rearrangeMode: boolean;
+  selectedFurnitureId: string | null;
+  furniturePositions: Record<string, [number, number]>;
+  setRearrangeMode: (mode: boolean) => void;
+  selectFurniture: (id: string | null) => void;
+  moveFurniture: (id: string, x: number, z: number) => void;
+  resetFurnitureLayout: () => void;
 }
 
 const initialSimMinutes = (7 * 60) + 20;
@@ -326,6 +353,22 @@ export const useStore = create<SimBotStore>((set) => ({
   setVisitorEvent: (event) => set({ visitorEvent: event }),
   visitorToast: null,
   setVisitorToast: (toast) => set({ visitorToast: toast }),
+
+  // Furniture rearrangement
+  rearrangeMode: false,
+  selectedFurnitureId: null,
+  furniturePositions: loadFurniturePositions(),
+  setRearrangeMode: (mode) => set({ rearrangeMode: mode, selectedFurnitureId: null }),
+  selectFurniture: (id) => set({ selectedFurnitureId: id }),
+  moveFurniture: (id, x, z) => set((state) => {
+    const newPositions = { ...state.furniturePositions, [id]: [x, z] as [number, number] };
+    saveFurniturePositions(newPositions);
+    return { furniturePositions: newPositions, selectedFurnitureId: null };
+  }),
+  resetFurnitureLayout: () => {
+    saveFurniturePositions({});
+    return set({ furniturePositions: {}, selectedFurnitureId: null });
+  },
 }));
 
 // Each completion reduces duration by ~5%, capping at 30% faster

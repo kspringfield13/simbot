@@ -1,8 +1,1 @@
-export {
-  LivingRoomFurniture,
-  KitchenFurniture,
-  BedroomFurniture,
-  BathroomFurniture,
-  HallwayDecor,
-  LaundryClosetFurniture,
-} from './scene/FurnitureModels';
+export { AllFurniture } from './scene/FurnitureModels';

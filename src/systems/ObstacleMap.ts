@@ -1,32 +1,24 @@
+import { useStore } from '../stores/useStore';
+import { FURNITURE_PIECES } from '../utils/furnitureRegistry';
+
 export interface Obstacle { x: number; z: number; r: number; }
 
-export const OBSTACLES: Obstacle[] = [
-  // LIVING ROOM
-  { x: -14, z: -12, r: 2.5 },    // sofa
-  { x: -11, z: -12, r: 1.5 },    // coffee table
-  { x: -8, z: -18.5, r: 2 },     // tv stand
-
-  // KITCHEN (back wall)
-  { x: 2, z: -18.5, r: 1.5 },    // fridge
-  { x: 6, z: -18.5, r: 1.5 },    // stove
-  { x: 10, z: -18.5, r: 1.5 },   // sink
-
-  // LAUNDRY
-  { x: 10, z: -3.5, r: 2 },      // washer+dryer
-
-  // BEDROOM
-  { x: -8, z: 14, r: 3 },        // bed
-  { x: -12, z: 14, r: 1 },       // nightstand
-  { x: -2.5, z: 4, r: 1.5 },     // desk+chair
-
-  // BATHROOM
-  { x: 5, z: 1, r: 1 },          // sink
-  { x: 14, z: 14, r: 2 },        // shower
-  { x: 1.5, z: 10, r: 1 },       // toilet
-];
+/** Build obstacles from current furniture positions (reads store). */
+export function getObstacles(): Obstacle[] {
+  const positions = useStore.getState().furniturePositions;
+  return FURNITURE_PIECES.map((piece) => {
+    const override = positions[piece.id];
+    return {
+      x: override ? override[0] : piece.defaultPosition[0],
+      z: override ? override[1] : piece.defaultPosition[2],
+      r: piece.obstacleRadius,
+    };
+  });
+}
 
 export function isPositionClear(x: number, z: number, margin: number = 0.5): boolean {
-  for (const obs of OBSTACLES) {
+  const obstacles = getObstacles();
+  for (const obs of obstacles) {
     const dx = x - obs.x;
     const dz = z - obs.z;
     if (Math.sqrt(dx * dx + dz * dz) < obs.r + margin) return false;
@@ -49,10 +41,11 @@ export function findClearPosition(x: number, z: number, margin: number = 0.8): [
 export function getAvoidanceForce(
   posX: number, posZ: number, dirX: number, dirZ: number, lookAhead: number = 2.0,
 ): [number, number] {
+  const obstacles = getObstacles();
   let forceX = 0;
   let forceZ = 0;
   const robotR = 0.6;
-  for (const obs of OBSTACLES) {
+  for (const obs of obstacles) {
     const dx = posX - obs.x;
     const dz = posZ - obs.z;
     const dist = Math.sqrt(dx * dx + dz * dz);

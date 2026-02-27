@@ -1,90 +1,137 @@
-import { Suspense } from 'react';
+import { Suspense, useRef } from 'react';
+import { useFrame } from '@react-three/fiber';
+import * as THREE from 'three';
 import { GLBModel } from './GLBModel';
+import { FURNITURE_PIECES } from '../../utils/furnitureRegistry';
+import type { FurniturePiece } from '../../utils/furnitureRegistry';
+import { useStore } from '../../stores/useStore';
+import { getRoomFromPoint } from '../../utils/homeLayout';
 
-const PI = Math.PI;
-const S = 2;
+// ── Single interactive furniture group ─────────────────────────
+function FurnitureGroup({ piece }: { piece: FurniturePiece }) {
+  const groupRef = useRef<THREE.Group>(null);
+  const initializedRef = useRef(false);
 
-// ============================================================
-// LIVING ROOM — walls: left x=-16, right x=0(open), back z=-20, front z=-4
-// ============================================================
-export function LivingRoomFurniture() {
+  const rearrangeMode = useStore((s) => s.rearrangeMode);
+  const selectedId = useStore((s) => s.selectedFurnitureId);
+  const positions = useStore((s) => s.furniturePositions);
+  const selectFurniture = useStore((s) => s.selectFurniture);
+
+  const isSelected = selectedId === piece.id;
+  const override = positions[piece.id];
+  const targetX = override ? override[0] : piece.defaultPosition[0];
+  const targetZ = override ? override[1] : piece.defaultPosition[2];
+  const y = piece.defaultPosition[1];
+
+  // Smooth animated movement
+  useFrame(() => {
+    if (!groupRef.current) return;
+    if (!initializedRef.current) {
+      groupRef.current.position.set(targetX, y, targetZ);
+      initializedRef.current = true;
+      return;
+    }
+    groupRef.current.position.x = THREE.MathUtils.lerp(groupRef.current.position.x, targetX, 0.08);
+    groupRef.current.position.z = THREE.MathUtils.lerp(groupRef.current.position.z, targetZ, 0.08);
+  });
+
+  const handleClick = (e: any) => {
+    if (!rearrangeMode || !piece.movable) return;
+    e.stopPropagation();
+    selectFurniture(isSelected ? null : piece.id);
+  };
+
   return (
-    <Suspense fallback={null}>
-      {/* Sofa against left wall (x=-16), centered in room z */}
-      <GLBModel url="/models/sofa-long.glb" position={[-14.5, 0, -12]} scale={2.0 * S} rotation={[0, PI / 2, 0]} />
-      {/* Coffee table in front of sofa */}
-      <GLBModel url="/models/coffee-table.glb" position={[-11.5, 0, -12]} scale={2.0 * S} />
-      {/* TV stand against back wall (z=-20) */}
-      <GLBModel url="/models/tv-stand.glb" position={[-8, 0, -19]} scale={2.0 * S} />
-      <GLBModel url="/models/tv.glb" position={[-8, 1.3, -19]} scale={2.0 * S} />
-    </Suspense>
+    <group
+      ref={groupRef}
+      position={[targetX, y, targetZ]}
+      onClick={handleClick}
+      onPointerOver={(e: any) => {
+        if (rearrangeMode && piece.movable) {
+          e.stopPropagation();
+          document.body.style.cursor = 'pointer';
+        }
+      }}
+      onPointerOut={() => {
+        if (rearrangeMode) document.body.style.cursor = 'auto';
+      }}
+    >
+      {/* Render all sub-models */}
+      {piece.models.map((model, i) => (
+        <GLBModel
+          key={i}
+          url={model.url}
+          position={model.offset}
+          rotation={model.rotation}
+          scale={model.scale}
+        />
+      ))}
+
+      {/* Invisible click target — larger than the visible model */}
+      {rearrangeMode && piece.movable && (
+        <mesh position={[0, 1.5, 0]}>
+          <boxGeometry args={[piece.obstacleRadius * 2, 3, piece.obstacleRadius * 2]} />
+          <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+        </mesh>
+      )}
+
+      {/* Unselected ring indicator */}
+      {rearrangeMode && !isSelected && piece.movable && (
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 0]}>
+          <ringGeometry args={[piece.obstacleRadius - 0.1, piece.obstacleRadius, 32]} />
+          <meshBasicMaterial color="#ffffff" transparent opacity={0.12} depthWrite={false} />
+        </mesh>
+      )}
+
+      {/* Selected glow ring */}
+      {isSelected && (
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.06, 0]}>
+          <ringGeometry args={[piece.obstacleRadius - 0.2, piece.obstacleRadius + 0.2, 32]} />
+          <meshBasicMaterial color="#4ade80" transparent opacity={0.5} depthWrite={false} />
+        </mesh>
+      )}
+    </group>
   );
 }
 
-// ============================================================
-// KITCHEN — walls: left x=0(open), right x=16, back z=-20, front z=-4
-// ============================================================
-export function KitchenFurniture() {
+// ── Floor click handler for placing selected furniture ─────────
+function FloorClickHandler() {
+  const rearrangeMode = useStore((s) => s.rearrangeMode);
+  const selectedId = useStore((s) => s.selectedFurnitureId);
+  const moveFurniture = useStore((s) => s.moveFurniture);
+
+  if (!rearrangeMode || !selectedId) return null;
+
+  const handleClick = (e: any) => {
+    e.stopPropagation();
+    const { x, z } = e.point;
+    const room = getRoomFromPoint(x, z);
+    if (!room) return; // only allow placement inside rooms
+    moveFurniture(selectedId, x, z);
+  };
+
   return (
-    <Suspense fallback={null}>
-      {/* Appliances along back wall (z=-20), with 0.5 offset from wall */}
-      <GLBModel url="/models/fridge.glb" position={[3, 0, -19]} scale={2.0 * S} rotation={[0, PI, 0]} />
-      <GLBModel url="/models/stove-electric.glb" position={[7, 0, -19]} scale={2.0 * S} />
-      <GLBModel url="/models/range-hood.glb" position={[7, 3.6, -19.3]} scale={1.8 * S} />
-      <GLBModel url="/models/kitchen-sink.glb" position={[11, 0, -19]} scale={2.0 * S} />
-    </Suspense>
+    <mesh
+      rotation={[-Math.PI / 2, 0, 0]}
+      position={[0, 0.02, 0]}
+      onClick={handleClick}
+      onPointerOver={() => { document.body.style.cursor = 'crosshair'; }}
+      onPointerOut={() => { document.body.style.cursor = 'auto'; }}
+    >
+      <planeGeometry args={[100, 100]} />
+      <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+    </mesh>
   );
 }
 
-// ============================================================
-// LAUNDRY — walls: left x=7, right x=13, back z=-4, front z=0
-// ============================================================
-export function LaundryClosetFurniture() {
+// ── Main export: renders all furniture + floor click handler ───
+export function AllFurniture() {
   return (
     <Suspense fallback={null}>
-      {/* Washer+dryer against back wall (z=-4), offset 0.5 */}
-      <GLBModel url="/models/washer.glb" position={[8.5, 0, -3.2]} scale={2.0 * S} rotation={[0, PI, 0]} />
-      <GLBModel url="/models/dryer.glb" position={[11.5, 0, -3.2]} scale={2.0 * S} rotation={[0, PI, 0]} />
+      {FURNITURE_PIECES.map((piece) => (
+        <FurnitureGroup key={piece.id} piece={piece} />
+      ))}
+      <FloorClickHandler />
     </Suspense>
   );
-}
-
-// ============================================================
-// BEDROOM — walls: left x=-16, right x=0, back z=16, front z=0
-// ============================================================
-export function BedroomFurniture() {
-  return (
-    <Suspense fallback={null}>
-      {/* Bed against back wall (z=16), centered x */}
-      <GLBModel url="/models/bed.glb" position={[-8, 0, 14.5]} scale={1.8 * S} rotation={[0, PI, 0]} />
-      {/* Nightstand to left of bed */}
-      <GLBModel url="/models/nightstand.glb" position={[-12.5, 0, 14.5]} scale={1.8 * S} />
-      {/* Desk against left wall (x=-16), near front */}
-      <GLBModel url="/models/desk.glb" position={[-14.5, 0, 3]} scale={2.0 * S} rotation={[0, PI / 2, 0]} />
-      <GLBModel url="/models/desk-chair.glb" position={[-12.5, 0, 3]} scale={1.8 * S} rotation={[0, -PI / 2, 0]} />
-    </Suspense>
-  );
-}
-
-// ============================================================
-// BATHROOM — walls: left x=0, right x=16, back z=16, front z=0
-// ============================================================
-export function BathroomFurniture() {
-  return (
-    <Suspense fallback={null}>
-      {/* Sink against front wall (z=0), offset 0.8 */}
-      <GLBModel url="/models/bathroom-sink.glb" position={[6, 0, 1.2]} scale={1.8 * S} rotation={[0, PI, 0]} />
-      {/* Shower in back-right corner */}
-      <GLBModel url="/models/shower-round.glb" position={[14, 0, 14]} scale={1.9 * S} />
-      {/* Toilet against left wall (x=0), midway */}
-      <GLBModel url="/models/toilet.glb" position={[1.5, 0, 8]} scale={1.2 * S} rotation={[0, PI / 2, 0]} />
-    </Suspense>
-  );
-}
-
-// ============================================================
-// HALLWAY — empty
-// ============================================================
-export function HallwayDecor() {
-  return null;
 }

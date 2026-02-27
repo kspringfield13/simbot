@@ -62,6 +62,44 @@ function ScreenshotButton() {
   );
 }
 
+function RearrangeButton() {
+  const rearrangeMode = useStore((s) => s.rearrangeMode);
+  const setRearrangeMode = useStore((s) => s.setRearrangeMode);
+
+  return (
+    <button
+      type="button"
+      onClick={() => setRearrangeMode(!rearrangeMode)}
+      className={`pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full border text-lg backdrop-blur-md transition-all ${
+        rearrangeMode
+          ? 'border-green-400/50 bg-green-500/30 hover:bg-green-500/50'
+          : 'border-white/10 bg-black/50 hover:bg-black/70'
+      }`}
+      title={rearrangeMode ? 'Exit rearrange mode' : 'Rearrange furniture'}
+    >
+      🪑
+    </button>
+  );
+}
+
+function ResetFurnitureButton() {
+  const rearrangeMode = useStore((s) => s.rearrangeMode);
+  const resetFurnitureLayout = useStore((s) => s.resetFurnitureLayout);
+
+  if (!rearrangeMode) return null;
+
+  return (
+    <button
+      type="button"
+      onClick={() => resetFurnitureLayout()}
+      className="pointer-events-auto flex h-10 items-center justify-center rounded-full border border-red-400/30 bg-black/50 px-3 text-xs text-red-300 backdrop-blur-md transition-all hover:bg-red-500/30"
+      title="Reset all furniture to default positions"
+    >
+      Reset
+    </button>
+  );
+}
+
 function App() {
   const screenshotMode = useStore((s) => s.screenshotMode);
 
@@ -90,6 +128,8 @@ function App() {
             className="pointer-events-none fixed right-4 top-4 z-30 flex gap-2"
             style={{ marginTop: 'env(safe-area-inset-top, 0px)' }}
           >
+            <ResetFurnitureButton />
+            <RearrangeButton />
             <ScreenshotButton />
             <CameraToggle />
           </div>
