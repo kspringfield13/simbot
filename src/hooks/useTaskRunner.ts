@@ -21,6 +21,7 @@ const completionMessages: Record<TaskType, string> = {
   sweeping: 'Sweep complete. Walkways are clear.',
   'grocery-list': 'Inventory check complete. Grocery list generated.',
   general: 'Done. Awaiting next priority.',
+  seasonal: 'Seasonal activity complete. That was festive!',
 };
 
 const completionThoughts: Record<TaskType, string> = {
@@ -35,6 +36,7 @@ const completionThoughts: Record<TaskType, string> = {
   sweeping: 'Traffic path is clean again.',
   'grocery-list': 'Inventory status updated.',
   general: 'Monitoring for the next need.',
+  seasonal: 'Seasonal task done. Love this time of year!',
 };
 
 export const useTaskRunner = () => {

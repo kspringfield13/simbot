@@ -5,16 +5,6 @@ import * as THREE from 'three';
 
 const S = 2;
 
-type Season = 'winter' | 'spring' | 'summer' | 'fall';
-
-function getSeason(): Season {
-  const month = new Date().getMonth(); // 0-11
-  if (month >= 2 && month <= 4) return 'spring';
-  if (month >= 5 && month <= 7) return 'summer';
-  if (month >= 8 && month <= 10) return 'fall';
-  return 'winter';
-}
-
 // Window frame positions for icicles / decorations
 const windowFrames: { position: [number, number, number]; rotation: number }[] = [
   { position: [-7.8 * S, 2.0 * S, -7 * S], rotation: Math.PI / 2 },
@@ -375,7 +365,7 @@ function FallLeaves() {
 
 export function SeasonalDecorations() {
   const enabled = useStore((s) => s.seasonalDecorations);
-  const season = useMemo(() => getSeason(), []);
+  const season = useStore((s) => s.currentSeason);
 
   if (!enabled) return null;
 

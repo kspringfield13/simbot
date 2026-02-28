@@ -19,6 +19,7 @@ import type {
   RoomId,
   RoomNeedState,
   ScheduledTask,
+  Season,
   SimPeriod,
   Task,
   TaskType,
@@ -26,6 +27,7 @@ import type {
   WeatherType,
 } from '../types';
 import { ROBOT_IDS } from '../types';
+import { getSeasonForDay } from '../config/seasons';
 import { DEVICES } from '../config/devices';
 
 export type SimSpeed = 0 | 1 | 10 | 60;
@@ -346,9 +348,16 @@ interface SimBotStore {
   toggleDevice: (deviceId: string) => void;
   setDeviceTemperature: (deviceId: string, temp: number) => void;
   setDeviceOn: (deviceId: string, on: boolean) => void;
+
+  // Seasonal events
+  currentSeason: Season;
+  seasonToast: string | null;
+  setCurrentSeason: (season: Season) => void;
+  setSeasonToast: (toast: string | null) => void;
 }
 
 const initialSimMinutes = (7 * 60) + 20;
+const initialDay = Math.floor(initialSimMinutes / 1440) + 1;
 
 function updateRobot(
   robots: Record<RobotId, RobotInstanceState>,
@@ -797,6 +806,12 @@ export const useStore = create<SimBotStore>((set) => ({
     saveDeviceStates(next);
     return { deviceStates: next };
   }),
+
+  // Seasonal events
+  currentSeason: getSeasonForDay(initialDay),
+  seasonToast: null,
+  setCurrentSeason: (season) => set({ currentSeason: season }),
+  setSeasonToast: (toast) => set({ seasonToast: toast }),
 }));
 
 // Each completion reduces duration by ~5%, capping at 30% faster

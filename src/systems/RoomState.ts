@@ -67,6 +67,7 @@ export function boostRoomAfterTask(
     sweeping: { cleanliness: 22, tidiness: 14, routine: 14 },
     'grocery-list': { cleanliness: 2, tidiness: 8, routine: 12 },
     general: { cleanliness: 8, tidiness: 8, routine: 8 },
+    seasonal: { cleanliness: 12, tidiness: 14, routine: 18 },
   };
 
   const boost = boosts[taskType] ?? boosts.general;

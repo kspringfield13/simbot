@@ -1,13 +1,14 @@
 import { useFrame } from '@react-three/fiber';
 import { useRef } from 'react';
 import { buildAutonomousTask, scoreRoomAttention } from './RoomState';
-import { rooms, windowSpots, getRoomFromPoint } from '../utils/homeLayout';
+import { rooms, windowSpots, getRoomFromPoint, roomTaskAnchors } from '../utils/homeLayout';
 import { findClearPosition } from './ObstacleMap';
 import { useStore, getTaskSpeedMultiplier } from '../stores/useStore';
 import type { RobotId, RobotMood, RoomId } from '../types';
 import { ROBOT_IDS } from '../types';
 import { ROBOT_CONFIGS } from '../config/robots';
 import { getComfortMultiplier } from '../config/devices';
+import { SEASONAL_TASKS, SEASON_THOUGHTS } from '../config/seasons';
 
 const ACTIVE_STATUSES = new Set(['queued', 'walking', 'working']);
 
@@ -78,6 +79,12 @@ const INNER_VOICE = {
       'Just doing my thing.',
       'Another small task, another small victory.',
       'The little things add up.',
+    ],
+    seasonal: [
+      'I love these special seasonal activities!',
+      'This is what makes each season unique.',
+      'Seasonal tasks feel extra rewarding somehow.',
+      'The holidays always bring the best tasks.',
     ],
   } as Record<string, string[]>,
 
@@ -243,6 +250,13 @@ const INNER_VOICE = {
     'The thermostat is cranked up. My cooling fans are working overtime.',
     'A bit too toasty for optimal performance.',
   ],
+
+  seasonalTask: [
+    'Ooh, a seasonal activity! This is exciting.',
+    'I love when the seasons bring special things to do.',
+    'Seasonal tasks are the best part of the year.',
+    'Nothing like a festive activity to brighten the day!',
+  ],
 };
 
 // Per-robot inner voice additions
@@ -272,6 +286,7 @@ type Behavior =
   | { type: 'wander' }
   | { type: 'watch-tv' }
   | { type: 'idle-look' }
+  | { type: 'seasonal-task'; taskIndex: number }
   | { type: 'none' };
 
 function getMoodFromNeeds(energy: number, happiness: number, social: number, boredom: number): RobotMood {
@@ -301,6 +316,7 @@ export function AIBrain({ robotId }: { robotId: RobotId }) {
   const lastRoomRef = useRef<RoomId | null>(null);
   const lastTempThoughtRef = useRef(0);
   const lastTVWatchRef = useRef(0);
+  const lastSeasonalTaskRef = useRef(0);
 
   useFrame(() => {
     const s = useStore.getState();
@@ -623,6 +639,53 @@ export function AIBrain({ robotId }: { robotId: RobotId }) {
         break;
       }
 
+      case 'seasonal-task': {
+        const season = s.currentSeason;
+        const seasonTasks = SEASONAL_TASKS[season];
+        const task = seasonTasks[behavior.taskIndex];
+
+        // Find a position in the target room
+        const anchors = roomTaskAnchors[task.roomId];
+        const raw = anchors?.[Math.floor(Math.random() * anchors.length)] ?? [0, 0, -1];
+        const [sx, sz] = findClearPosition(raw[0], raw[2], 0.8);
+
+        s.addTask({
+          id: crypto.randomUUID(),
+          command: task.name,
+          source: 'ai',
+          targetRoom: task.roomId,
+          targetPosition: [sx, 0, sz],
+          status: 'queued',
+          progress: 0,
+          description: task.description,
+          taskType: 'seasonal',
+          workDuration: Math.round(task.workDuration * getTaskSpeedMultiplier('seasonal')),
+          createdAt: Date.now(),
+          assignedTo: robotId,
+        });
+
+        s.setRobotThought(robotId, task.thought);
+        s.setRobotMood(robotId, 'happy');
+        s.updateRobotNeeds(robotId, {
+          happiness: Math.min(100, needs.happiness + 8),
+          boredom: Math.max(0, needs.boredom - 15),
+        });
+
+        lastSeasonalTaskRef.current = now;
+        consecutiveRef.current = 0;
+
+        const taskDur = task.workDuration * 1000;
+        setTimeout(() => {
+          const current = useStore.getState();
+          if (current.robots[robotId].state === 'idle') {
+            current.setRobotThought(robotId, pick(SEASON_THOUGHTS[season]));
+          }
+        }, taskDur + 2000);
+
+        nextDecisionRef.current = now + rand(15, 25);
+        break;
+      }
+
       case 'idle-look': {
         if (s.simPeriod === 'morning') s.setRobotThought(robotId, pick(INNER_VOICE.morning));
         else if (s.simPeriod === 'night') s.setRobotThought(robotId, pick(INNER_VOICE.night));
@@ -676,6 +739,13 @@ export function AIBrain({ robotId }: { robotId: RobotId }) {
 
     if (top && top.score >= 18 && needs.energy >= 25) {
       return { type: 'clean', roomId: top.id };
+    }
+
+    // Seasonal tasks: ~25% chance when it's been a while since the last one
+    if (now - lastSeasonalTaskRef.current > 45 && Math.random() < 0.25 && needs.energy >= 30) {
+      const seasonTasks = SEASONAL_TASKS[s.currentSeason];
+      const taskIndex = Math.floor(Math.random() * seasonTasks.length);
+      return { type: 'seasonal-task', taskIndex };
     }
 
     if (needs.boredom > 55 && now > wanderCooldownRef.current) {

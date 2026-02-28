@@ -1,6 +1,7 @@
 import { useFrame } from '@react-three/fiber';
 import { useRef } from 'react';
 import { useStore } from '../stores/useStore';
+import { getSeasonForDay, SEASON_LABELS, SEASON_ICONS } from '../config/seasons';
 import type { SimPeriod, WeatherType } from '../types';
 
 export const MINUTES_PER_DAY = 24 * 60;
@@ -150,9 +151,14 @@ export function getWeatherForTime(simMinutes: number): WeatherType {
   return WEATHER_CYCLE[idx];
 }
 
+export function getSimDay(simMinutes: number): number {
+  return Math.floor(simMinutes / MINUTES_PER_DAY) + 1;
+}
+
 export function TimeSystem() {
   const advanceTime = useStore((state) => state.advanceTime);
   const lastWeatherIdxRef = useRef(-1);
+  const lastSeasonRef = useRef(useStore.getState().currentSeason);
 
   useFrame((_, delta) => {
     advanceTime(delta);
@@ -162,6 +168,15 @@ export function TimeSystem() {
     if (idx !== lastWeatherIdxRef.current) {
       lastWeatherIdxRef.current = idx;
       s.setWeather(WEATHER_CYCLE[idx]);
+    }
+
+    // Season tracking
+    const day = getSimDay(s.simMinutes);
+    const season = getSeasonForDay(day);
+    if (season !== lastSeasonRef.current) {
+      lastSeasonRef.current = season;
+      s.setCurrentSeason(season);
+      s.setSeasonToast(`${SEASON_ICONS[season]} ${SEASON_LABELS[season]} has arrived!`);
     }
   });
 

@@ -40,7 +40,10 @@ export type TaskType =
   | 'scrubbing'
   | 'sweeping'
   | 'grocery-list'
-  | 'general';
+  | 'general'
+  | 'seasonal';
+
+export type Season = 'winter' | 'spring' | 'summer' | 'fall';
 
 export type TaskStatus = 'queued' | 'walking' | 'working' | 'completed';
 export type TaskSource = 'user' | 'ai' | 'demo' | 'schedule';

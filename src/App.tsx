@@ -13,6 +13,7 @@ import { ScheduleSystem } from './components/systems/ScheduleSystem';
 import { BatterySystem } from './components/systems/BatterySystem';
 import { MusicSystem } from './components/systems/MusicSystem';
 import { VisitorToast } from './components/ui/VisitorToast';
+import { SeasonToast } from './components/ui/SeasonToast';
 import { ChatPanel } from './components/ui/ChatPanel';
 import { BatteryIndicator } from './components/ui/BatteryIndicator';
 import { ShareButton } from './components/ui/ShareButton';
@@ -361,6 +362,7 @@ function App() {
       )}
 
       <VisitorToast />
+      <SeasonToast />
       <ScreenshotModal />
       {!screenshotMode && !photoMode && !isSpectating && <ChatPanel />}
       {!screenshotMode && !photoMode && !isSpectating && <BatteryIndicator />}
