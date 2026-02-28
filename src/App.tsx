@@ -6,6 +6,7 @@ import { RobotScreenTracker } from './components/ui/ReactionsOverlay';
 import { EmojiReaction } from './components/ui/EmojiReaction';
 import { ScreenshotModal } from './components/ui/ScreenshotModal';
 import { TaskProcessor } from './components/systems/TaskProcessor';
+import { ScheduleSystem } from './components/systems/ScheduleSystem';
 import { VisitorToast } from './components/ui/VisitorToast';
 import { ChatPanel } from './components/ui/ChatPanel';
 import { useStore } from './stores/useStore';
@@ -119,6 +120,7 @@ function App() {
       </Canvas>
 
       <TaskProcessor />
+      <ScheduleSystem />
 
       {/* Hide all overlays during screenshot capture */}
       {!screenshotMode && (

@@ -49,7 +49,15 @@ export type TaskType =
   | 'general';
 
 export type TaskStatus = 'queued' | 'walking' | 'working' | 'completed';
-export type TaskSource = 'user' | 'ai' | 'demo';
+export type TaskSource = 'user' | 'ai' | 'demo' | 'schedule';
+
+export interface ScheduledTask {
+  id: string;
+  command: string;
+  timeMinutes: number; // 0-1439 (sim-minutes within a day)
+  assignedTo: RobotId;
+  enabled: boolean;
+}
 
 export interface Task {
   id: string;

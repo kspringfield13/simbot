@@ -331,8 +331,8 @@ export function AIBrain({ robotId }: { robotId: RobotId }) {
     }
     if (now < nextDecisionRef.current) return;
 
-    // If user gave a command to THIS robot, let it finish
-    if (s.tasks.some((t) => t.assignedTo === robotId && ACTIVE_STATUSES.has(t.status) && t.source === 'user')) {
+    // If user or schedule gave a command to THIS robot, let it finish
+    if (s.tasks.some((t) => t.assignedTo === robotId && ACTIVE_STATUSES.has(t.status) && (t.source === 'user' || t.source === 'schedule'))) {
       nextDecisionRef.current = now + rand(8, 14);
       return;
     }

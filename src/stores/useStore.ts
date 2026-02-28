@@ -13,6 +13,7 @@ import type {
   RobotState,
   RoomId,
   RoomNeedState,
+  ScheduledTask,
   SimPeriod,
   Task,
   TaskType,
@@ -38,6 +39,24 @@ function loadFurniturePositions(): Record<string, [number, number]> {
 function saveFurniturePositions(positions: Record<string, [number, number]>) {
   try {
     localStorage.setItem(FURNITURE_STORAGE_KEY, JSON.stringify(positions));
+  } catch { /* ignore quota errors */ }
+}
+
+// ── Schedule localStorage persistence ──────────────────────────
+const SCHEDULE_STORAGE_KEY = 'simbot-scheduled-tasks';
+
+function loadScheduledTasks(): ScheduledTask[] {
+  try {
+    const stored = localStorage.getItem(SCHEDULE_STORAGE_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveScheduledTasks(tasks: ScheduledTask[]) {
+  try {
+    localStorage.setItem(SCHEDULE_STORAGE_KEY, JSON.stringify(tasks));
   } catch { /* ignore quota errors */ }
 }
 
@@ -154,6 +173,14 @@ interface SimBotStore {
   // Weather
   weather: WeatherType;
   setWeather: (weather: WeatherType) => void;
+
+  // Schedule
+  scheduledTasks: ScheduledTask[];
+  showSchedulePanel: boolean;
+  setShowSchedulePanel: (show: boolean) => void;
+  addScheduledTask: (task: ScheduledTask) => void;
+  removeScheduledTask: (id: string) => void;
+  toggleScheduledTask: (id: string) => void;
 }
 
 const initialSimMinutes = (7 * 60) + 20;
@@ -398,6 +425,28 @@ export const useStore = create<SimBotStore>((set) => ({
   // Weather
   weather: 'sunny',
   setWeather: (weather) => set({ weather }),
+
+  // Schedule
+  scheduledTasks: loadScheduledTasks(),
+  showSchedulePanel: false,
+  setShowSchedulePanel: (show) => set({ showSchedulePanel: show }),
+  addScheduledTask: (task) => set((state) => {
+    const next = [...state.scheduledTasks, task];
+    saveScheduledTasks(next);
+    return { scheduledTasks: next };
+  }),
+  removeScheduledTask: (id) => set((state) => {
+    const next = state.scheduledTasks.filter((t) => t.id !== id);
+    saveScheduledTasks(next);
+    return { scheduledTasks: next };
+  }),
+  toggleScheduledTask: (id) => set((state) => {
+    const next = state.scheduledTasks.map((t) =>
+      t.id === id ? { ...t, enabled: !t.enabled } : t
+    );
+    saveScheduledTasks(next);
+    return { scheduledTasks: next };
+  }),
 }));
 
 // Each completion reduces duration by ~5%, capping at 30% faster

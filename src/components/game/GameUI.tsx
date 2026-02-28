@@ -11,6 +11,7 @@ import { formatSimClock } from '../../systems/TimeSystem';
 import { ROBOT_CONFIGS } from '../../config/robots';
 import { ROBOT_IDS } from '../../types';
 import type { WeatherType } from '../../types';
+import { SchedulePanel } from '../ui/SchedulePanel';
 
 function RobotPicker() {
   const activeRobotId = useStore((s) => s.activeRobotId);
@@ -123,6 +124,34 @@ function MuteToggle() {
   );
 }
 
+function ScheduleButton() {
+  const showSchedulePanel = useStore((s) => s.showSchedulePanel);
+  const setShowSchedulePanel = useStore((s) => s.setShowSchedulePanel);
+  const scheduledTasks = useStore((s) => s.scheduledTasks);
+  const enabledCount = scheduledTasks.filter((t) => t.enabled).length;
+
+  return (
+    <button
+      type="button"
+      onClick={() => { setShowSchedulePanel(!showSchedulePanel); if (navigator.vibrate) navigator.vibrate(8); }}
+      className={`relative flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-black/50 backdrop-blur-md transition-all ${
+        showSchedulePanel ? 'text-white/90' : 'text-white/60 hover:text-white/90'
+      }`}
+      title="Daily schedule"
+    >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+        <circle cx="12" cy="12" r="10" />
+        <polyline points="12 6 12 12 16 14" />
+      </svg>
+      {enabledCount > 0 && (
+        <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-emerald-500 px-1 text-[9px] font-bold text-black">
+          {enabledCount}
+        </span>
+      )}
+    </button>
+  );
+}
+
 export function GameUI() {
   const [cmd, setCmd] = useState('');
   const [showChat, setShowChat] = useState(false);
@@ -176,6 +205,7 @@ export function GameUI() {
       {/* Top-right: theme + mute + camera toggle + speed */}
       <div className="absolute right-3 top-0 z-20 flex items-center gap-2 pt-[max(8px,env(safe-area-inset-top))]">
         <RobotPicker />
+        <ScheduleButton />
         <SeasonToggle />
         <MuteToggle />
         <SpeedControls />
@@ -190,6 +220,7 @@ export function GameUI() {
       </div>
 
       <RoomStatus />
+      <SchedulePanel />
 
       {/* Bottom controls — minimal */}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30 p-3 pb-[max(24px,env(safe-area-inset-bottom))]">
