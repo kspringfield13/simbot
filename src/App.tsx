@@ -15,8 +15,11 @@ import { MusicSystem } from './components/systems/MusicSystem';
 import { VisitorToast } from './components/ui/VisitorToast';
 import { ChatPanel } from './components/ui/ChatPanel';
 import { BatteryIndicator } from './components/ui/BatteryIndicator';
+import { ShareButton } from './components/ui/ShareButton';
+import { SpectatorBadge } from './components/ui/SpectatorBadge';
 import { useStore } from './stores/useStore';
 import { musicEngine } from './systems/MusicEngine';
+import { useSpectatorHost, useSpectatorViewer } from './hooks/useSpectator';
 
 function MusicToggle() {
   const musicEnabled = useStore((s) => s.musicEnabled);
@@ -245,7 +248,13 @@ function HelpButton({ onClick }: { onClick: () => void }) {
 function App() {
   const screenshotMode = useStore((s) => s.screenshotMode);
   const photoMode = useStore((s) => s.photoMode);
+  const isSpectating = useStore((s) => s.isSpectating);
   const [showTutorial, setShowTutorial] = useState(false);
+
+  // Host broadcasts state to same-origin spectator tabs; viewer receives it
+  // Both hooks self-guard based on isSpectatorMode()
+  useSpectatorHost();
+  useSpectatorViewer();
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-black">
@@ -263,12 +272,20 @@ function App() {
         <PhotoModeEffects />
       </Canvas>
 
-      <TaskProcessor />
-      <ScheduleSystem />
-      <BatterySystem />
+      {/* Systems — disabled for spectators */}
+      {!isSpectating && (
+        <>
+          <TaskProcessor />
+          <ScheduleSystem />
+          <BatterySystem />
+        </>
+      )}
+
+      {/* Spectator badge */}
+      <SpectatorBadge />
 
       {/* Hide all overlays during screenshot capture or photo mode */}
-      {!screenshotMode && !photoMode && (
+      {!screenshotMode && !photoMode && !isSpectating && (
         <>
           <RobotTerminal />
           <EmojiReaction />
@@ -276,6 +293,7 @@ function App() {
             className="pointer-events-none fixed right-4 top-4 z-30 flex gap-2"
             style={{ marginTop: 'env(safe-area-inset-top, 0px)' }}
           >
+            <ShareButton />
             <MusicToggle />
             <RoomEditorButtons />
             <EditRoomsButton />
@@ -291,11 +309,13 @@ function App() {
 
       <VisitorToast />
       <ScreenshotModal />
-      {!screenshotMode && !photoMode && <ChatPanel />}
-      {!screenshotMode && !photoMode && <BatteryIndicator />}
+      {!screenshotMode && !photoMode && !isSpectating && <ChatPanel />}
+      {!screenshotMode && !photoMode && !isSpectating && <BatteryIndicator />}
 
       <PhotoModeOverlay />
-      <TutorialOverlay forceOpen={showTutorial} onClose={() => setShowTutorial(false)} />
+      {!isSpectating && (
+        <TutorialOverlay forceOpen={showTutorial} onClose={() => setShowTutorial(false)} />
+      )}
     </div>
   );
 }

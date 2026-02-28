@@ -258,6 +258,11 @@ interface SimBotStore {
   addNewRoom: () => void;
   deleteEditRoom: (id: string) => void;
   resetRoomLayout: () => void;
+
+  // Spectator mode
+  isSpectating: boolean;
+  spectatorLive: boolean;
+  spectatorViewerCount: number;
 }
 
 const initialSimMinutes = (7 * 60) + 20;
@@ -637,6 +642,11 @@ export const useStore = create<SimBotStore>((set) => ({
     saveRoomLayout(defaultLayout);
     set({ roomLayout: defaultLayout, editSelectedRoomId: null });
   },
+
+  // Spectator mode
+  isSpectating: false,
+  spectatorLive: false,
+  spectatorViewerCount: 0,
 }));
 
 // Each completion reduces duration by ~5%, capping at 30% faster
