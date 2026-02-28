@@ -183,6 +183,12 @@ interface SimBotStore {
   addScheduledTask: (task: ScheduledTask) => void;
   removeScheduledTask: (id: string) => void;
   toggleScheduledTask: (id: string) => void;
+
+  // Music
+  musicEnabled: boolean;
+  musicGenreLabel: string;
+  setMusicEnabled: (enabled: boolean) => void;
+  setMusicGenreLabel: (label: string) => void;
 }
 
 const initialSimMinutes = (7 * 60) + 20;
@@ -465,6 +471,12 @@ export const useStore = create<SimBotStore>((set) => ({
     saveScheduledTasks(next);
     return { scheduledTasks: next };
   }),
+
+  // Music
+  musicEnabled: false,
+  musicGenreLabel: '',
+  setMusicEnabled: (enabled) => set({ musicEnabled: enabled }),
+  setMusicGenreLabel: (label) => set({ musicGenreLabel: label }),
 }));
 
 // Each completion reduces duration by ~5%, capping at 30% faster

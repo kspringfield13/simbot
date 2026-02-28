@@ -8,10 +8,45 @@ import { ScreenshotModal } from './components/ui/ScreenshotModal';
 import { TaskProcessor } from './components/systems/TaskProcessor';
 import { ScheduleSystem } from './components/systems/ScheduleSystem';
 import { BatterySystem } from './components/systems/BatterySystem';
+import { MusicSystem } from './components/systems/MusicSystem';
 import { VisitorToast } from './components/ui/VisitorToast';
 import { ChatPanel } from './components/ui/ChatPanel';
 import { BatteryIndicator } from './components/ui/BatteryIndicator';
 import { useStore } from './stores/useStore';
+import { musicEngine } from './systems/MusicEngine';
+
+function MusicToggle() {
+  const musicEnabled = useStore((s) => s.musicEnabled);
+  const setMusicEnabled = useStore((s) => s.setMusicEnabled);
+  const genreLabel = useStore((s) => s.musicGenreLabel);
+
+  const toggle = useCallback(() => {
+    const nowEnabled = musicEngine.toggle();
+    setMusicEnabled(nowEnabled);
+  }, [setMusicEnabled]);
+
+  return (
+    <div className="pointer-events-auto flex items-center gap-1.5">
+      <button
+        type="button"
+        onClick={toggle}
+        className={`flex h-10 w-10 items-center justify-center rounded-full border text-lg backdrop-blur-md transition-all ${
+          musicEnabled
+            ? 'border-purple-400/50 bg-purple-500/30 hover:bg-purple-500/50'
+            : 'border-white/10 bg-black/50 hover:bg-black/70'
+        }`}
+        title={musicEnabled ? 'Mute music' : 'Play music'}
+      >
+        🎵
+      </button>
+      {musicEnabled && genreLabel && (
+        <span className="whitespace-nowrap rounded-full border border-purple-400/30 bg-black/60 px-2.5 py-1 text-[11px] text-purple-200 backdrop-blur-md">
+          {genreLabel}
+        </span>
+      )}
+    </div>
+  );
+}
 
 function CameraToggle() {
   const cameraMode = useStore((s) => s.cameraMode);
@@ -118,6 +153,7 @@ function App() {
         <Suspense fallback={null}>
           <HomeScene />
         </Suspense>
+        <MusicSystem />
         <RobotScreenTracker />
       </Canvas>
 
@@ -134,6 +170,7 @@ function App() {
             className="pointer-events-none fixed right-4 top-4 z-30 flex gap-2"
             style={{ marginTop: 'env(safe-area-inset-top, 0px)' }}
           >
+            <MusicToggle />
             <ResetFurnitureButton />
             <RearrangeButton />
             <ScreenshotButton />
