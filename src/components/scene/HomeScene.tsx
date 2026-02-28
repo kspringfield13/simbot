@@ -15,6 +15,7 @@ import { VisitorSystem } from '../../systems/VisitorSystem';
 import { PetCat } from './PetCat';
 import { WeatherEffects } from './WeatherEffects';
 import { ChargingStation } from './ChargingStation';
+import { SmartDevices } from './SmartDevices';
 
 export function HomeScene() {
   const roomLayout = useStore((s) => s.roomLayout);
@@ -67,6 +68,7 @@ export function HomeScene() {
       <AllFurniture />
 
       <ChargingStation />
+      <SmartDevices />
       <Robot />
       <PetCat />
       <VisitorNPC />

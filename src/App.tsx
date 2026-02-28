@@ -18,6 +18,7 @@ import { BatteryIndicator } from './components/ui/BatteryIndicator';
 import { ShareButton } from './components/ui/ShareButton';
 import { SpectatorBadge } from './components/ui/SpectatorBadge';
 import { ShopPanel } from './components/ui/ShopPanel';
+import { DevicePanel } from './components/ui/DevicePanel';
 import { useStore } from './stores/useStore';
 import { musicEngine } from './systems/MusicEngine';
 import { useSpectatorHost, useSpectatorViewer } from './hooks/useSpectator';
@@ -263,6 +264,24 @@ function ShopButton() {
   );
 }
 
+function SmartHomeButton() {
+  const setShowDevicePanel = useStore((s) => s.setShowDevicePanel);
+
+  return (
+    <button
+      type="button"
+      onClick={() => setShowDevicePanel(true)}
+      className="pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-black/50 text-lg backdrop-blur-md transition-all hover:bg-black/70"
+      title="Smart Home"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-white">
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+        <polyline points="9 22 9 12 15 12 15 22" />
+      </svg>
+    </button>
+  );
+}
+
 function HelpButton({ onClick }: { onClick: () => void }) {
   return (
     <button
@@ -326,6 +345,7 @@ function App() {
           >
             <CoinDisplay />
             <ShopButton />
+            <SmartHomeButton />
             <ShareButton />
             <MusicToggle />
             <RoomEditorButtons />
@@ -347,6 +367,7 @@ function App() {
 
       <PhotoModeOverlay />
       <ShopPanel />
+      <DevicePanel />
       {!isSpectating && (
         <TutorialOverlay forceOpen={showTutorial} onClose={() => setShowTutorial(false)} />
       )}

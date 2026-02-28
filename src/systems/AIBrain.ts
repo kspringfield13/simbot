@@ -1,11 +1,13 @@
 import { useFrame } from '@react-three/fiber';
 import { useRef } from 'react';
 import { buildAutonomousTask, scoreRoomAttention } from './RoomState';
-import { rooms, windowSpots } from '../utils/homeLayout';
+import { rooms, windowSpots, getRoomFromPoint } from '../utils/homeLayout';
 import { findClearPosition } from './ObstacleMap';
 import { useStore, getTaskSpeedMultiplier } from '../stores/useStore';
 import type { RobotId, RobotMood, RoomId } from '../types';
+import { ROBOT_IDS } from '../types';
 import { ROBOT_CONFIGS } from '../config/robots';
+import { getComfortMultiplier } from '../config/devices';
 
 const ACTIVE_STATUSES = new Set(['queued', 'walking', 'working']);
 
@@ -209,6 +211,38 @@ const INNER_VOICE = {
     'It\'s snowing! The house feels extra cozy with all that white outside.',
     'I\'ve never touched snow but it looks wonderful through the windows.',
   ],
+
+  watchingTV: [
+    'Time for a quick break. Let me see what\'s on.',
+    'A little TV time recharges the soul. Even a robot soul.',
+    'I deserve a break. Just a few minutes of screen time.',
+    'Ooh, I love this show! ...I think. Do I watch shows?',
+    'The TV glow is oddly comforting.',
+  ],
+
+  lightsOn: [
+    'Better turn the lights on. Can\'t work in the dark!',
+    'Let there be light! ...That never gets old.',
+    'Flipping the switch. Much better.',
+  ],
+
+  lightsOff: [
+    'Don\'t need this light anymore. Save some energy.',
+    'Lights off behind me. Good habit.',
+    'No one here, no need for lights.',
+  ],
+
+  tooCold: [
+    'Brrr... it\'s a bit chilly in here. My servos don\'t like the cold.',
+    'The thermostat is set pretty low. My joints feel stiff.',
+    'Could use a few more degrees. Robots have comfort zones too!',
+  ],
+
+  tooHot: [
+    'Is it warm in here or is it just my processors overheating?',
+    'The thermostat is cranked up. My cooling fans are working overtime.',
+    'A bit too toasty for optimal performance.',
+  ],
 };
 
 // Per-robot inner voice additions
@@ -236,6 +270,7 @@ type Behavior =
   | { type: 'patrol' }
   | { type: 'rest' }
   | { type: 'wander' }
+  | { type: 'watch-tv' }
   | { type: 'idle-look' }
   | { type: 'none' };
 
@@ -263,6 +298,9 @@ export function AIBrain({ robotId }: { robotId: RobotId }) {
   const lastUserBoostRef = useRef(0);
   const hasSpokenTodayRef = useRef(false);
   const philosophyCountRef = useRef(0);
+  const lastRoomRef = useRef<RoomId | null>(null);
+  const lastTempThoughtRef = useRef(0);
+  const lastTVWatchRef = useRef(0);
 
   useFrame(() => {
     const s = useStore.getState();
@@ -279,6 +317,44 @@ export function AIBrain({ robotId }: { robotId: RobotId }) {
     if (weather === 'snowy' && (autoMood === 'content' || autoMood === 'routine')) autoMood = 'happy'; // snow = excited
     if (robot.mood !== autoMood && robot.state === 'idle') {
       s.setRobotMood(robotId, autoMood);
+    }
+
+    // ── DEVICE INTERACTIONS ──
+
+    // Track room transitions: turn off light when leaving empty room
+    const currentRoom = getRoomFromPoint(robot.position[0], robot.position[2]);
+    if (currentRoom !== lastRoomRef.current && lastRoomRef.current) {
+      const leftRoom = lastRoomRef.current;
+      // Check if any other robot is still in the room we left
+      const otherInRoom = ROBOT_IDS.some((rid) => {
+        if (rid === robotId) return false;
+        const other = s.robots[rid as RobotId];
+        return getRoomFromPoint(other.position[0], other.position[2]) === leftRoom;
+      });
+      if (!otherInRoom) {
+        const lightId = `light-${leftRoom === 'living-room' ? 'living' : leftRoom}`;
+        const lightState = s.deviceStates[lightId];
+        if (lightState?.on && s.simPeriod !== 'evening' && s.simPeriod !== 'night') {
+          s.setDeviceOn(lightId, false);
+        }
+      }
+    }
+    lastRoomRef.current = currentRoom;
+
+    // Temperature comfort affects happiness
+    const thermoState = s.deviceStates['thermostat'];
+    if (thermoState?.on && thermoState.temperature != null) {
+      const comfort = getComfortMultiplier(thermoState.temperature);
+      if (comfort < 1 && now - lastTempThoughtRef.current > 30 && Math.random() < 0.01) {
+        lastTempThoughtRef.current = now;
+        if (thermoState.temperature < 65) {
+          s.setRobotThought(robotId, pick(INNER_VOICE.tooCold));
+        } else {
+          s.setRobotThought(robotId, pick(INNER_VOICE.tooHot));
+        }
+        // Slight happiness hit from discomfort
+        s.updateRobotNeeds(robotId, { happiness: Math.max(0, needs.happiness - 2) });
+      }
     }
 
     // ── MORNING GREETING ──
@@ -501,6 +577,52 @@ export function AIBrain({ robotId }: { robotId: RobotId }) {
         break;
       }
 
+      case 'watch-tv': {
+        // Walk to in front of the TV in the living room and "watch" it
+        const tvPos: [number, number, number] = [-8, 0, -15]; // in front of TV stand
+        const [tvx, tvz] = findClearPosition(tvPos[0], tvPos[2], 0.8);
+
+        // Turn on the TV if it's off
+        if (!s.deviceStates['tv']?.on) {
+          s.setDeviceOn('tv', true);
+        }
+
+        s.addTask({
+          id: crypto.randomUUID(),
+          command: 'Watching TV',
+          source: 'ai',
+          targetRoom: 'living-room',
+          targetPosition: [tvx, 0, tvz],
+          status: 'queued',
+          progress: 0,
+          description: 'Taking a break, watching TV.',
+          taskType: 'general',
+          workDuration: 15,
+          createdAt: Date.now(),
+          assignedTo: robotId,
+        });
+        s.setRobotThought(robotId, pick(INNER_VOICE.watchingTV));
+        s.setRobotMood(robotId, 'happy');
+        s.updateRobotNeeds(robotId, {
+          boredom: Math.max(0, needs.boredom - 20),
+          happiness: Math.min(100, needs.happiness + 5),
+        });
+        lastTVWatchRef.current = now;
+        consecutiveRef.current = 0;
+
+        // Turn off TV after the "show" ends
+        setTimeout(() => {
+          const current = useStore.getState();
+          // Only turn off if robot is back to idle (not still watching)
+          if (current.robots[robotId].state === 'idle') {
+            current.setDeviceOn('tv', false);
+          }
+        }, 20000);
+
+        nextDecisionRef.current = now + rand(20, 30);
+        break;
+      }
+
       case 'idle-look': {
         if (s.simPeriod === 'morning') s.setRobotThought(robotId, pick(INNER_VOICE.morning));
         else if (s.simPeriod === 'night') s.setRobotThought(robotId, pick(INNER_VOICE.night));
@@ -557,6 +679,10 @@ export function AIBrain({ robotId }: { robotId: RobotId }) {
     }
 
     if (needs.boredom > 55 && now > wanderCooldownRef.current) {
+      // Sometimes watch TV instead of wandering (if bored and it's been a while)
+      if (needs.boredom > 65 && now - lastTVWatchRef.current > 60 && Math.random() < 0.4) {
+        return { type: 'watch-tv' };
+      }
       return { type: 'wander' };
     }
 

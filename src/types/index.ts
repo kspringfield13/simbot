@@ -95,6 +95,13 @@ export type CameraMode = 'overview' | 'follow' | 'pov';
 export type SimPeriod = 'morning' | 'afternoon' | 'evening' | 'night';
 export type WeatherType = 'sunny' | 'rainy' | 'snowy';
 
+export type DeviceType = 'light' | 'thermostat' | 'tv';
+
+export interface DeviceState {
+  on: boolean;
+  temperature?: number; // thermostat only (°F)
+}
+
 export interface RobotInstanceState {
   position: [number, number, number];
   target: [number, number, number] | null;

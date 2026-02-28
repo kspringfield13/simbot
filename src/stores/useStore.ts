@@ -4,9 +4,11 @@ import { getSimPeriod } from '../systems/TimeSystem';
 import { createAllRobotStates } from '../config/robots';
 import { DEFAULT_ACTIVE_WALLS } from '../utils/homeLayout';
 import { getBatteryDrainMultiplier, getEnergyMultiplier } from '../config/shop';
+import { getComfortMultiplier } from '../config/devices';
 import type {
   CameraMode,
   ChatMessage,
+  DeviceState,
   NavigationPoint,
   Room,
   RobotId,
@@ -24,6 +26,7 @@ import type {
   WeatherType,
 } from '../types';
 import { ROBOT_IDS } from '../types';
+import { DEVICES } from '../config/devices';
 
 export type SimSpeed = 0 | 1 | 10 | 60;
 
@@ -127,6 +130,41 @@ function loadShopData(): ShopData {
 function saveShopData(data: ShopData) {
   try {
     localStorage.setItem(SHOP_STORAGE_KEY, JSON.stringify(data));
+  } catch { /* ignore quota errors */ }
+}
+
+// ── Device localStorage persistence ──────────────────────────
+const DEVICE_STORAGE_KEY = 'simbot-devices';
+
+function createInitialDeviceStates(): Record<string, DeviceState> {
+  const states: Record<string, DeviceState> = {};
+  for (const d of DEVICES) {
+    if (d.type === 'thermostat') {
+      states[d.id] = { on: true, temperature: 72 };
+    } else {
+      states[d.id] = { on: false };
+    }
+  }
+  return states;
+}
+
+function loadDeviceStates(): Record<string, DeviceState> {
+  try {
+    const stored = localStorage.getItem(DEVICE_STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      // Merge with defaults to pick up newly added devices
+      return { ...createInitialDeviceStates(), ...parsed };
+    }
+    return createInitialDeviceStates();
+  } catch {
+    return createInitialDeviceStates();
+  }
+}
+
+function saveDeviceStates(states: Record<string, DeviceState>) {
+  try {
+    localStorage.setItem(DEVICE_STORAGE_KEY, JSON.stringify(states));
   } catch { /* ignore quota errors */ }
 }
 
@@ -300,6 +338,14 @@ interface SimBotStore {
   addCoins: (amount: number) => void;
   purchaseUpgrade: (id: string, cost: number) => boolean;
   purchaseColor: (robotId: RobotId, colorHex: string, cost: number) => boolean;
+
+  // Smart home devices
+  deviceStates: Record<string, DeviceState>;
+  showDevicePanel: boolean;
+  setShowDevicePanel: (show: boolean) => void;
+  toggleDevice: (deviceId: string) => void;
+  setDeviceTemperature: (deviceId: string, temp: number) => void;
+  setDeviceOn: (deviceId: string, on: boolean) => void;
 }
 
 const initialSimMinutes = (7 * 60) + 20;
@@ -414,12 +460,19 @@ export const useStore = create<SimBotStore>((set) => ({
         : -deltaSimMinutes * 0.06 * battDrainMult;
 
       const energyMult = getEnergyMultiplier(state.purchasedUpgrades);
+
+      // Thermostat comfort affects happiness
+      const thermoDevice = state.deviceStates['thermostat'];
+      const thermoTemp = thermoDevice?.on ? (thermoDevice.temperature ?? 72) : 72;
+      const comfortMult = getComfortMultiplier(thermoTemp);
+      const comfortPenalty = comfortMult < 1 ? -deltaSimMinutes * 0.005 * (1 - comfortMult) : 0;
+
       updatedRobots[id] = {
         ...r,
         battery: clamp(r.battery + batteryDelta),
         needs: {
           energy: clamp(n.energy + (isIdle ? deltaSimMinutes * 0.15 : isWorking ? -deltaSimMinutes * 0.08 * energyMult : -deltaSimMinutes * 0.03)),
-          happiness: clamp(n.happiness + (isWorking ? deltaSimMinutes * 0.02 : -deltaSimMinutes * 0.01) + deltaSimMinutes * weatherHappinessBonus),
+          happiness: clamp(n.happiness + (isWorking ? deltaSimMinutes * 0.02 : -deltaSimMinutes * 0.01) + deltaSimMinutes * weatherHappinessBonus + comfortPenalty),
           social: clamp(n.social - deltaSimMinutes * 0.02),
           boredom: clamp(n.boredom + (isIdle ? deltaSimMinutes * 0.06 : isWorking ? -deltaSimMinutes * 0.05 : -deltaSimMinutes * 0.02)),
         },
@@ -717,6 +770,33 @@ export const useStore = create<SimBotStore>((set) => ({
     set({ coins: nextCoins, robotColors: nextColors });
     return true;
   },
+
+  // Smart home devices
+  deviceStates: loadDeviceStates(),
+  showDevicePanel: false,
+  setShowDevicePanel: (show) => set({ showDevicePanel: show }),
+  toggleDevice: (deviceId) => set((state) => {
+    const current = state.deviceStates[deviceId];
+    if (!current) return {};
+    const next = { ...state.deviceStates, [deviceId]: { ...current, on: !current.on } };
+    saveDeviceStates(next);
+    return { deviceStates: next };
+  }),
+  setDeviceTemperature: (deviceId, temp) => set((state) => {
+    const current = state.deviceStates[deviceId];
+    if (!current) return {};
+    const clamped = Math.max(60, Math.min(85, temp));
+    const next = { ...state.deviceStates, [deviceId]: { ...current, temperature: clamped } };
+    saveDeviceStates(next);
+    return { deviceStates: next };
+  }),
+  setDeviceOn: (deviceId, on) => set((state) => {
+    const current = state.deviceStates[deviceId];
+    if (!current) return {};
+    const next = { ...state.deviceStates, [deviceId]: { ...current, on } };
+    saveDeviceStates(next);
+    return { deviceStates: next };
+  }),
 }));
 
 // Each completion reduces duration by ~5%, capping at 30% faster
