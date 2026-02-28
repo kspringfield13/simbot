@@ -3,6 +3,7 @@ import { createInitialRoomNeeds, decayRoomNeeds, boostRoomAfterTask } from '../s
 import { getSimPeriod } from '../systems/TimeSystem';
 import { createAllRobotStates } from '../config/robots';
 import { DEFAULT_ACTIVE_WALLS } from '../utils/homeLayout';
+import { getBatteryDrainMultiplier, getEnergyMultiplier } from '../config/shop';
 import type {
   CameraMode,
   ChatMessage,
@@ -104,6 +105,32 @@ function saveCustomWalls(w: string[] | null) {
     else localStorage.setItem(WALL_EDITOR_KEY, JSON.stringify(w));
   } catch { /* ignore quota errors */ }
 }
+
+// ── Shop localStorage persistence ──────────────────────────
+const SHOP_STORAGE_KEY = 'simbot-shop';
+
+interface ShopData {
+  coins: number;
+  purchasedUpgrades: string[];
+  robotColors: Partial<Record<RobotId, string>>;
+}
+
+function loadShopData(): ShopData {
+  try {
+    const stored = localStorage.getItem(SHOP_STORAGE_KEY);
+    return stored ? JSON.parse(stored) : { coins: 0, purchasedUpgrades: [], robotColors: {} };
+  } catch {
+    return { coins: 0, purchasedUpgrades: [], robotColors: {} };
+  }
+}
+
+function saveShopData(data: ShopData) {
+  try {
+    localStorage.setItem(SHOP_STORAGE_KEY, JSON.stringify(data));
+  } catch { /* ignore quota errors */ }
+}
+
+const initialShopData = loadShopData();
 
 const initialRoomLayout = loadRoomLayout();
 
@@ -263,6 +290,16 @@ interface SimBotStore {
   isSpectating: boolean;
   spectatorLive: boolean;
   spectatorViewerCount: number;
+
+  // Shop / economy
+  coins: number;
+  purchasedUpgrades: string[];
+  robotColors: Partial<Record<RobotId, string>>;
+  showShop: boolean;
+  setShowShop: (show: boolean) => void;
+  addCoins: (amount: number) => void;
+  purchaseUpgrade: (id: string, cost: number) => boolean;
+  purchaseColor: (robotId: RobotId, colorHex: string, cost: number) => boolean;
 }
 
 const initialSimMinutes = (7 * 60) + 20;
@@ -368,19 +405,20 @@ export const useStore = create<SimBotStore>((set) => ({
       // Weather happiness bonus: rain = cozy (+0.01/min), snow = excited (+0.02/min)
       const weatherHappinessBonus = state.weather === 'rainy' ? 0.01 : state.weather === 'snowy' ? 0.02 : 0;
 
-      // Battery drain/charge rates (per sim-minute)
-      // Working: -0.12, Walking: -0.06, Idle: -0.01, Charging: +0.5
+      // Battery drain/charge rates (per sim-minute), modified by shop upgrades
+      const battDrainMult = getBatteryDrainMultiplier(state.purchasedUpgrades);
       const batteryDelta = r.isCharging
         ? deltaSimMinutes * 0.5
-        : isWorking ? -deltaSimMinutes * 0.12
-        : isIdle ? -deltaSimMinutes * 0.01
-        : -deltaSimMinutes * 0.06;
+        : isWorking ? -deltaSimMinutes * 0.12 * battDrainMult
+        : isIdle ? -deltaSimMinutes * 0.01 * battDrainMult
+        : -deltaSimMinutes * 0.06 * battDrainMult;
 
+      const energyMult = getEnergyMultiplier(state.purchasedUpgrades);
       updatedRobots[id] = {
         ...r,
         battery: clamp(r.battery + batteryDelta),
         needs: {
-          energy: clamp(n.energy + (isIdle ? deltaSimMinutes * 0.15 : isWorking ? -deltaSimMinutes * 0.08 : -deltaSimMinutes * 0.03)),
+          energy: clamp(n.energy + (isIdle ? deltaSimMinutes * 0.15 : isWorking ? -deltaSimMinutes * 0.08 * energyMult : -deltaSimMinutes * 0.03)),
           happiness: clamp(n.happiness + (isWorking ? deltaSimMinutes * 0.02 : -deltaSimMinutes * 0.01) + deltaSimMinutes * weatherHappinessBonus),
           social: clamp(n.social - deltaSimMinutes * 0.02),
           boredom: clamp(n.boredom + (isIdle ? deltaSimMinutes * 0.06 : isWorking ? -deltaSimMinutes * 0.05 : -deltaSimMinutes * 0.02)),
@@ -647,6 +685,38 @@ export const useStore = create<SimBotStore>((set) => ({
   isSpectating: false,
   spectatorLive: false,
   spectatorViewerCount: 0,
+
+  // Shop / economy
+  coins: initialShopData.coins,
+  purchasedUpgrades: initialShopData.purchasedUpgrades,
+  robotColors: initialShopData.robotColors,
+  showShop: false,
+  setShowShop: (show) => set({ showShop: show }),
+  addCoins: (amount) => set((state) => {
+    const next = { coins: state.coins + amount, purchasedUpgrades: state.purchasedUpgrades, robotColors: state.robotColors };
+    saveShopData(next);
+    return { coins: next.coins };
+  }),
+  purchaseUpgrade: (id, cost) => {
+    const state = useStore.getState();
+    if (state.coins < cost || state.purchasedUpgrades.includes(id)) return false;
+    const nextCoins = state.coins - cost;
+    const nextUpgrades = [...state.purchasedUpgrades, id];
+    const shopData = { coins: nextCoins, purchasedUpgrades: nextUpgrades, robotColors: state.robotColors };
+    saveShopData(shopData);
+    set({ coins: nextCoins, purchasedUpgrades: nextUpgrades });
+    return true;
+  },
+  purchaseColor: (robotId, colorHex, cost) => {
+    const state = useStore.getState();
+    if (state.coins < cost) return false;
+    const nextCoins = state.coins - cost;
+    const nextColors = { ...state.robotColors, [robotId]: colorHex };
+    const shopData = { coins: nextCoins, purchasedUpgrades: state.purchasedUpgrades, robotColors: nextColors };
+    saveShopData(shopData);
+    set({ coins: nextCoins, robotColors: nextColors });
+    return true;
+  },
 }));
 
 // Each completion reduces duration by ~5%, capping at 30% faster

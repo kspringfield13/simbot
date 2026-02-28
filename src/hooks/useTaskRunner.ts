@@ -3,6 +3,7 @@ import { useStore } from '../stores/useStore';
 import { findTaskTarget } from '../utils/homeLayout';
 import { getNavigationPath } from '../utils/pathfinding';
 import { demoCommands } from '../utils/demoTasks';
+import { getTaskCoinReward, getShopSpeedMultiplier } from '../config/shop';
 import type { Task, TaskSource, TaskType } from '../types';
 import { ROBOT_IDS } from '../types';
 
@@ -257,7 +258,8 @@ export const useTaskRunner = () => {
         const activeTask = state.tasks.find((task) => task.assignedTo === rid && task.status === 'working');
         if (!activeTask) continue;
 
-        const step = (100 / activeTask.workDuration) * 0.1 * state.simSpeed;
+        const shopSpeedMult = getShopSpeedMultiplier(state.purchasedUpgrades);
+        const step = (100 / activeTask.workDuration) * 0.1 * state.simSpeed / shopSpeedMult;
         const nextProgress = Math.min(100, activeTask.progress + step);
 
         updateTask(activeTask.id, { progress: nextProgress });
@@ -269,6 +271,10 @@ export const useTaskRunner = () => {
         applyRoomTaskResult(activeTask.targetRoom, activeTask.taskType);
         state.recordTaskCompletion(activeTask.taskType);
         state.recordStats(activeTask.taskType, activeTask.targetRoom);
+
+        // Award coins for completing the task
+        const coinReward = getTaskCoinReward(activeTask.workDuration);
+        state.addCoins(coinReward);
 
         setCurrentAnimation(rid, 'general');
         setRobotState(rid, 'idle');

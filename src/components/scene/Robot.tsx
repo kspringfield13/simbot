@@ -79,6 +79,8 @@ function RobotBatteryBar({ robotId }: { robotId: RobotId }) {
 
 function RobotModel({ robotId }: { robotId: RobotId }) {
   const config = ROBOT_CONFIGS[robotId];
+  const customColor = useStore((s) => s.robotColors[robotId]);
+  const displayColor = customColor ?? config.color;
   const groupRef = useRef<THREE.Group>(null);
   const modelRef = useRef<THREE.Group>(null);
   const currentSpeedRef = useRef(0);
@@ -91,7 +93,7 @@ function RobotModel({ robotId }: { robotId: RobotId }) {
   // Clone scene for this robot instance with unique materials
   const clonedScene = useMemo(() => {
     const cloned = SkeletonUtils.clone(scene);
-    const color = new THREE.Color(config.color);
+    const color = new THREE.Color(displayColor);
     cloned.traverse((child: any) => {
       if (child.isMesh || child.isSkinnedMesh) {
         child.material = child.material.clone();
@@ -103,7 +105,7 @@ function RobotModel({ robotId }: { robotId: RobotId }) {
       }
     });
     return cloned;
-  }, [scene, config.color]);
+  }, [scene, displayColor]);
 
   const { actions, mixer } = useAnimations(animations, modelRef);
 
@@ -251,9 +253,9 @@ function RobotModel({ robotId }: { robotId: RobotId }) {
             className={`rounded-full px-2 py-0.5 text-[9px] font-bold tracking-wide whitespace-nowrap backdrop-blur-sm ${
               isActive ? 'border border-white/30 bg-black/70 text-white' : 'bg-black/50 text-white/60'
             }`}
-            style={{ borderColor: isActive ? config.color : 'transparent' }}
+            style={{ borderColor: isActive ? displayColor : 'transparent' }}
           >
-            <span className="inline-block h-1.5 w-1.5 rounded-full mr-1" style={{ background: config.color }} />
+            <span className="inline-block h-1.5 w-1.5 rounded-full mr-1" style={{ background: displayColor }} />
             {config.name}
           </div>
           <RobotBatteryBar robotId={robotId} />
@@ -273,7 +275,7 @@ function RobotModel({ robotId }: { robotId: RobotId }) {
       {isActive && (
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
           <ringGeometry args={[0.8, 0.95, 32]} />
-          <meshBasicMaterial color={config.color} transparent opacity={0.4} />
+          <meshBasicMaterial color={displayColor} transparent opacity={0.4} />
         </mesh>
       )}
     </group>

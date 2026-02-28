@@ -17,6 +17,7 @@ import { ChatPanel } from './components/ui/ChatPanel';
 import { BatteryIndicator } from './components/ui/BatteryIndicator';
 import { ShareButton } from './components/ui/ShareButton';
 import { SpectatorBadge } from './components/ui/SpectatorBadge';
+import { ShopPanel } from './components/ui/ShopPanel';
 import { useStore } from './stores/useStore';
 import { musicEngine } from './systems/MusicEngine';
 import { useSpectatorHost, useSpectatorViewer } from './hooks/useSpectator';
@@ -232,6 +233,36 @@ function RoomEditorButtons() {
   );
 }
 
+function CoinDisplay() {
+  const coins = useStore((s) => s.coins);
+
+  return (
+    <div className="pointer-events-none flex items-center gap-1.5 rounded-full border border-yellow-400/30 bg-black/50 px-3 py-2 backdrop-blur-md">
+      <span className="text-sm">🪙</span>
+      <span className="text-sm font-bold text-yellow-300">{coins}</span>
+    </div>
+  );
+}
+
+function ShopButton() {
+  const setShowShop = useStore((s) => s.setShowShop);
+
+  return (
+    <button
+      type="button"
+      onClick={() => setShowShop(true)}
+      className="pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-black/50 text-lg backdrop-blur-md transition-all hover:bg-black/70"
+      title="Robot Shop"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-white">
+        <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+        <line x1="3" y1="6" x2="21" y2="6" />
+        <path d="M16 10a4 4 0 0 1-8 0" />
+      </svg>
+    </button>
+  );
+}
+
 function HelpButton({ onClick }: { onClick: () => void }) {
   return (
     <button
@@ -293,6 +324,8 @@ function App() {
             className="pointer-events-none fixed right-4 top-4 z-30 flex gap-2"
             style={{ marginTop: 'env(safe-area-inset-top, 0px)' }}
           >
+            <CoinDisplay />
+            <ShopButton />
             <ShareButton />
             <MusicToggle />
             <RoomEditorButtons />
@@ -313,6 +346,7 @@ function App() {
       {!screenshotMode && !photoMode && !isSpectating && <BatteryIndicator />}
 
       <PhotoModeOverlay />
+      <ShopPanel />
       {!isSpectating && (
         <TutorialOverlay forceOpen={showTutorial} onClose={() => setShowTutorial(false)} />
       )}
