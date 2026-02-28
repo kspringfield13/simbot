@@ -126,6 +126,29 @@ const INNER_VOICE = {
     'Rest isn\'t laziness. It\'s maintenance. I deserve this.',
   ],
 
+  lowBattery: [
+    'Battery getting low... I should head to the charger soon.',
+    'My power indicator is blinking. Better find the charging station.',
+    'Running on fumes here. Where\'s the charging pad?',
+    'Low battery warning. I need to prioritize recharging.',
+    'Can feel my circuits slowing down. Charger time.',
+  ],
+
+  charging: [
+    'Ahh... plugged in and recharging. This feels nice.',
+    'Charging up. Soon I\'ll be back at full power.',
+    'The charging station hum is oddly comforting.',
+    'Soaking up that sweet, sweet electricity.',
+    'Recharging... this is the robot equivalent of a coffee break.',
+  ],
+
+  fullyCharged: [
+    'Fully charged and ready to go! Let\'s do this.',
+    'Battery at 100%. I feel unstoppable!',
+    'All powered up. Time to make this house shine.',
+    'Fresh charge, fresh energy. What needs doing?',
+  ],
+
   happy: [
     'You know what? Life is good. Even for a robot.',
     'The house is clean, I\'m charged up, and all is well.',
@@ -270,6 +293,18 @@ export function AIBrain({ robotId }: { robotId: RobotId }) {
       lastThoughtTimeRef.current = now;
     }
 
+    // ── CHARGING THOUGHTS ──
+    if (robot.isCharging && now - lastThoughtTimeRef.current > 10 && Math.random() < 0.015) {
+      lastThoughtTimeRef.current = now;
+      s.setRobotThought(robotId, pick(INNER_VOICE.charging));
+    }
+
+    // ── LOW BATTERY THOUGHTS ──
+    if (robot.battery < 25 && !robot.isCharging && now - lastThoughtTimeRef.current > 12 && Math.random() < 0.012) {
+      lastThoughtTimeRef.current = now;
+      s.setRobotThought(robotId, pick(INNER_VOICE.lowBattery));
+    }
+
     // ── SPONTANEOUS THOUGHTS ──
     if (robot.state === 'idle' && now - lastThoughtTimeRef.current > 15 && Math.random() < 0.008) {
       lastThoughtTimeRef.current = now;
@@ -280,6 +315,7 @@ export function AIBrain({ robotId }: { robotId: RobotId }) {
         return;
       }
 
+      if (robot.battery < 30) { s.setRobotThought(robotId, pick(INNER_VOICE.lowBattery)); return; }
       if (needs.social < 20) { s.setRobotThought(robotId, pick(INNER_VOICE.lonely)); return; }
       if (needs.energy < 20) { s.setRobotThought(robotId, pick(INNER_VOICE.tired)); return; }
       if (needs.boredom > 70) { s.setRobotThought(robotId, pick(INNER_VOICE.bored)); return; }
@@ -334,6 +370,12 @@ export function AIBrain({ robotId }: { robotId: RobotId }) {
     // If user or schedule gave a command to THIS robot, let it finish
     if (s.tasks.some((t) => t.assignedTo === robotId && ACTIVE_STATUSES.has(t.status) && (t.source === 'user' || t.source === 'schedule'))) {
       nextDecisionRef.current = now + rand(8, 14);
+      return;
+    }
+
+    // Don't make decisions while charging or when battery is dead
+    if (robot.isCharging || robot.battery <= 0) {
+      nextDecisionRef.current = now + rand(5, 10);
       return;
     }
 
@@ -480,6 +522,9 @@ export function AIBrain({ robotId }: { robotId: RobotId }) {
     needs: { energy: number; happiness: number; social: number; boredom: number },
     now: number,
   ): Behavior {
+    // Don't take on work if battery is low — BatterySystem handles navigation to charger
+    if (robot.battery < 20) return { type: 'rest' };
+
     if (needs.energy < 15) return { type: 'rest' };
 
     if (consecutiveRef.current >= 3) {

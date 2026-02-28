@@ -57,6 +57,26 @@ function getRobotAvoidanceForce(
   return [forceX, forceZ];
 }
 
+function RobotBatteryBar({ robotId }: { robotId: RobotId }) {
+  const battery = useStore((s) => Math.round(s.robots[robotId].battery));
+  const isCharging = useStore((s) => s.robots[robotId].isCharging);
+  const fill = battery > 50 ? '#4ade80' : battery > 20 ? '#facc15' : '#f87171';
+
+  return (
+    <div className="flex items-center gap-1 rounded-full bg-black/50 px-1.5 py-0.5 backdrop-blur-sm">
+      <div className="relative h-[4px] w-[28px] overflow-hidden rounded-full bg-white/10">
+        <div
+          className={`absolute inset-y-0 left-0 rounded-full ${isCharging ? 'animate-pulse' : ''}`}
+          style={{ width: `${battery}%`, background: fill }}
+        />
+      </div>
+      <span className={`text-[7px] font-mono ${battery < 20 ? 'text-red-400' : isCharging ? 'text-emerald-400' : 'text-white/40'}`}>
+        {battery}%
+      </span>
+    </div>
+  );
+}
+
 function RobotModel({ robotId }: { robotId: RobotId }) {
   const config = ROBOT_CONFIGS[robotId];
   const groupRef = useRef<THREE.Group>(null);
@@ -224,16 +244,19 @@ function RobotModel({ robotId }: { robotId: RobotId }) {
         <primitive object={clonedScene} />
       </group>
 
-      {/* Name label above robot */}
+      {/* Name label + battery bar above robot */}
       <Html center distanceFactor={12} position={[0, 2.8, 0]} transform>
-        <div
-          className={`pointer-events-none rounded-full px-2 py-0.5 text-[9px] font-bold tracking-wide whitespace-nowrap backdrop-blur-sm ${
-            isActive ? 'border border-white/30 bg-black/70 text-white' : 'bg-black/50 text-white/60'
-          }`}
-          style={{ borderColor: isActive ? config.color : 'transparent' }}
-        >
-          <span className="inline-block h-1.5 w-1.5 rounded-full mr-1" style={{ background: config.color }} />
-          {config.name}
+        <div className="pointer-events-none flex flex-col items-center gap-0.5">
+          <div
+            className={`rounded-full px-2 py-0.5 text-[9px] font-bold tracking-wide whitespace-nowrap backdrop-blur-sm ${
+              isActive ? 'border border-white/30 bg-black/70 text-white' : 'bg-black/50 text-white/60'
+            }`}
+            style={{ borderColor: isActive ? config.color : 'transparent' }}
+          >
+            <span className="inline-block h-1.5 w-1.5 rounded-full mr-1" style={{ background: config.color }} />
+            {config.name}
+          </div>
+          <RobotBatteryBar robotId={robotId} />
         </div>
       </Html>
 

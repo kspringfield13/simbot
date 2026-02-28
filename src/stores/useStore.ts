@@ -77,6 +77,8 @@ interface SimBotStore {
   setRobotThought: (robotId: RobotId, thought: string) => void;
   setRobotMood: (robotId: RobotId, mood: RobotMood) => void;
   updateRobotNeeds: (robotId: RobotId, updates: Partial<RobotNeeds>) => void;
+  setRobotBattery: (robotId: RobotId, battery: number) => void;
+  setRobotCharging: (robotId: RobotId, isCharging: boolean) => void;
 
   // Camera
   cameraMode: CameraMode;
@@ -244,6 +246,13 @@ export const useStore = create<SimBotStore>((set) => ({
     };
   }),
 
+  setRobotBattery: (robotId, battery) => set((s) => ({
+    robots: updateRobot(s.robots, robotId, { battery: Math.max(0, Math.min(100, battery)) }),
+  })),
+  setRobotCharging: (robotId, isCharging) => set((s) => ({
+    robots: updateRobot(s.robots, robotId, { isCharging }),
+  })),
+
   cameraMode: 'follow',
   cameraSnapTarget: null,
   setCameraMode: (mode) => set({ cameraMode: mode }),
@@ -279,8 +288,17 @@ export const useStore = create<SimBotStore>((set) => ({
       // Weather happiness bonus: rain = cozy (+0.01/min), snow = excited (+0.02/min)
       const weatherHappinessBonus = state.weather === 'rainy' ? 0.01 : state.weather === 'snowy' ? 0.02 : 0;
 
+      // Battery drain/charge rates (per sim-minute)
+      // Working: -0.12, Walking: -0.06, Idle: -0.01, Charging: +0.5
+      const batteryDelta = r.isCharging
+        ? deltaSimMinutes * 0.5
+        : isWorking ? -deltaSimMinutes * 0.12
+        : isIdle ? -deltaSimMinutes * 0.01
+        : -deltaSimMinutes * 0.06;
+
       updatedRobots[id] = {
         ...r,
+        battery: clamp(r.battery + batteryDelta),
         needs: {
           energy: clamp(n.energy + (isIdle ? deltaSimMinutes * 0.15 : isWorking ? -deltaSimMinutes * 0.08 : -deltaSimMinutes * 0.03)),
           happiness: clamp(n.happiness + (isWorking ? deltaSimMinutes * 0.02 : -deltaSimMinutes * 0.01) + deltaSimMinutes * weatherHappinessBonus),

@@ -112,6 +112,8 @@ export interface RobotInstanceState {
   thought: string;
   mood: RobotMood;
   needs: RobotNeeds;
+  battery: number; // 0-100: drains while working/moving, recharges at charging station
+  isCharging: boolean;
 }
 
 export interface RobotConfig {

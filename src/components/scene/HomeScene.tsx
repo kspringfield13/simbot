@@ -12,6 +12,7 @@ import { SeasonalDecorations } from './SeasonalDecorations';
 import { VisitorSystem } from '../../systems/VisitorSystem';
 import { PetCat } from './PetCat';
 import { WeatherEffects } from './WeatherEffects';
+import { ChargingStation } from './ChargingStation';
 
 export function HomeScene() {
   return (
@@ -51,6 +52,7 @@ export function HomeScene() {
       <Walls />
       <AllFurniture />
 
+      <ChargingStation />
       <Robot />
       <PetCat />
       <VisitorNPC />

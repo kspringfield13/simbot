@@ -13,6 +13,34 @@ import { ROBOT_IDS } from '../../types';
 import type { WeatherType } from '../../types';
 import { SchedulePanel } from '../ui/SchedulePanel';
 
+function RobotPickerItem({ robotId, config, isActive, onSelect }: {
+  robotId: string;
+  config: { color: string; name: string };
+  isActive: boolean;
+  onSelect: () => void;
+}) {
+  const battery = useStore((s) => Math.round(s.robots[robotId as import('../../types').RobotId].battery));
+  const isCharging = useStore((s) => s.robots[robotId as import('../../types').RobotId].isCharging);
+  const fill = battery > 50 ? '#4ade80' : battery > 20 ? '#facc15' : '#f87171';
+
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`flex flex-col items-center gap-0.5 rounded-lg px-1.5 py-1 transition-all ${isActive ? 'ring-1 ring-white/40 bg-white/10' : 'opacity-60 hover:opacity-100'}`}
+      title={`${config.name} - ${battery}%`}
+    >
+      <span className="h-5 w-5 rounded-full" style={{ background: config.color }} />
+      <div className="h-[3px] w-5 overflow-hidden rounded-full bg-white/10">
+        <div
+          className={isCharging ? 'animate-pulse' : ''}
+          style={{ width: `${battery}%`, height: '100%', background: fill, borderRadius: 999 }}
+        />
+      </div>
+    </button>
+  );
+}
+
 function RobotPicker() {
   const activeRobotId = useStore((s) => s.activeRobotId);
   const setActiveRobotId = useStore((s) => s.setActiveRobotId);
@@ -31,17 +59,16 @@ function RobotPicker() {
         <span className="text-[11px] text-white/70">{config.name}</span>
       </button>
       {open && (
-        <div className="absolute right-0 top-11 flex gap-1 rounded-full bg-black/70 p-1 backdrop-blur-xl border border-white/10">
+        <div className="absolute right-0 top-11 flex gap-1.5 rounded-xl bg-black/70 p-1.5 backdrop-blur-xl border border-white/10">
           {ROBOT_IDS.map(id => {
             const c = ROBOT_CONFIGS[id];
             return (
-              <button
+              <RobotPickerItem
                 key={id}
-                type="button"
-                onClick={() => { setActiveRobotId(id); setOpen(false); if (navigator.vibrate) navigator.vibrate(8); }}
-                className={`h-7 w-7 rounded-full transition-all ${activeRobotId === id ? 'ring-2 ring-white/50 scale-110' : 'opacity-60 hover:opacity-100'}`}
-                style={{ background: c.color }}
-                title={c.name}
+                robotId={id}
+                config={c}
+                isActive={activeRobotId === id}
+                onSelect={() => { setActiveRobotId(id); setOpen(false); if (navigator.vibrate) navigator.vibrate(8); }}
               />
             );
           })}

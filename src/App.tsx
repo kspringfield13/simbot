@@ -7,8 +7,10 @@ import { EmojiReaction } from './components/ui/EmojiReaction';
 import { ScreenshotModal } from './components/ui/ScreenshotModal';
 import { TaskProcessor } from './components/systems/TaskProcessor';
 import { ScheduleSystem } from './components/systems/ScheduleSystem';
+import { BatterySystem } from './components/systems/BatterySystem';
 import { VisitorToast } from './components/ui/VisitorToast';
 import { ChatPanel } from './components/ui/ChatPanel';
+import { BatteryIndicator } from './components/ui/BatteryIndicator';
 import { useStore } from './stores/useStore';
 
 function CameraToggle() {
@@ -121,6 +123,7 @@ function App() {
 
       <TaskProcessor />
       <ScheduleSystem />
+      <BatterySystem />
 
       {/* Hide all overlays during screenshot capture */}
       {!screenshotMode && (
@@ -142,6 +145,7 @@ function App() {
       <VisitorToast />
       <ScreenshotModal />
       {!screenshotMode && <ChatPanel />}
+      {!screenshotMode && <BatteryIndicator />}
     </div>
   );
 }

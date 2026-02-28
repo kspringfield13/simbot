@@ -57,6 +57,8 @@ export function createInitialRobotState(config: RobotConfig): RobotInstanceState
     thought: `${config.name} online. Scanning home.`,
     mood: 'content',
     needs: { energy: 85, happiness: 70, social: 50, boredom: 10 },
+    battery: 100,
+    isCharging: false,
   };
 }
 
