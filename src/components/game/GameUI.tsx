@@ -4,43 +4,45 @@ import { useStore } from '../../stores/useStore';
 import { useTaskRunner } from '../../hooks/useTaskRunner';
 import { useVoice } from '../../hooks/useVoice';
 import { SpeedControls } from './SpeedControls';
-import type { RobotTheme } from '../../types';
+// robot types imported via ROBOT_CONFIGS
 import { RoomStatus } from './RoomStatus';
 import { formatSimClock } from '../../systems/TimeSystem';
 
-const themes: { id: RobotTheme; color: string }[] = [
-  { id: 'blue', color: '#1a8cff' },
-  { id: 'red', color: '#e63946' },
-  { id: 'green', color: '#2dd4bf' },
-  { id: 'gold', color: '#f59e0b' },
-];
+import { ROBOT_CONFIGS } from '../../config/robots';
+import { ROBOT_IDS } from '../../types';
 
-function ThemePicker() {
-  const robotTheme = useStore((s) => s.robotTheme);
-  const setRobotTheme = useStore((s) => s.setRobotTheme);
+function RobotPicker() {
+  const activeRobotId = useStore((s) => s.activeRobotId);
+  const setActiveRobotId = useStore((s) => s.setActiveRobotId);
   const [open, setOpen] = useState(false);
+  const config = ROBOT_CONFIGS[activeRobotId];
 
   return (
     <div className="relative">
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-black/50 backdrop-blur-md transition-all"
-        title="Robot theme"
+        className="flex h-9 items-center gap-1.5 rounded-full border border-white/10 bg-black/50 px-2.5 backdrop-blur-md transition-all"
+        title="Select robot"
       >
-        <span className="h-3.5 w-3.5 rounded-full" style={{ background: themes.find(t => t.id === robotTheme)?.color }} />
+        <span className="h-3.5 w-3.5 rounded-full" style={{ background: config.color }} />
+        <span className="text-[11px] text-white/70">{config.name}</span>
       </button>
       {open && (
         <div className="absolute right-0 top-11 flex gap-1 rounded-full bg-black/70 p-1 backdrop-blur-xl border border-white/10">
-          {themes.map(t => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => { setRobotTheme(t.id); setOpen(false); if (navigator.vibrate) navigator.vibrate(8); }}
-              className={`h-7 w-7 rounded-full transition-all ${robotTheme === t.id ? 'ring-2 ring-white/50 scale-110' : 'opacity-60 hover:opacity-100'}`}
-              style={{ background: t.color }}
-            />
-          ))}
+          {ROBOT_IDS.map(id => {
+            const c = ROBOT_CONFIGS[id];
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => { setActiveRobotId(id); setOpen(false); if (navigator.vibrate) navigator.vibrate(8); }}
+                className={`h-7 w-7 rounded-full transition-all ${activeRobotId === id ? 'ring-2 ring-white/50 scale-110' : 'opacity-60 hover:opacity-100'}`}
+                style={{ background: c.color }}
+                title={c.name}
+              />
+            );
+          })}
         </div>
       )}
     </div>
@@ -109,7 +111,7 @@ export function GameUI() {
   const transcript = useStore((s) => s.transcript);
   const demoMode = useStore((s) => s.demoMode);
   const setDemoMode = useStore((s) => s.setDemoMode);
-  const robotState = useStore((s) => s.robotState);
+  const robotState = useStore((s) => s.robots[s.activeRobotId].state);
   const simMinutes = useStore((s) => s.simMinutes);
 
   const { submitCommand } = useTaskRunner();
@@ -150,7 +152,7 @@ export function GameUI() {
 
       {/* Top-right: theme + mute + camera toggle + speed */}
       <div className="absolute right-3 top-0 z-20 flex items-center gap-2 pt-[max(8px,env(safe-area-inset-top))]">
-        <ThemePicker />
+        <RobotPicker />
         <SeasonToggle />
         <MuteToggle />
         <SpeedControls />

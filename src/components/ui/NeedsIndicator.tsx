@@ -1,4 +1,4 @@
-import { useStore } from '../../stores/useStore';
+import { useActiveRobot } from '../../stores/activeRobot';
 
 const BARS: { key: 'energy' | 'happiness' | 'social' | 'boredom'; icon: string; color: string; invertColor?: boolean }[] = [
   { key: 'energy', icon: '⚡', color: '#facc15' },
@@ -8,7 +8,7 @@ const BARS: { key: 'energy' | 'happiness' | 'social' | 'boredom'; icon: string; 
 ];
 
 export function NeedsIndicator() {
-  const needs = useStore((s) => s.robotNeeds);
+  const needs = useActiveRobot((r) => r.needs);
 
   return (
     <div className="absolute right-3 bottom-20 z-20 flex flex-col gap-1.5 rounded-xl border border-white/6 bg-black/50 p-2 backdrop-blur-md">

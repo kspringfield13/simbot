@@ -85,11 +85,13 @@ function getPoseForMode(mode: CameraMode): CameraPose {
   const state = useStore.getState();
 
   if (mode === 'follow') {
-    return getFollowPose(state.robotPosition, state.robotRotationY);
+    const ar = state.robots[state.activeRobotId];
+    return getFollowPose(ar.position, ar.rotationY);
   }
 
   if (mode === 'pov') {
-    return getPovPose(state.robotPosition, state.robotRotationY);
+    const ar = state.robots[state.activeRobotId];
+    return getPovPose(ar.position, ar.rotationY);
   }
 
   return getOverviewPose(state.cameraSnapTarget);
@@ -205,11 +207,13 @@ export function CameraController() {
     }
 
     if (state.cameraMode === 'follow') {
-      const pose = getFollowPose(state.robotPosition, state.robotRotationY);
+      const ar = state.robots[state.activeRobotId];
+      const pose = getFollowPose(ar.position, ar.rotationY);
       controls.target.lerp(pose.target, 0.08);
-      camera.position.lerp(pose.position, state.robotState === 'walking' ? 0.035 : 0.02);
+      camera.position.lerp(pose.position, ar.state === 'walking' ? 0.035 : 0.02);
     } else if (state.cameraMode === 'pov') {
-      const pose = getPovPose(state.robotPosition, state.robotRotationY);
+      const ar = state.robots[state.activeRobotId];
+      const pose = getPovPose(ar.position, ar.rotationY);
       controls.target.lerp(pose.target, 0.09);
       camera.position.lerp(pose.position, 0.08);
     }

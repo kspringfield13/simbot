@@ -1,5 +1,7 @@
 import { useRef, useEffect } from 'react';
 import { useStore } from '../../stores/useStore';
+import { ROBOT_CONFIGS } from '../../config/robots';
+import { ROBOT_IDS } from '../../types';
 
 const S = 2;
 const SIZE = 100;
@@ -21,7 +23,8 @@ function toCanvas(wx: number, wz: number): [number, number] {
 
 export function MiniMap() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const robotPosition = useStore((s) => s.robotPosition);
+  const robots = useStore((s) => s.robots);
+  const activeRobotId = useStore((s) => s.activeRobotId);
 
   useEffect(() => {
     const ctx = canvasRef.current?.getContext('2d');
@@ -39,16 +42,26 @@ export function MiniMap() {
       ctx.strokeRect(rx, ry, rw, rh);
     }
 
-    const [bx, by] = toCanvas(robotPosition[0], robotPosition[2]);
-    ctx.beginPath();
-    ctx.arc(bx, by, 3, 0, Math.PI * 2);
-    ctx.fillStyle = '#fff';
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(bx, by, 5, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
+    // Draw all robots
+    for (const id of ROBOT_IDS) {
+      const pos = robots[id].position;
+      const config = ROBOT_CONFIGS[id];
+      const isActive = id === activeRobotId;
+      const [bx, by] = toCanvas(pos[0], pos[2]);
+
+      ctx.beginPath();
+      ctx.arc(bx, by, isActive ? 3 : 2, 0, Math.PI * 2);
+      ctx.fillStyle = config.color;
+      ctx.fill();
+
+      if (isActive) {
+        ctx.beginPath();
+        ctx.arc(bx, by, 5, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+    }
   });
 
   return (

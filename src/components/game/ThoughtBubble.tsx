@@ -3,8 +3,8 @@ import { useMemo } from 'react';
 import { useStore } from '../../stores/useStore';
 
 export function ThoughtBubble() {
-  const robotPosition = useStore((s) => s.robotPosition);
-  const robotThought = useStore((s) => s.robotThought);
+  const robotPosition = useStore((s) => s.robots[s.activeRobotId].position);
+  const robotThought = useStore((s) => s.robots[s.activeRobotId].thought);
 
   const text = useMemo(() => robotThought.trim() || '...', [robotThought]);
 

@@ -103,7 +103,7 @@ export function useAmbientSounds() {
       if (!enabledRef.current || !audioCtxRef.current) return;
       if (state.simSpeed === 0) return;
 
-      const room = findCurrentRoom(state.robotPosition);
+      const room = findCurrentRoom(state.robots[state.activeRobotId].position);
       if (room === currentRoomRef.current) return;
       currentRoomRef.current = room;
 

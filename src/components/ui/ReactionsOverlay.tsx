@@ -12,7 +12,8 @@ export function RobotScreenTracker() {
   const vec = useRef(new THREE.Vector3());
 
   useFrame(() => {
-    const pos = useStore.getState().robotPosition;
+    const _s = useStore.getState();
+    const pos = _s.robots[_s.activeRobotId].position;
     // Robot head is roughly 2.5 units above ground (scale 1.55, head ~y=1.6)
     vec.current.set(pos[0], pos[1] + 2.5, pos[2]);
     vec.current.project(camera);

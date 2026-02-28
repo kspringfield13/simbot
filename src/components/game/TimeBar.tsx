@@ -3,7 +3,7 @@ import { useStore } from '../../stores/useStore';
 
 export function TimeBar() {
   const simMinutes = useStore((s) => s.simMinutes);
-  const robotState = useStore((s) => s.robotState);
+  const robotState = useStore((s) => s.robots[s.activeRobotId].state);
   const activeTasks = useStore((s) =>
     s.tasks.filter((t) => t.status === 'queued' || t.status === 'walking' || t.status === 'working').length,
   );

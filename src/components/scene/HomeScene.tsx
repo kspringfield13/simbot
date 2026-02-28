@@ -1,5 +1,6 @@
 import { rooms } from '../../utils/homeLayout';
 import { AIBrain } from '../../systems/AIBrain';
+import { ROBOT_IDS } from '../../types';
 import { TimeSystem } from '../../systems/TimeSystem';
 import { CameraController } from '../camera/CameraController';
 import { Room } from './Room';
@@ -15,7 +16,9 @@ export function HomeScene() {
   return (
     <>
       <TimeSystem />
-      <AIBrain />
+      {ROBOT_IDS.map((id) => (
+        <AIBrain key={id} robotId={id} />
+      ))}
       <CameraController />
 
       <ambientLight intensity={0.7} />

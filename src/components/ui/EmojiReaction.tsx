@@ -75,7 +75,8 @@ export function EmojiReaction() {
   // Watch robot state: starting work → 💪, idle + bored → 😴
   useEffect(() => {
     return useStore.subscribe((state) => {
-      const currentState = state.robotState;
+      const activeRobot = state.robots[state.activeRobotId];
+      const currentState = activeRobot.state;
       const prevState = prevRobotStateRef.current;
 
       // Starting work
@@ -84,7 +85,7 @@ export function EmojiReaction() {
       }
 
       // Idle and bored
-      const boredom = state.robotNeeds.boredom;
+      const boredom = activeRobot.needs.boredom;
       const prevBoredom = prevBoredomRef.current;
       if (currentState === 'idle' && prevBoredom <= 75 && boredom > 75) {
         addReaction('💤');

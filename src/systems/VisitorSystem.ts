@@ -2,7 +2,8 @@ import { useFrame } from '@react-three/fiber';
 import { useRef } from 'react';
 import { useStore } from '../stores/useStore';
 import { playDoorbell } from '../audio/SoundEffects';
-import type { VisitorEventType } from '../types';
+import type { VisitorEventType, RobotId } from '../types';
+import { ROBOT_IDS } from '../types';
 
 /** Position just inside the south wall — the "front door" */
 export const FRONT_DOOR_POSITION: [number, number, number] = [0, 0, -18];
@@ -50,11 +51,32 @@ function pick<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
+/** Find the closest idle robot to handle visitor events */
+function findClosestIdleRobot(s: ReturnType<typeof useStore.getState>): RobotId | null {
+  let bestId: RobotId | null = null;
+  let bestDist = Infinity;
+
+  for (const id of ROBOT_IDS) {
+    const robot = s.robots[id];
+    if (robot.state !== 'idle') continue;
+    const dx = robot.position[0] - FRONT_DOOR_POSITION[0];
+    const dz = robot.position[2] - FRONT_DOOR_POSITION[2];
+    const dist = Math.sqrt(dx * dx + dz * dz);
+    if (dist < bestDist) {
+      bestDist = dist;
+      bestId = id;
+    }
+  }
+
+  return bestId;
+}
+
 export function VisitorSystem() {
   const nextEventRef = useRef(0);
   const visitorTaskIdRef = useRef<string | null>(null);
   const eventTypeRef = useRef<VisitorEventType | null>(null);
   const handledCompletionRef = useRef(false);
+  const responderRobotRef = useRef<RobotId>('sim');
 
   useFrame(() => {
     const s = useStore.getState();
@@ -71,6 +93,7 @@ export function VisitorSystem() {
     // Track current visitor task lifecycle
     if (visitorTaskIdRef.current && eventTypeRef.current) {
       const task = s.tasks.find((t) => t.id === visitorTaskIdRef.current);
+      const rid = responderRobotRef.current;
 
       // Task completed — show done toast
       if (task && task.status === 'completed' && !handledCompletionRef.current) {
@@ -78,13 +101,14 @@ export function VisitorSystem() {
         const toasts = TOAST_MESSAGES[eventTypeRef.current];
         const thoughts = EVENT_THOUGHTS[eventTypeRef.current];
         s.setVisitorToast(toasts.done);
-        s.setRobotThought(thoughts.done);
+        s.setRobotThought(rid, thoughts.done);
         s.triggerEmoji('✨');
 
         // Social boost from visitor interaction
-        s.updateRobotNeeds({
-          social: Math.min(100, s.robotNeeds.social + 12),
-          happiness: Math.min(100, s.robotNeeds.happiness + 8),
+        const needs = s.robots[rid].needs;
+        s.updateRobotNeeds(rid, {
+          social: Math.min(100, needs.social + 12),
+          happiness: Math.min(100, needs.happiness + 8),
         });
 
         // Clear event after a delay
@@ -118,22 +142,25 @@ export function VisitorSystem() {
       return;
     }
 
-    // Wait until robot is idle
-    if (s.robotState !== 'idle') {
+    // Find an idle robot to respond
+    const responder = findClosestIdleRobot(s);
+    if (!responder) {
       nextEventRef.current = now + rand(3, 8);
       return;
     }
 
     // Trigger a random visitor event
-    triggerVisitorEvent(s, pick(VISITOR_EVENTS));
+    triggerVisitorEvent(s, pick(VISITOR_EVENTS), responder);
   });
 
   function triggerVisitorEvent(
     s: ReturnType<typeof useStore.getState>,
     type: VisitorEventType,
+    rid: RobotId,
   ) {
     const thoughts = EVENT_THOUGHTS[type];
     const toasts = TOAST_MESSAGES[type];
+    responderRobotRef.current = rid;
 
     // Play doorbell sound
     if (!s.soundMuted) {
@@ -145,19 +172,19 @@ export function VisitorSystem() {
     s.setVisitorToast(toasts.trigger);
     s.triggerEmoji(type === 'package' ? '📦' : type === 'visitor' ? '👋' : '🔔');
 
-    // Clear queued AI tasks so robot prioritizes the door
-    s.clearQueuedAiTasks();
+    // Clear queued AI tasks for this robot so it prioritizes the door
+    s.clearQueuedAiTasks(rid);
 
     // Cancel active AI task if any
     const activeAiTask = s.tasks.find(
-      (t) => t.source === 'ai' && (t.status === 'walking' || t.status === 'working'),
+      (t) => t.assignedTo === rid && t.source === 'ai' && (t.status === 'walking' || t.status === 'working'),
     );
     if (activeAiTask) {
       s.removeTask(activeAiTask.id);
-      s.setRobotPath([]);
-      s.setRobotTarget(null);
-      s.setRobotState('idle');
-      s.setCurrentAnimation('general');
+      s.setRobotPath(rid, []);
+      s.setRobotTarget(rid, null);
+      s.setRobotState(rid, 'idle');
+      s.setCurrentAnimation(rid, 'general');
     }
 
     // Create a task to walk to the front door
@@ -178,10 +205,11 @@ export function VisitorSystem() {
       taskType: 'general',
       workDuration: type === 'visitor' ? 8 : 5,
       createdAt: Date.now(),
+      assignedTo: rid,
     });
 
-    s.setRobotThought(thoughts.walking);
-    s.setRobotMood('curious');
+    s.setRobotThought(rid, thoughts.walking);
+    s.setRobotMood(rid, 'curious');
 
     // Clear trigger toast after 4 seconds
     const triggerText = toasts.trigger;

@@ -6,6 +6,10 @@ export type RoomId =
   | 'bedroom'
   | 'bathroom';
 
+export type RobotId = 'sim' | 'chef' | 'sparkle';
+
+export const ROBOT_IDS: RobotId[] = ['sim', 'chef', 'sparkle'];
+
 export interface Room {
   id: RoomId;
   name: string;
@@ -59,6 +63,7 @@ export interface Task {
   taskType: TaskType;
   workDuration: number;
   createdAt: number;
+  assignedTo: RobotId;
 }
 
 export interface ChatMessage {
@@ -86,6 +91,34 @@ export interface VisitorEvent {
 
 export type CameraMode = 'overview' | 'follow' | 'pov';
 export type SimPeriod = 'morning' | 'afternoon' | 'evening' | 'night';
+
+export interface RobotInstanceState {
+  position: [number, number, number];
+  target: [number, number, number] | null;
+  state: RobotState;
+  path: NavigationPoint[];
+  currentPathIndex: number;
+  currentAnimation: TaskType;
+  rotationY: number;
+  thought: string;
+  mood: RobotMood;
+  needs: RobotNeeds;
+}
+
+export interface RobotConfig {
+  id: RobotId;
+  name: string;
+  color: string;
+  startPosition: [number, number, number];
+  favoriteRoom: RoomId;
+  preferredRooms: RoomId[];
+  curiosity: number;
+  warmth: number;
+  playfulness: number;
+  diligence: number;
+  sensitivity: number;
+  description: string;
+}
 
 export interface RoomNeedState {
   cleanliness: number;

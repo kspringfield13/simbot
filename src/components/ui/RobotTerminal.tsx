@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useStore } from '../../stores/useStore';
+import { useActiveRobot } from '../../stores/activeRobot';
 
 /**
  * Terminal-style typewriter overlay — top-left corner.
@@ -8,9 +8,9 @@ import { useStore } from '../../stores/useStore';
  */
 
 export function RobotTerminal() {
-  const robotThought = useStore((s) => s.robotThought);
-  const robotState = useStore((s) => s.robotState);
-  const currentAnimation = useStore((s) => s.currentAnimation);
+  const robotThought = useActiveRobot((r) => r.thought);
+  const robotState = useActiveRobot((r) => r.state);
+  const currentAnimation = useActiveRobot((r) => r.currentAnimation);
 
   const [lines, setLines] = useState<{ id: number; text: string; opacity: number }[]>([]);
   const [typed, setTyped] = useState('');

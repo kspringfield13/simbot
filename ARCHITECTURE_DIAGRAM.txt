@@ -1,0 +1,649 @@
+================================================================================
+                           SIMBOT ARCHITECTURE OVERVIEW
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         ZUSTAND STORE (useStore.ts)                         │
+│  ┌────────────────────────────────────────────────────────────────────────┐ │
+│  │ Robot State              Camera State            Time State            │ │
+│  │ ─────────────────        ─────────────          ──────────────         │ │
+│  │ • robotPosition          • cameraMode           • simMinutes           │ │
+│  │ • robotTarget            • cameraSnapTarget     • simSpeed (0,1,10,60) │ │
+│  │ • robotState             • setCameraMode()      • simPeriod            │ │
+│  │ • robotPath              • cycleCameraMode()    • advanceTime()        │ │
+│  │ • currentPathIndex       • requestCameraSnap()  │                      │ │
+│  │ • robotRotationY         • clearCameraSnap()    │ Room State            │ │
+│  │ • robotThought           │                      │ ──────────────        │ │
+│  │ • robotMood              │ Robot Needs         │ • roomNeeds[]         │ │
+│  │ • robotTheme             │ ──────────────      │ • cleanliness/tidiness│ │
+│  │ • currentAnimation       │ • energy 0-100      │ • decayRoomNeeds()    │ │
+│  │                          │ • happiness         │ • boostRoomAfterTask()│ │
+│  │ Task Management          │ • social            │                       │ │
+│  │ ──────────────────       │ • boredom           │ Other Features        │ │
+│  │ • tasks[]                │ • updateNeeds()     │ ──────────────────   │ │
+│  │ • addTask()              │ • tickNeeds()       │ • furniturePositions │ │
+│  │ • updateTask()           │                     │ • visitorEvent       │ │
+│  │ • removeTask()           │ Learning System     │ • demoMode           │ │
+│  │ • clearQueuedAiTasks()   │ ───────────────    │ • soundMuted         │ │
+│  │                          │ • taskExperience   │ • stats tracking     │ │
+│  │ Chat System              │ • recordCompletion()│                      │ │
+│  │ ────────────             │                    │ Voice Input          │ │
+│  │ • messages[]             │                    │ ──────────────       │ │
+│  │ • addMessage()           │                    │ • isListening        │ │
+│  │                          │                    │ • transcript         │ │
+│  └────────────────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+================================================================================
+                          DATA FLOW: USER COMMAND
+================================================================================
+
+User Input               Task Pipeline              Rendering
+─────────────────       ──────────────────         ────────────
+
+[User says               submitCommand()
+"clean kitchen"]    →        │
+                             ├─→ findTaskTarget()      → Task object created
+                             │   (homeLayout.ts)         with roomId, position,
+                             │                           type, duration
+                             ├─→ addTask()
+                             │   (store.ts)
+                             │
+                             ├─→ postMessage()
+                             │   (chat)
+                             │
+                      [Next frame - useEffect]
+                             │
+                             ├─→ getNavigationPath()   → NavigationPoint[]
+                             │   (pathfinding.ts)        via waypoint graph
+                             │
+                             ├─→ setRobotPath()
+                             │   setRobotTarget()
+                             │   setRobotState('walking')
+                             │
+                      [Every frame - useFrame]
+                             │
+    Robot.tsx       ←────────├─→ Update position toward target
+    useFrame()               │    • Calculate direction & distance
+    motion                   │    • Rotate smoothly
+                             │    • Check collisions
+                             │    • Apply avoidance force
+                             │    • Update animation speed
+                             │
+                             ├─→ Check waypoint reached (distance < 0.26)
+                             │
+                             ├─→ Advance to next waypoint OR
+                             │   transition to 'working'
+                             │
+                    [Working State - 100ms interval]
+                             │
+                             ├─→ Increment progress
+                             │   += (100/workDuration) * 0.1 * simSpeed
+                             │
+                             ├─→ On 100%:
+                             │   • applyRoomTaskResult()
+                             │   • recordTaskCompletion() [learning]
+                             │   • recordStats()
+                             │   • removeTask() [after 1.5s]
+                             │
+                    [AI Idle Check]
+                             │
+    AIBrain.ts      ←────────├─→ decideBehavior()
+    useFrame()               │    • Score rooms
+    2-5 min interval         │    • Check energy/needs
+                             │    • Return behavior: clean|patrol|rest|wander
+                             │    • Create autonomous task
+                             │
+                    [Loop back to walking]
+
+================================================================================
+                       ROBOT AI DECISION LOOP (AIBrain.ts)
+================================================================================
+
+┌─ Every 2-5 Simulation Minutes ─────────────────────────────────────────────┐
+│                                                                             │
+│  1. Check Preconditions                                                    │
+│     • Robot must be idle (robotState === 'idle')                          │
+│     • No active tasks (walking or working)                                │
+│     • No user-commanded task in progress                                  │
+│                                                                             │
+│  2. Score All 6 Rooms (scoreRoomAttention)                                 │
+│     For each room:                                                        │
+│     • dirtiness = 100 - cleanliness                                       │
+│     • clutter = 100 - tidiness                                           │
+│     • routine_need = 100 - routine                                        │
+│                                                                             │
+│     score = (dirtiness × 0.48) +                                         │
+│              (clutter × 0.32) +                                           │
+│              (routine_need × 0.20) +                                      │
+│              time_of_day_bias +                                           │
+│              proximity_bonus (0-6)                                         │
+│                                                                             │
+│  3. Decision Hierarchy                                                     │
+│                                                                             │
+│     IF energy < 15 THEN return { type: 'rest' }                          │
+│                                                                             │
+│     ELSE IF consecutive_tasks >= 3 THEN                                   │
+│       RETURN { type: 'rest' } OR { type: 'patrol' }                       │
+│                                                                             │
+│     ELSE IF best_room.score >= 18 AND energy >= 25 THEN                   │
+│       RETURN { type: 'clean', roomId: best_room.id }                      │
+│                                                                             │
+│     ELSE IF boredom > 55 THEN                                             │
+│       RETURN { type: 'wander' } [pick random room]                        │
+│                                                                             │
+│     ELSE IF (now - last_window_trip) > 40 THEN                            │
+│       RETURN { type: 'patrol' } [look out window]                         │
+│                                                                             │
+│     ELSE IF energy < 35 THEN                                              │
+│       RETURN { type: 'rest' }                                             │
+│                                                                             │
+│     ELSE                                                                   │
+│       RETURN { type: 'idle-look' }                                        │
+│                                                                             │
+│  4. Execute Behavior                                                       │
+│     • Create task with buildAutonomousTask()                              │
+│     • Set thought from INNER_VOICE library                                │
+│     • Set mood: 'focused' for clean, 'curious' for patrol/wander          │
+│     • Boost happiness and reduce boredom                                   │
+│     • Schedule next decision (2-5 more minutes)                            │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+================================================================================
+                      NAVIGATION SYSTEM (pathfinding.ts)
+================================================================================
+
+Waypoint Network Graph:
+─────────────────────
+
+  ┌─────────────────┐         ┌──────────────────┐
+  │   Living Room   │         │     Kitchen      │
+  │  living-center  │◄──────┐ │  kitchen-center  │
+  │       ◄──────────────────┼─────┤  ◄────────────┐
+  │       │                  │     │                │
+  │  living-south  │       │ │  kitchen-south  │
+  │       ▲        │       │ │     ▲           │
+  │       │        │       └─┼─────┼────────────┤
+  │       └────────┼─────────┘     │            │
+  └─────────────────┘           ┌─────────────┐│
+                                │ dining-area ││
+                                │     ▲       ││
+                    ┌────────────┼─────┼───────┘│
+                    │            │     │        │
+                ┌───┴────────┐   │     │     ┌──┴─────────┐
+                │  hallway   │   │     │     │  laundry   │
+                │ hall-entry│◄───┼─────┼────►│ laundry-door
+                │     │      │   │     │     │  ▲         │
+                │ hall-center├───┼─────┤     │  │         │
+                │     │      │   │     │     │laundry-ctr │
+                │ hall-east◄─┴───┼─────┘     │            │
+                │     ▲      │   │           │            │
+                │     │      │   │           └────────────┘
+                │     │      │   │
+           ┌────┴─────┤      │   │
+           │          │      │   │
+        ┌──┘      ┌───┴──────┴───┘
+        │         │
+        │    ┌────┴─────────────────┐
+        │    │  Bedroom Hallway     │
+        │    │  bedroom-door◄───────┤
+        │    │     ▲                │
+        │    │bedroom-center        │
+        │    │                      │
+        │    └──────────────────────┘
+        │
+        │    ┌──────────────────────┐
+        │    │  Bathroom Hallway    │
+        │    │  bathroom-door       │
+        │    │     ▲                │
+        │    │bathroom-center       │
+        │    │                      │
+        │    └──────────────────────┘
+        │
+   [Front Door - living-room entry]
+
+Path Generation:
+────────────────
+1. findNearestWaypoint(from_x, from_z)
+   └─ Returns closest waypoint
+
+2. bfsPath(start_id, end_id)
+   └─ BFS search through connections
+   └─ Returns shortest path as waypoint IDs
+
+3. Map IDs to NavigationPoint objects with positions
+
+4. Append final destination
+
+Result: [waypoint, waypoint, ..., destination]
+
+Robot walks from waypoint to waypoint via direct steering.
+
+================================================================================
+                     COLLISION & AVOIDANCE (ObstacleMap.ts)
+================================================================================
+
+┌─ Obstacle Setup ───────────────────────────────────────────────────────────┐
+│                                                                             │
+│  Each furniture piece has:                                                │
+│  • Position (x, z)                                                        │
+│  • Obstacle radius (r)                                                    │
+│                                                                             │
+│  Example: Sofa at (-14.5, -12) with radius 2.5                           │
+│           Any position < 2.5 units from sofa is blocked                   │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─ Collision Check ──────────────────────────────────────────────────────────┐
+│                                                                             │
+│  isPositionClear(x, z, margin):                                           │
+│  ────────────────────────────                                             │
+│  For each obstacle:                                                       │
+│    distance = sqrt((x - obs.x)² + (z - obs.z)²)                          │
+│    IF distance < obs.r + margin:                                         │
+│      RETURN false  [blocked]                                             │
+│  RETURN true  [clear]                                                    │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─ Position Finding ──────────────────────────────────────────────────────────┐
+│                                                                             │
+│  findClearPosition(target_x, target_z, margin):                           │
+│  ──────────────────────────────────────────────                           │
+│  IF isPositionClear(target_x, target_z, margin):                         │
+│    RETURN [target_x, target_z]                                          │
+│                                                                             │
+│  ELSE:                                                                    │
+│    FOR radius = 0.5 TO 8.0 STEP 0.4:                                    │
+│      FOR angle = 0 TO 2π STEP π/10:                                     │
+│        test_x = target_x + cos(angle) * radius                          │
+│        test_z = target_z + sin(angle) * radius                          │
+│        IF isPositionClear(test_x, test_z, margin):                      │
+│          RETURN [test_x, test_z]                                        │
+│                                                                             │
+│    RETURN [target_x, target_z]  [best attempt]                          │
+│                                                                             │
+│  Result: Spiral search finds first clear spot within ~8 units            │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─ Steering Avoidance ───────────────────────────────────────────────────────┐
+│                                                                             │
+│  getAvoidanceForce(pos_x, pos_z, dir_x, dir_z, lookAhead=2.0):          │
+│  ────────────────────────────────────────────────────────────            │
+│  For each obstacle:                                                       │
+│    IF obstacle ahead in movement direction AND within lookAhead:         │
+│      distance = sqrt((pos_x - obs.x)² + (pos_z - obs.z)²)              │
+│      minDist = obs.r + robot.r  [collision threshold]                   │
+│                                                                             │
+│      IF distance < minDist:  [COLLISION]                                │
+│        strength = 3.5  [strong repulsion]                               │
+│      ELSE:                                                               │
+│        strength = 1.5 / (distance - minDist)  [moderate]                │
+│                                                                             │
+│      normal = (pos - obs.center) / distance                             │
+│      force += normal * strength                                          │
+│                                                                             │
+│  CAP force magnitude at 3.5  [prevent excessive avoidance]              │
+│  RETURN force vector                                                     │
+│                                                                             │
+│  Usage: newDirection = targetDirection + avoidForce * strength          │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─ Robot Stuck Detection ────────────────────────────────────────────────────┐
+│                                                                             │
+│  Every frame while walking:                                               │
+│    distance_to_target = sqrt((target_x - pos_x)² + ...)                 │
+│                                                                             │
+│    IF abs(distance - last_distance) < 0.08:  [minimal progress]         │
+│      stuck_timer += delta                                               │
+│                                                                             │
+│      IF stuck_timer > 1.0:                                              │
+│        avoidance_strength *= 2.0  [amplify avoidance]                   │
+│        add_perpendicular_steering()  [try side steps]                   │
+│                                                                             │
+│      IF stuck_timer > 2.0:                                              │
+│        clear_pos = findClearPosition(pos_x, pos_z, margin=1.0)          │
+│        teleport_robot(clear_pos)  [emergency escape]                    │
+│        stuck_timer = 0                                                  │
+│                                                                             │
+│    ELSE:                                                                 │
+│      stuck_timer = 0  [reset on progress]                               │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+================================================================================
+                      ROOM STATE SYSTEM (RoomState.ts)
+================================================================================
+
+Room State per Room:
+────────────────────
+  cleanliness: 0-100  (initially 78-93 random)
+  tidiness: 0-100     (initially 76-92 random)
+  routine: 0-100      (initially 70-88 random)
+  decayCleanliness: 0.07-0.16 per sim minute
+  decayTidiness: 0.09-0.14 per sim minute
+  lastServicedAt: timestamp
+
+Decay Rates (per minute, vary by room):
+────────────────────────────────────────
+  Kitchen (highest):      0.16 clean, 0.14 tidy
+  Bathroom:               0.14 clean, 0.11 tidy
+  Living Room:            0.10 clean, 0.12 tidy
+  Laundry:                0.09 clean, 0.10 tidy
+  Hallway (lowest):       0.08 clean, 0.09 tidy
+  Bedroom:                0.07 clean, 0.10 tidy
+
+Task Completion Boosts (examples):
+──────────────────────────────────
+  cleaning:    +24 clean, +20 tidy, +14 routine
+  vacuuming:   +20 clean, +12 tidy, +12 routine
+  dishes:      +26 clean, +18 tidy, +16 routine
+  scrubbing:   +30 clean, +16 tidy, +14 routine
+  laundry:     +10 clean, +28 tidy, +20 routine
+  organizing:  +9 clean,  +26 tidy, +18 routine
+  bed-making:  +8 clean,  +24 tidy, +22 routine
+
+Time-of-Day Biases (bonus to room scores):
+───────────────────────────────────────────
+  Morning:     kitchen +14, bedroom +8,   living-room +6
+  Afternoon:   laundry +14, living-room +10, hallway +6
+  Evening:     kitchen +10, bathroom +10, bedroom +8
+  Night:       hallway +4
+
+================================================================================
+                    CAMERA SYSTEM (CameraController.tsx)
+================================================================================
+
+Three Camera Modes:
+───────────────────
+
+┌─ OVERVIEW MODE ────────────────────────────────────────────────────────────┐
+│                                                                             │
+│  Use: Free exploration, see entire house                                  │
+│  Target: Center of home (0, 0, -2)                                       │
+│  Position: 40 units away at diagonal angle                               │
+│  Controls: 1-finger pan, 2-finger rotate+zoom                            │
+│  Zoom: 0-60 units distance                                               │
+│  Rotation: ±π/2 (horizontal), 0.28-π/2 vertical                          │
+│                                                                             │
+│         Forward
+│           ▲
+│      40  │    Camera
+│          │      ╱
+│          │    ╱
+│          │  ╱
+│  ────────┼─────────► Right
+│        ╱ │
+│      ╱   │
+│    ╱     │
+│  Home   -40 (back)
+│                                                                             │
+│  Direction vector: (0.66, 0.72, 0.64)  [diagonal perspective]           │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─ FOLLOW MODE (DEFAULT) ────────────────────────────────────────────────────┐
+│                                                                             │
+│  Use: Third-person tracking of robot                                      │
+│  Target: Robot position (x, 0, z)                                         │
+│  Position: 6 units behind robot, 14 units up                             │
+│  Controls: Limited rotation, reduced pan, moderate zoom                   │
+│  Zoom: 4-25 units distance                                               │
+│  Rotation: ±π/2.3 (vertical), ~0.15-π/1.9 (polar)                       │
+│                                                                             │
+│         Up (eye)
+│         │
+│      14 │         │
+│         │         │  Camera
+│         │         ╲
+│         │          ╲
+│  ───────┼───────────┼────► Direction
+│         │           │
+│         │           ╲
+│         │        6 units
+│         │            ╲
+│         │         Robot
+│         └ Ground
+│                                                                             │
+│  Smooth lerps:                                                            │
+│  • Target position: 0.08 factor [quick centering]                        │
+│  • Camera position: 0.035 walking, 0.02 idle [smooth tracking]          │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─ POV MODE (FIRST-PERSON) ──────────────────────────────────────────────────┐
+│                                                                             │
+│  Use: Robot's perspective                                                │
+│  Position: Robot's eye position (height 1.58 units)                       │
+│  Target: 2.4 units ahead at robot's heading                              │
+│  Controls: Rotation only, no pan, no zoom                                │
+│  Zoom: Locked 0.35-1.4 (visual effect only)                              │
+│  Rotation: Full but ±0.7 vertical (looking up/down limited)              │
+│                                                                             │
+│  From robot's perspective:
+│  ────────────────────────
+│                      [target]
+│                           ▲
+│                           │ 2.4 units
+│                           │ ahead
+│                    [eye] ◄┘
+│                    (1.58 units up)
+│                                                                             │
+│  Smooth lerps:                                                            │
+│  • Target: 0.09 [quick responsiveness]                                   │
+│  • Camera: 0.08 [smooth follow]                                          │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+Mode Transitions:
+─────────────────
+  Smooth 1-second interpolation using cubic-out easing:
+  progress = 1 - (1 - t)³
+
+  On mode change, interpolate:
+  • camera.position from start → end
+  • OrbitControls.target from start → end
+
+  All modes support touch gestures with damping (0.08-0.12 factor)
+  for smooth swipe interactions.
+
+================================================================================
+                       TASK TYPES & WORK DURATIONS
+================================================================================
+
+Task Type        Work Duration    Room(s)        Description
+─────────────────────────────────────────────────────────────────────────────
+
+dishes           24 seconds       kitchen        Wash dishes at sink
+cooking          36 seconds       kitchen        Prepare meal
+grocery-list     20 seconds       kitchen        Check pantry/fridge
+vacuuming        30 seconds       any room       Floor cleaning
+sweeping         22 seconds       kitchen/hall   Sweep floors
+cleaning         20-24 seconds    any room       General cleanup
+bed-making       18 seconds       bedroom        Make bed
+laundry          26-28 seconds    laundry        Sort & fold
+organizing       22-24 seconds    bedroom        Tidy desk/surfaces
+scrubbing        30 seconds       bathroom       Deep clean fixtures
+general          varies           any            Fallback task type
+
+Speed Multiplier:
+─────────────────
+  After each completion, next task of same type is ~5% faster.
+  Multiplier = max(0.7, 1 - count * 0.05)
+
+  Example:
+    Task 1: 24 seconds (1.0x)
+    Task 2: 22.8 seconds (0.95x)
+    Task 3: 21.66 seconds (0.90x)
+    ...capped at 16.8 seconds (0.70x)
+
+================================================================================
+                         ROBOT NEEDS SYSTEM (NPC AI)
+================================================================================
+
+Four Core Needs:
+────────────────
+
+┌─ ENERGY (0-100) ───────────────────────────────────────────────────────────┐
+│                                                                             │
+│  Gain/Loss per Simulation Minute:                                         │
+│    Idle:      +0.15/min  [fast recovery]                                │
+│    Walking:   -0.03/min  [minimal drain]                                │
+│    Working:   -0.08/min  [moderate drain]                               │
+│                                                                             │
+│  Behavioral Triggers:                                                     │
+│    < 20:  Mood → "tired", increase rest behavior                        │
+│    < 15:  Force rest immediately (highest priority)                     │
+│    < 35:  Increase likelihood of rest                                   │
+│    > 50:  Can perform work happily                                      │
+│                                                                             │
+│  AI Decisions:                                                            │
+│    energy < 15 THEN must rest                                           │
+│    energy >= 25 THEN can clean                                          │
+│    energy >= 35 THEN safe operating range                               │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─ HAPPINESS (0-100) ────────────────────────────────────────────────────────┐
+│                                                                             │
+│  Gain/Loss per Simulation Minute:                                         │
+│    Idle:      -0.01/min  [boredom sets in]                              │
+│    Working:   +0.02/min  [fulfillment from tasks]                       │
+│    Special:   +3 for autonomous task start                              │
+│              +5 for user command                                         │
+│              +15 for user interaction boost                             │
+│                                                                             │
+│  Behavioral Triggers:                                                     │
+│    > 70:  Mood → "happy", positive outlook                             │
+│    < 30:  More vulnerable to loneliness/boredom                        │
+│                                                                             │
+│  Task Variety:                                                            │
+│    Robot prefers variety (different task types increase happiness)      │
+│    Same repeated tasks provide less happiness boost                     │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─ SOCIAL (0-100) ───────────────────────────────────────────────────────────┐
+│                                                                             │
+│  Gain/Loss per Simulation Minute:                                         │
+│    Always:  -0.02/min  [constant decay without interaction]             │
+│    User:    +15 when user submits command                               │
+│    Visitor: +12 on visitor task completion                              │
+│                                                                             │
+│  Behavioral Triggers:                                                     │
+│    < 15:  Mood → "lonely", lonely thoughts dominate                    │
+│    < 20:  Display lonely inner voice                                   │
+│    > 50:  Comfortable social baseline                                  │
+│    > 70:  Very social, interactive                                    │
+│                                                                             │
+│  AI Decisions:                                                            │
+│    Lower social = more willing to greet visitors                        │
+│    Higher social = more selective about social tasks                    │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─ BOREDOM (0-100) ──────────────────────────────────────────────────────────┐
+│                                                                             │
+│  Gain/Loss per Simulation Minute:                                         │
+│    Idle:      +0.06/min  [boredom increases]                           │
+│    Walking:   -0.02/min  [slight entertainment from movement]          │
+│    Working:   -0.05/min  [engagement reduces boredom]                  │
+│    Special:   -12 when starting autonomous task                        │
+│              -10 on user command                                        │
+│              -8 on wander/explore                                       │
+│                                                                             │
+│  Behavioral Triggers:                                                     │
+│    > 55:  Prefer wandering and exploring                               │
+│    > 70:  Mood → "bored", bored thoughts                               │
+│    > 75:  More urgent need for stimulation                             │
+│                                                                             │
+│  AI Decisions:                                                            │
+│    High boredom = more likely to wander or patrol windows              │
+│    Task variety = most effective way to reduce boredom                 │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+Mood Calculation:
+─────────────────
+  if (energy < 20) return 'tired'
+  if (social < 15) return 'lonely'
+  if (boredom > 75) return 'bored'
+  if (happiness > 70 && energy > 50) return 'happy'
+  return 'content'
+
+Mood affects:
+  • AI decision weighting
+  • Thought selection and tone
+  • Animation idle pose variations
+  • UI indicators and colors
+
+================================================================================
+                      COMPONENT RENDERING HIERARCHY
+================================================================================
+
+App.tsx (Canvas + Overlays)
+│
+├─ Canvas (Three.js)
+│  │
+│  └─ HomeScene.tsx (3D scene root)
+│     │
+│     ├─ TimeSystem.tsx (headless, manages time)
+│     │
+│     ├─ AIBrain.tsx (headless, makes decisions)
+│     │
+│     ├─ CameraController.tsx (camera + OrbitControls)
+│     │
+│     ├─ Room.tsx (×6) [geometry for each room]
+│     │
+│     ├─ Walls.tsx [all wall geometry]
+│     │
+│     ├─ AllFurniture.tsx [furniture rendering]
+│     │  ├─ FurnitureGroup.tsx (×16) [each furniture item]
+│     │  │  └─ GLBModel.tsx (×1-2 models per piece)
+│     │  └─ FloorClickHandler.tsx [rearrange interaction]
+│     │
+│     ├─ Robot.tsx [robot 3D model + animations]
+│     │
+│     ├─ PetCat.tsx [procedural cat mesh]
+│     │
+│     ├─ VisitorNPC.tsx [visitor NPC rendering]
+│     │
+│     ├─ SeasonalDecorations.tsx [holiday decorations]
+│     │
+│     └─ ThoughtBubble.tsx (Html overlay) [thought text above robot]
+│
+├─ RobotScreenTracker (Canvas overlay overlay)
+│
+├─ TaskProcessor (headless, no render)
+│
+├─ RobotTerminal (HUD component)
+│  ├─ GameUI.tsx
+│  │  ├─ ThemePicker
+│  │  ├─ SeasonToggle
+│  │  ├─ MuteToggle
+│  │  ├─ SpeedControls
+│  │  ├─ CameraMode toggle
+│  │  ├─ RoomStatus
+│  │  ├─ Command input form
+│  │  └─ Demo toggle
+│  │
+│  └─ StatsPanel [if enabled]
+│
+├─ EmojiReaction (emoji pop-up)
+│
+├─ VisitorToast (toast notification)
+│
+├─ ChatPanel (chat history)
+│
+├─ ScreenshotModal (screenshot viewer)
+│
+└─ Control buttons (top-right)
+   ├─ CameraToggle
+   ├─ ScreenshotButton
+   ├─ RearrangeButton
+   └─ ResetFurnitureButton
+
+================================================================================

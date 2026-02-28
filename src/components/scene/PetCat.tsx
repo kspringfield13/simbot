@@ -138,7 +138,8 @@ export function PetCat() {
     const simSpeed = useStore.getState().simSpeed;
     if (simSpeed === 0) return;
 
-    const robotPos = useStore.getState().robotPosition;
+    const _s = useStore.getState();
+    const robotPos = _s.robots[_s.activeRobotId].position;
     const dt = Math.min(delta * simSpeed, 0.08);
     stateTimerRef.current += dt;
 

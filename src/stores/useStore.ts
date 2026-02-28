@@ -1,14 +1,16 @@
 import { create } from 'zustand';
 import { createInitialRoomNeeds, decayRoomNeeds, boostRoomAfterTask } from '../systems/RoomState';
 import { getSimPeriod } from '../systems/TimeSystem';
+import { createAllRobotStates } from '../config/robots';
 import type {
   CameraMode,
   ChatMessage,
   NavigationPoint,
+  RobotId,
+  RobotInstanceState,
   RobotMood,
   RobotNeeds,
   RobotState,
-  RobotTheme,
   RoomId,
   RoomNeedState,
   SimPeriod,
@@ -16,6 +18,7 @@ import type {
   TaskType,
   VisitorEvent,
 } from '../types';
+import { ROBOT_IDS } from '../types';
 
 export type SimSpeed = 0 | 1 | 10 | 60;
 
@@ -38,32 +41,22 @@ function saveFurniturePositions(positions: Record<string, [number, number]>) {
 }
 
 interface SimBotStore {
-  // Robot
-  robotPosition: [number, number, number];
-  robotTarget: [number, number, number] | null;
-  robotState: RobotState;
-  robotPath: NavigationPoint[];
-  currentPathIndex: number;
-  currentAnimation: TaskType;
-  robotRotationY: number;
-  robotThought: string;
-  robotMood: RobotMood;
-  robotTheme: RobotTheme;
-  setRobotPosition: (position: [number, number, number]) => void;
-  setRobotTarget: (target: [number, number, number] | null) => void;
-  setRobotState: (state: RobotState) => void;
-  setRobotPath: (path: NavigationPoint[]) => void;
-  setCurrentPathIndex: (index: number) => void;
-  setCurrentAnimation: (animation: TaskType) => void;
-  setRobotRotationY: (rotationY: number) => void;
-  setRobotThought: (thought: string) => void;
-  setRobotMood: (mood: RobotMood) => void;
-  setRobotTheme: (theme: RobotTheme) => void;
+  // Multi-robot state
+  robots: Record<RobotId, RobotInstanceState>;
+  activeRobotId: RobotId;
+  setActiveRobotId: (id: RobotId) => void;
 
-  // Tamagotchi needs
-  robotNeeds: RobotNeeds;
-  updateRobotNeeds: (updates: Partial<RobotNeeds>) => void;
-  tickRobotNeeds: (deltaSimMinutes: number) => void;
+  // Per-robot setters
+  setRobotPosition: (robotId: RobotId, position: [number, number, number]) => void;
+  setRobotTarget: (robotId: RobotId, target: [number, number, number] | null) => void;
+  setRobotState: (robotId: RobotId, state: RobotState) => void;
+  setRobotPath: (robotId: RobotId, path: NavigationPoint[]) => void;
+  setCurrentPathIndex: (robotId: RobotId, index: number) => void;
+  setCurrentAnimation: (robotId: RobotId, animation: TaskType) => void;
+  setRobotRotationY: (robotId: RobotId, rotationY: number) => void;
+  setRobotThought: (robotId: RobotId, thought: string) => void;
+  setRobotMood: (robotId: RobotId, mood: RobotMood) => void;
+  updateRobotNeeds: (robotId: RobotId, updates: Partial<RobotNeeds>) => void;
 
   // Camera
   cameraMode: CameraMode;
@@ -91,8 +84,8 @@ interface SimBotStore {
   addTask: (task: Task) => void;
   updateTask: (id: string, updates: Partial<Task>) => void;
   removeTask: (id: string) => void;
-  clearQueuedAiTasks: () => void;
-  clearActiveTaskState: () => void;
+  clearQueuedAiTasks: (robotId?: RobotId) => void;
+  clearActiveTaskState: (robotId: RobotId) => void;
 
   // Chat
   messages: ChatMessage[];
@@ -160,54 +153,62 @@ interface SimBotStore {
 
 const initialSimMinutes = (7 * 60) + 20;
 
+function updateRobot(
+  robots: Record<RobotId, RobotInstanceState>,
+  robotId: RobotId,
+  updates: Partial<RobotInstanceState>,
+): Record<RobotId, RobotInstanceState> {
+  return {
+    ...robots,
+    [robotId]: { ...robots[robotId], ...updates },
+  };
+}
+
 export const useStore = create<SimBotStore>((set) => ({
-  robotPosition: [0, 0, -2],
-  robotTarget: null,
-  robotState: 'idle',
-  robotPath: [],
-  currentPathIndex: 0,
-  currentAnimation: 'general',
-  robotRotationY: 0,
-  robotThought: 'Boot complete. Running ambient home scan.',
-  robotMood: 'content',
-  robotTheme: 'blue',
-  setRobotPosition: (position) => set({ robotPosition: position }),
-  setRobotTarget: (target) => set({ robotTarget: target }),
-  setRobotState: (state) => set({ robotState: state }),
-  setRobotPath: (path) => set({ robotPath: path, currentPathIndex: 0 }),
-  setCurrentPathIndex: (index) => set({ currentPathIndex: index }),
-  setCurrentAnimation: (animation) => set({ currentAnimation: animation }),
-  setRobotRotationY: (rotationY) => set({ robotRotationY: rotationY }),
-  setRobotThought: (thought) => set({ robotThought: thought }),
-  setRobotMood: (mood) => set({ robotMood: mood }),
-  setRobotTheme: (theme) => set({ robotTheme: theme }),
+  // Multi-robot
+  robots: createAllRobotStates(),
+  activeRobotId: 'sim',
+  setActiveRobotId: (id) => set({ activeRobotId: id }),
 
-  robotNeeds: { energy: 85, happiness: 70, social: 50, boredom: 10 },
-  updateRobotNeeds: (updates) => set((state) => ({
-    robotNeeds: {
-      energy: Math.max(0, Math.min(100, updates.energy ?? state.robotNeeds.energy)),
-      happiness: Math.max(0, Math.min(100, updates.happiness ?? state.robotNeeds.happiness)),
-      social: Math.max(0, Math.min(100, updates.social ?? state.robotNeeds.social)),
-      boredom: Math.max(0, Math.min(100, updates.boredom ?? state.robotNeeds.boredom)),
-    },
+  // Per-robot setters
+  setRobotPosition: (robotId, position) => set((s) => ({
+    robots: updateRobot(s.robots, robotId, { position }),
   })),
-  tickRobotNeeds: (delta) => set((state) => {
-    const n = state.robotNeeds;
-    const isWorking = state.robotState === 'working';
-    // const isWalking = state.robotState === 'walking';
-    const isIdle = state.robotState === 'idle';
-
+  setRobotTarget: (robotId, target) => set((s) => ({
+    robots: updateRobot(s.robots, robotId, { target }),
+  })),
+  setRobotState: (robotId, state) => set((s) => ({
+    robots: updateRobot(s.robots, robotId, { state }),
+  })),
+  setRobotPath: (robotId, path) => set((s) => ({
+    robots: updateRobot(s.robots, robotId, { path, currentPathIndex: 0 }),
+  })),
+  setCurrentPathIndex: (robotId, index) => set((s) => ({
+    robots: updateRobot(s.robots, robotId, { currentPathIndex: index }),
+  })),
+  setCurrentAnimation: (robotId, animation) => set((s) => ({
+    robots: updateRobot(s.robots, robotId, { currentAnimation: animation }),
+  })),
+  setRobotRotationY: (robotId, rotationY) => set((s) => ({
+    robots: updateRobot(s.robots, robotId, { rotationY }),
+  })),
+  setRobotThought: (robotId, thought) => set((s) => ({
+    robots: updateRobot(s.robots, robotId, { thought }),
+  })),
+  setRobotMood: (robotId, mood) => set((s) => ({
+    robots: updateRobot(s.robots, robotId, { mood }),
+  })),
+  updateRobotNeeds: (robotId, updates) => set((s) => {
+    const current = s.robots[robotId].needs;
     return {
-      robotNeeds: {
-        energy: Math.max(0, Math.min(100,
-          n.energy + (isIdle ? delta * 0.15 : isWorking ? -delta * 0.08 : -delta * 0.03))),
-        happiness: Math.max(0, Math.min(100,
-          n.happiness + (isWorking ? delta * 0.02 : -delta * 0.01))),
-        social: Math.max(0, Math.min(100,
-          n.social - delta * 0.02)),
-        boredom: Math.max(0, Math.min(100,
-          n.boredom + (isIdle ? delta * 0.06 : isWorking ? -delta * 0.05 : -delta * 0.02))),
-      },
+      robots: updateRobot(s.robots, robotId, {
+        needs: {
+          energy: Math.max(0, Math.min(100, updates.energy ?? current.energy)),
+          happiness: Math.max(0, Math.min(100, updates.happiness ?? current.happiness)),
+          social: Math.max(0, Math.min(100, updates.social ?? current.social)),
+          boredom: Math.max(0, Math.min(100, updates.boredom ?? current.boredom)),
+        },
+      }),
     };
   }),
 
@@ -233,24 +234,32 @@ export const useStore = create<SimBotStore>((set) => ({
 
     const deltaSimMinutes = deltaSeconds * state.simSpeed;
     const nextSimMinutes = state.simMinutes + deltaSimMinutes;
-
-    // Also tick robot needs
-    const n = state.robotNeeds;
-    const isWorking = state.robotState === 'working';
-    // const isWalking = state.robotState === 'walking';
-    const isIdle = state.robotState === 'idle';
     const clamp = (v: number) => Math.max(0, Math.min(100, v));
+
+    // Tick all robots' needs
+    const updatedRobots = { ...state.robots };
+    for (const id of ROBOT_IDS) {
+      const r = updatedRobots[id];
+      const n = r.needs;
+      const isWorking = r.state === 'working';
+      const isIdle = r.state === 'idle';
+
+      updatedRobots[id] = {
+        ...r,
+        needs: {
+          energy: clamp(n.energy + (isIdle ? deltaSimMinutes * 0.15 : isWorking ? -deltaSimMinutes * 0.08 : -deltaSimMinutes * 0.03)),
+          happiness: clamp(n.happiness + (isWorking ? deltaSimMinutes * 0.02 : -deltaSimMinutes * 0.01)),
+          social: clamp(n.social - deltaSimMinutes * 0.02),
+          boredom: clamp(n.boredom + (isIdle ? deltaSimMinutes * 0.06 : isWorking ? -deltaSimMinutes * 0.05 : -deltaSimMinutes * 0.02)),
+        },
+      };
+    }
 
     return {
       simMinutes: nextSimMinutes,
       simPeriod: getSimPeriod(nextSimMinutes),
       roomNeeds: decayRoomNeeds(state.roomNeeds, deltaSimMinutes),
-      robotNeeds: {
-        energy: clamp(n.energy + (isIdle ? deltaSimMinutes * 0.15 : isWorking ? -deltaSimMinutes * 0.08 : -deltaSimMinutes * 0.03)),
-        happiness: clamp(n.happiness + (isWorking ? deltaSimMinutes * 0.02 : -deltaSimMinutes * 0.01)),
-        social: clamp(n.social - deltaSimMinutes * 0.02),
-        boredom: clamp(n.boredom + (isIdle ? deltaSimMinutes * 0.06 : isWorking ? -deltaSimMinutes * 0.05 : -deltaSimMinutes * 0.02)),
-      },
+      robots: updatedRobots,
     };
   }),
 
@@ -282,16 +291,24 @@ export const useStore = create<SimBotStore>((set) => ({
   removeTask: (id) => set((state) => ({
     tasks: state.tasks.filter((task) => task.id !== id),
   })),
-  clearQueuedAiTasks: () => set((state) => ({
-    tasks: state.tasks.filter((task) => !(task.source === 'ai' && task.status === 'queued')),
+  clearQueuedAiTasks: (robotId) => set((state) => ({
+    tasks: state.tasks.filter((task) => {
+      if (task.source !== 'ai' || task.status !== 'queued') return true;
+      if (robotId && task.assignedTo !== robotId) return true;
+      return false;
+    }),
   })),
-  clearActiveTaskState: () => set((state) => ({
-    tasks: state.tasks.filter((task) => task.status === 'completed'),
-    robotPath: [],
-    currentPathIndex: 0,
-    robotTarget: null,
-    robotState: 'idle',
-    currentAnimation: 'general',
+  clearActiveTaskState: (robotId) => set((state) => ({
+    tasks: state.tasks.filter((task) =>
+      task.assignedTo !== robotId || task.status === 'completed'
+    ),
+    robots: updateRobot(state.robots, robotId, {
+      path: [],
+      currentPathIndex: 0,
+      target: null,
+      state: 'idle',
+      currentAnimation: 'general',
+    }),
   })),
 
   messages: [],
@@ -307,7 +324,7 @@ export const useStore = create<SimBotStore>((set) => ({
   overrideUntilSimMinute: 0,
   setOverrideUntil: (simMinute) => set({ overrideUntilSimMinute: simMinute }),
 
-  // Learning system: robot gets faster with practice
+  // Learning system: robots get faster with practice
   taskExperience: {},
   recordTaskCompletion: (taskType) => set((state) => ({
     taskExperience: {

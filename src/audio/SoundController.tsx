@@ -13,8 +13,8 @@ import {
  * Mount once in the React tree.
  */
 export function SoundController() {
-  const robotState = useStore((s) => s.robotState);
-  const currentAnimation = useStore((s) => s.currentAnimation);
+  const robotState = useStore((s) => s.robots[s.activeRobotId].state);
+  const currentAnimation = useStore((s) => s.robots[s.activeRobotId].currentAnimation);
   const simSpeed = useStore((s) => s.simSpeed);
   const soundMuted = useStore((s) => s.soundMuted);
 

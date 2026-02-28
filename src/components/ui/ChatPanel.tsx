@@ -154,13 +154,15 @@ export function ChatPanel() {
 
   const messages = useStore((s) => s.messages);
   const addMessage = useStore((s) => s.addMessage);
-  const robotState = useStore((s) => s.robotState);
-  const currentAnimation = useStore((s) => s.currentAnimation);
-  const robotThought = useStore((s) => s.robotThought);
+  const robotState = useStore((s) => s.robots[s.activeRobotId].state);
+  const currentAnimation = useStore((s) => s.robots[s.activeRobotId].currentAnimation);
+  const robotThought = useStore((s) => s.robots[s.activeRobotId].thought);
   const roomNeeds = useStore((s) => s.roomNeeds);
   const tasks = useStore((s) => s.tasks);
   const addTask = useStore((s) => s.addTask);
-  const setRobotThought = useStore((s) => s.setRobotThought);
+  const activeRobotId = useStore((s) => s.activeRobotId);
+  const _setRobotThought = useStore((s) => s.setRobotThought);
+  const setRobotThought = (t: string) => _setRobotThought(activeRobotId, t);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
