@@ -91,6 +91,7 @@ export interface VisitorEvent {
 
 export type CameraMode = 'overview' | 'follow' | 'pov';
 export type SimPeriod = 'morning' | 'afternoon' | 'evening' | 'night';
+export type WeatherType = 'sunny' | 'rainy' | 'snowy';
 
 export interface RobotInstanceState {
   position: [number, number, number];

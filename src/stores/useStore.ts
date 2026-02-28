@@ -17,6 +17,7 @@ import type {
   Task,
   TaskType,
   VisitorEvent,
+  WeatherType,
 } from '../types';
 import { ROBOT_IDS } from '../types';
 
@@ -149,6 +150,10 @@ interface SimBotStore {
   selectFurniture: (id: string | null) => void;
   moveFurniture: (id: string, x: number, z: number) => void;
   resetFurnitureLayout: () => void;
+
+  // Weather
+  weather: WeatherType;
+  setWeather: (weather: WeatherType) => void;
 }
 
 const initialSimMinutes = (7 * 60) + 20;
@@ -244,11 +249,14 @@ export const useStore = create<SimBotStore>((set) => ({
       const isWorking = r.state === 'working';
       const isIdle = r.state === 'idle';
 
+      // Weather happiness bonus: rain = cozy (+0.01/min), snow = excited (+0.02/min)
+      const weatherHappinessBonus = state.weather === 'rainy' ? 0.01 : state.weather === 'snowy' ? 0.02 : 0;
+
       updatedRobots[id] = {
         ...r,
         needs: {
           energy: clamp(n.energy + (isIdle ? deltaSimMinutes * 0.15 : isWorking ? -deltaSimMinutes * 0.08 : -deltaSimMinutes * 0.03)),
-          happiness: clamp(n.happiness + (isWorking ? deltaSimMinutes * 0.02 : -deltaSimMinutes * 0.01)),
+          happiness: clamp(n.happiness + (isWorking ? deltaSimMinutes * 0.02 : -deltaSimMinutes * 0.01) + deltaSimMinutes * weatherHappinessBonus),
           social: clamp(n.social - deltaSimMinutes * 0.02),
           boredom: clamp(n.boredom + (isIdle ? deltaSimMinutes * 0.06 : isWorking ? -deltaSimMinutes * 0.05 : -deltaSimMinutes * 0.02)),
         },
@@ -386,6 +394,10 @@ export const useStore = create<SimBotStore>((set) => ({
     saveFurniturePositions({});
     return set({ furniturePositions: {}, selectedFurnitureId: null });
   },
+
+  // Weather
+  weather: 'sunny',
+  setWeather: (weather) => set({ weather }),
 }));
 
 // Each completion reduces duration by ~5%, capping at 30% faster

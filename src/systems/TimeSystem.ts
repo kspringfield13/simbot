@@ -1,6 +1,7 @@
 import { useFrame } from '@react-three/fiber';
+import { useRef } from 'react';
 import { useStore } from '../stores/useStore';
-import type { SimPeriod } from '../types';
+import type { SimPeriod, WeatherType } from '../types';
 
 export const MINUTES_PER_DAY = 24 * 60;
 
@@ -141,11 +142,27 @@ export function getTimeLighting(simMinutes: number): TimeLighting {
   };
 }
 
+const WEATHER_CYCLE: WeatherType[] = ['sunny', 'sunny', 'rainy', 'sunny', 'snowy', 'rainy', 'sunny', 'sunny'];
+const WEATHER_INTERVAL = 3 * 60; // change every 3 sim-hours
+
+export function getWeatherForTime(simMinutes: number): WeatherType {
+  const idx = Math.floor(simMinutes / WEATHER_INTERVAL) % WEATHER_CYCLE.length;
+  return WEATHER_CYCLE[idx];
+}
+
 export function TimeSystem() {
   const advanceTime = useStore((state) => state.advanceTime);
+  const lastWeatherIdxRef = useRef(-1);
 
   useFrame((_, delta) => {
     advanceTime(delta);
+
+    const s = useStore.getState();
+    const idx = Math.floor(s.simMinutes / WEATHER_INTERVAL) % WEATHER_CYCLE.length;
+    if (idx !== lastWeatherIdxRef.current) {
+      lastWeatherIdxRef.current = idx;
+      s.setWeather(WEATHER_CYCLE[idx]);
+    }
   });
 
   return null;

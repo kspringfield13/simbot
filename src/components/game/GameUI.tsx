@@ -10,6 +10,7 @@ import { formatSimClock } from '../../systems/TimeSystem';
 
 import { ROBOT_CONFIGS } from '../../config/robots';
 import { ROBOT_IDS } from '../../types';
+import type { WeatherType } from '../../types';
 
 function RobotPicker() {
   const activeRobotId = useStore((s) => s.activeRobotId);
@@ -66,6 +67,27 @@ function SeasonToggle() {
         <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
       </svg>
     </button>
+  );
+}
+
+const WEATHER_DISPLAY: Record<WeatherType, { icon: string; label: string }> = {
+  sunny: { icon: '\u2600', label: 'Sunny' },
+  rainy: { icon: '\uD83C\uDF27', label: 'Rainy' },
+  snowy: { icon: '\u2744', label: 'Snowy' },
+};
+
+function WeatherIndicator() {
+  const weather = useStore((s) => s.weather);
+  const { icon, label } = WEATHER_DISPLAY[weather];
+
+  return (
+    <div
+      className="flex h-9 items-center gap-1.5 rounded-full border border-white/10 bg-black/50 px-2.5 backdrop-blur-md"
+      title={label}
+    >
+      <span className="text-sm leading-none">{icon}</span>
+      <span className="text-[11px] text-white/50">{label}</span>
+    </div>
   );
 }
 
@@ -140,10 +162,11 @@ export function GameUI() {
 
   return (
     <>
-      {/* Minimal top-left: time + state */}
+      {/* Minimal top-left: time + weather + state */}
       <div className="pointer-events-none absolute left-4 top-0 z-20 pt-[max(8px,env(safe-area-inset-top))]">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <span className="text-xs font-medium text-white/50">{timeText}</span>
+          <WeatherIndicator />
           <span className={`h-1.5 w-1.5 rounded-full ${
             robotState === 'idle' ? 'bg-white/25' : 'bg-emerald-400 animate-pulse'
           }`} />

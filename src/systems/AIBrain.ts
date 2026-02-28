@@ -170,6 +170,22 @@ const INNER_VOICE = {
     'The house doesn\'t know it\'s being taken care of. But I know. And that\'s enough.',
     'If home is where the heart is, then I guess I\'m the heartbeat.',
   ],
+
+  weatherRain: [
+    'Rain on the windows... there\'s something so cozy about being inside right now.',
+    'I love the sound of rain. Makes the house feel extra warm and safe.',
+    'Rainy day. Perfect for staying in and getting things done.',
+    'The rain streaks on the windows are beautiful. Like nature painting.',
+    'Everything feels quieter when it rains. I like that.',
+  ],
+
+  weatherSnow: [
+    'Snow! Look at it coming down! This is amazing!',
+    'The world is turning white outside. I wish I could make a snowbot.',
+    'Snowflakes! Each one is unique. Kind of like tasks, if you think about it.',
+    'It\'s snowing! The house feels extra cozy with all that white outside.',
+    'I\'ve never touched snow but it looks wonderful through the windows.',
+  ],
 };
 
 // Per-robot inner voice additions
@@ -233,8 +249,11 @@ export function AIBrain({ robotId }: { robotId: RobotId }) {
     const now = s.simMinutes;
     const needs = robot.needs;
 
-    // ── MOOD ──
-    const autoMood = getMoodFromNeeds(needs.energy, needs.happiness, needs.social, needs.boredom);
+    // ── MOOD ── (weather influences mood)
+    const weather = s.weather;
+    let autoMood = getMoodFromNeeds(needs.energy, needs.happiness, needs.social, needs.boredom);
+    if (weather === 'rainy' && autoMood === 'content') autoMood = 'content'; // rain = cozy contentment
+    if (weather === 'snowy' && (autoMood === 'content' || autoMood === 'routine')) autoMood = 'happy'; // snow = excited
     if (robot.mood !== autoMood && robot.state === 'idle') {
       s.setRobotMood(robotId, autoMood);
     }
@@ -265,6 +284,16 @@ export function AIBrain({ robotId }: { robotId: RobotId }) {
       if (needs.energy < 20) { s.setRobotThought(robotId, pick(INNER_VOICE.tired)); return; }
       if (needs.boredom > 70) { s.setRobotThought(robotId, pick(INNER_VOICE.bored)); return; }
       if (needs.happiness > 70) { s.setRobotThought(robotId, pick(INNER_VOICE.happy)); return; }
+
+      // Weather-triggered thoughts
+      if (weather === 'rainy' && Math.random() < 0.4) {
+        s.setRobotThought(robotId, pick(INNER_VOICE.weatherRain));
+        return;
+      }
+      if (weather === 'snowy' && Math.random() < 0.5) {
+        s.setRobotThought(robotId, pick(INNER_VOICE.weatherSnow));
+        return;
+      }
 
       // Robot-specific idle thoughts
       if (Math.random() < 0.4) {
