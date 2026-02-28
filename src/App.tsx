@@ -1,5 +1,5 @@
 import { Canvas } from '@react-three/fiber';
-import { Suspense, useCallback } from 'react';
+import { Suspense, useCallback, useState } from 'react';
 import { HomeScene } from './components/scene/HomeScene';
 import { PhotoModeEffects } from './components/scene/PhotoModeEffects';
 import { RobotTerminal } from './components/ui/RobotTerminal';
@@ -7,6 +7,7 @@ import { RobotScreenTracker } from './components/ui/ReactionsOverlay';
 import { EmojiReaction } from './components/ui/EmojiReaction';
 import { ScreenshotModal } from './components/ui/ScreenshotModal';
 import { PhotoModeOverlay } from './components/ui/PhotoModeOverlay';
+import { TutorialOverlay } from './components/ui/TutorialOverlay';
 import { TaskProcessor } from './components/systems/TaskProcessor';
 import { ScheduleSystem } from './components/systems/ScheduleSystem';
 import { BatterySystem } from './components/systems/BatterySystem';
@@ -162,9 +163,23 @@ function ResetFurnitureButton() {
   );
 }
 
+function HelpButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-black/50 text-sm font-bold text-white/60 backdrop-blur-md transition-all hover:bg-black/70 hover:text-white/90"
+      title="Show tutorial"
+    >
+      ?
+    </button>
+  );
+}
+
 function App() {
   const screenshotMode = useStore((s) => s.screenshotMode);
   const photoMode = useStore((s) => s.photoMode);
+  const [showTutorial, setShowTutorial] = useState(false);
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-black">
@@ -201,6 +216,7 @@ function App() {
             <PhotoModeButton />
             <ScreenshotButton />
             <CameraToggle />
+            <HelpButton onClick={() => setShowTutorial(true)} />
           </div>
         </>
       )}
@@ -211,6 +227,7 @@ function App() {
       {!screenshotMode && !photoMode && <BatteryIndicator />}
 
       <PhotoModeOverlay />
+      <TutorialOverlay forceOpen={showTutorial} onClose={() => setShowTutorial(false)} />
     </div>
   );
 }
