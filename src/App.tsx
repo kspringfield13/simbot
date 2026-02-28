@@ -1,10 +1,12 @@
 import { Canvas } from '@react-three/fiber';
 import { Suspense, useCallback } from 'react';
 import { HomeScene } from './components/scene/HomeScene';
+import { PhotoModeEffects } from './components/scene/PhotoModeEffects';
 import { RobotTerminal } from './components/ui/RobotTerminal';
 import { RobotScreenTracker } from './components/ui/ReactionsOverlay';
 import { EmojiReaction } from './components/ui/EmojiReaction';
 import { ScreenshotModal } from './components/ui/ScreenshotModal';
+import { PhotoModeOverlay } from './components/ui/PhotoModeOverlay';
 import { TaskProcessor } from './components/systems/TaskProcessor';
 import { ScheduleSystem } from './components/systems/ScheduleSystem';
 import { BatterySystem } from './components/systems/BatterySystem';
@@ -101,6 +103,27 @@ function ScreenshotButton() {
   );
 }
 
+function PhotoModeButton() {
+  const setPhotoMode = useStore((s) => s.setPhotoMode);
+
+  return (
+    <button
+      type="button"
+      onClick={() => setPhotoMode(true)}
+      className="pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-black/50 text-lg backdrop-blur-md transition-all hover:bg-black/70"
+      title="Photo mode"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-white">
+        <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+        <circle cx="12" cy="10" r="3.5" />
+        <circle cx="18" cy="6" r="1" fill="currentColor" />
+        <line x1="2" y1="20" x2="7" y2="17" />
+        <line x1="22" y1="20" x2="17" y2="17" />
+      </svg>
+    </button>
+  );
+}
+
 function RearrangeButton() {
   const rearrangeMode = useStore((s) => s.rearrangeMode);
   const setRearrangeMode = useStore((s) => s.setRearrangeMode);
@@ -141,6 +164,7 @@ function ResetFurnitureButton() {
 
 function App() {
   const screenshotMode = useStore((s) => s.screenshotMode);
+  const photoMode = useStore((s) => s.photoMode);
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-black">
@@ -155,14 +179,15 @@ function App() {
         </Suspense>
         <MusicSystem />
         <RobotScreenTracker />
+        <PhotoModeEffects />
       </Canvas>
 
       <TaskProcessor />
       <ScheduleSystem />
       <BatterySystem />
 
-      {/* Hide all overlays during screenshot capture */}
-      {!screenshotMode && (
+      {/* Hide all overlays during screenshot capture or photo mode */}
+      {!screenshotMode && !photoMode && (
         <>
           <RobotTerminal />
           <EmojiReaction />
@@ -173,6 +198,7 @@ function App() {
             <MusicToggle />
             <ResetFurnitureButton />
             <RearrangeButton />
+            <PhotoModeButton />
             <ScreenshotButton />
             <CameraToggle />
           </div>
@@ -181,8 +207,10 @@ function App() {
 
       <VisitorToast />
       <ScreenshotModal />
-      {!screenshotMode && <ChatPanel />}
-      {!screenshotMode && <BatteryIndicator />}
+      {!screenshotMode && !photoMode && <ChatPanel />}
+      {!screenshotMode && !photoMode && <BatteryIndicator />}
+
+      <PhotoModeOverlay />
     </div>
   );
 }

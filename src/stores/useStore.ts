@@ -189,6 +189,12 @@ interface SimBotStore {
   musicGenreLabel: string;
   setMusicEnabled: (enabled: boolean) => void;
   setMusicGenreLabel: (label: string) => void;
+
+  // Photo mode
+  photoMode: boolean;
+  photoFilter: 'normal' | 'warm' | 'cool' | 'noir' | 'dreamy';
+  setPhotoMode: (mode: boolean) => void;
+  setPhotoFilter: (filter: 'normal' | 'warm' | 'cool' | 'noir' | 'dreamy') => void;
 }
 
 const initialSimMinutes = (7 * 60) + 20;
@@ -477,6 +483,12 @@ export const useStore = create<SimBotStore>((set) => ({
   musicGenreLabel: '',
   setMusicEnabled: (enabled) => set({ musicEnabled: enabled }),
   setMusicGenreLabel: (label) => set({ musicGenreLabel: label }),
+
+  // Photo mode
+  photoMode: false,
+  photoFilter: 'normal',
+  setPhotoMode: (mode) => set({ photoMode: mode, ...(mode ? {} : { photoFilter: 'normal' }) }),
+  setPhotoFilter: (filter) => set({ photoFilter: filter }),
 }));
 
 // Each completion reduces duration by ~5%, capping at 30% faster

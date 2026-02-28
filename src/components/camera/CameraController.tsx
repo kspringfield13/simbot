@@ -162,6 +162,25 @@ export function CameraController() {
     controls.minPolarAngle = orbitConfig.minPolarAngle;
     controls.maxPolarAngle = orbitConfig.maxPolarAngle;
 
+    // Photo mode: free orbit with no constraints
+    if (state.photoMode) {
+      controls.enablePan = true;
+      controls.enableZoom = true;
+      controls.enableRotate = true;
+      controls.minDistance = 1;
+      controls.maxDistance = 150;
+      controls.minPolarAngle = 0.05;
+      controls.maxPolarAngle = Math.PI - 0.05;
+      controls.rotateSpeed = 0.7;
+      controls.panSpeed = 0.7;
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.08;
+      controls.touches.ONE = THREE.TOUCH.ROTATE;
+      controls.touches.TWO = THREE.TOUCH.DOLLY_PAN;
+      controls.update();
+      return;
+    }
+
     controls.enablePan = state.cameraMode === 'overview';
     controls.enableZoom = state.cameraMode !== 'pov';
     controls.enableRotate = true;
