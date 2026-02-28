@@ -10,7 +10,7 @@ export const rooms: Room[] = [
     name: 'Living Room',
     position: [-4 * S, 0, -6 * S],
     size: [8 * S, 8 * S],
-    color: '#2c2822',
+    color: '#4a4644',
     furniture: [],
   },
   {
@@ -18,7 +18,7 @@ export const rooms: Room[] = [
     name: 'Kitchen',
     position: [4 * S, 0, -6 * S],
     size: [8 * S, 8 * S],
-    color: '#282c30',
+    color: '#484848',
     furniture: [],
   },
   {
@@ -26,7 +26,7 @@ export const rooms: Room[] = [
     name: 'Hallway',
     position: [-2 * S, 0, -1 * S],
     size: [12 * S, 2 * S],
-    color: '#262420',
+    color: '#454443',
     furniture: [],
   },
   {
@@ -34,7 +34,7 @@ export const rooms: Room[] = [
     name: 'Laundry Closet',
     position: [5 * S, 0, -1 * S],
     size: [3 * S, 2 * S],
-    color: '#262830',
+    color: '#484646',
     furniture: [],
   },
   {
@@ -42,7 +42,7 @@ export const rooms: Room[] = [
     name: 'Master Bedroom',
     position: [-4 * S, 0, 4 * S],
     size: [8 * S, 8 * S],
-    color: '#22252a',
+    color: '#444446',
     furniture: [],
   },
   {
@@ -50,10 +50,30 @@ export const rooms: Room[] = [
     name: 'Master Bathroom',
     position: [4 * S, 0, 4 * S],
     size: [8 * S, 8 * S],
-    color: '#282c30',
+    color: '#464848',
     furniture: [],
   },
 ];
+
+export function getEffectiveRooms(
+  overrides: Record<string, { name?: string; color?: string; position?: [number, number, number]; size?: [number, number] }>,
+  addedRooms: Room[],
+  deletedRoomIds: string[],
+): Room[] {
+  const base = rooms.filter((r) => !deletedRoomIds.includes(r.id));
+  const all = [...base, ...addedRooms];
+  return all.map((r) => {
+    const o = overrides[r.id];
+    if (!o) return r;
+    return {
+      ...r,
+      name: o.name ?? r.name,
+      color: o.color ?? r.color,
+      position: o.position ?? r.position,
+      size: o.size ?? r.size,
+    };
+  });
+}
 
 export const walls: Wall[] = [
   // Outer walls
@@ -115,6 +135,49 @@ export const windowSpots: [number, number, number][] = [
   [7.4 * S, 0, -8.5 * S],
   [-7.4 * S, 0, 6.8 * S],
   [7.4 * S, 0, 6.8 * S],
+];
+
+// ── Wall editor grid ──────────────────────────────────────────
+export const WALL_GRID_X = [-16, -8, 0, 8, 16];
+export const WALL_GRID_Z = [-20, -12, -4, 0, 8, 16];
+
+export interface WallSlot {
+  key: string;
+  start: [number, number];
+  end: [number, number];
+  isPerimeter: boolean;
+}
+
+export const wallSlots: WallSlot[] = (() => {
+  const slots: WallSlot[] = [];
+  for (const z of WALL_GRID_Z) {
+    for (let i = 0; i < WALL_GRID_X.length - 1; i++) {
+      slots.push({
+        key: `h:${WALL_GRID_X[i]}:${z}`,
+        start: [WALL_GRID_X[i], z],
+        end: [WALL_GRID_X[i + 1], z],
+        isPerimeter: z === WALL_GRID_Z[0] || z === WALL_GRID_Z[WALL_GRID_Z.length - 1],
+      });
+    }
+  }
+  for (const x of WALL_GRID_X) {
+    for (let i = 0; i < WALL_GRID_Z.length - 1; i++) {
+      slots.push({
+        key: `v:${x}:${WALL_GRID_Z[i]}`,
+        start: [x, WALL_GRID_Z[i]],
+        end: [x, WALL_GRID_Z[i + 1]],
+        isPerimeter: x === WALL_GRID_X[0] || x === WALL_GRID_X[WALL_GRID_X.length - 1],
+      });
+    }
+  }
+  return slots;
+})();
+
+export const DEFAULT_ACTIVE_WALLS: string[] = [
+  'h:-16:-4', 'h:8:-4',
+  'v:8:-4',
+  'h:-16:0', 'h:0:0', 'h:8:0',
+  'v:0:0', 'v:0:8',
 ];
 
 export function getRoomCenter(roomId: RoomId): [number, number, number] {

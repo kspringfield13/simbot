@@ -163,6 +163,72 @@ function ResetFurnitureButton() {
   );
 }
 
+function EditRoomsButton() {
+  const editMode = useStore((s) => s.editMode);
+  const setEditMode = useStore((s) => s.setEditMode);
+
+  return (
+    <button
+      type="button"
+      onClick={() => setEditMode(!editMode)}
+      className={`pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full border text-lg backdrop-blur-md transition-all ${
+        editMode
+          ? 'border-blue-400/50 bg-blue-500/30 hover:bg-blue-500/50'
+          : 'border-white/10 bg-black/50 hover:bg-black/70'
+      }`}
+      title={editMode ? 'Exit room editor' : 'Edit rooms'}
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-white">
+        <rect x="3" y="3" width="7" height="7" />
+        <rect x="14" y="3" width="7" height="7" />
+        <rect x="3" y="14" width="7" height="7" />
+        <rect x="14" y="14" width="7" height="7" />
+      </svg>
+    </button>
+  );
+}
+
+function RoomEditorButtons() {
+  const editMode = useStore((s) => s.editMode);
+  const editSelectedRoomId = useStore((s) => s.editSelectedRoomId);
+  const addNewRoom = useStore((s) => s.addNewRoom);
+  const deleteEditRoom = useStore((s) => s.deleteEditRoom);
+  const resetRoomLayout = useStore((s) => s.resetRoomLayout);
+
+  if (!editMode) return null;
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={addNewRoom}
+        className="pointer-events-auto flex h-10 items-center gap-1 rounded-full border border-green-400/30 bg-black/50 px-3 text-xs text-green-300 backdrop-blur-md transition-all hover:bg-green-500/30"
+        title="Add a new empty room"
+      >
+        + Add Room
+      </button>
+      {editSelectedRoomId && (
+        <button
+          type="button"
+          onClick={() => deleteEditRoom(editSelectedRoomId)}
+          className="pointer-events-auto flex h-10 items-center gap-1 rounded-full border border-red-400/30 bg-black/50 px-3 text-xs text-red-300 backdrop-blur-md transition-all hover:bg-red-500/30"
+          title="Delete selected room"
+        >
+          Delete
+        </button>
+      )}
+      <button
+        type="button"
+        onClick={resetRoomLayout}
+        className="pointer-events-auto flex h-10 items-center gap-1 rounded-full border border-yellow-400/30 bg-black/50 px-3 text-xs text-yellow-300 backdrop-blur-md transition-all hover:bg-yellow-500/30"
+        title="Reset all rooms to default layout"
+      >
+        Reset
+      </button>
+    </>
+  );
+}
+
 function HelpButton({ onClick }: { onClick: () => void }) {
   return (
     <button
@@ -211,6 +277,8 @@ function App() {
             style={{ marginTop: 'env(safe-area-inset-top, 0px)' }}
           >
             <MusicToggle />
+            <RoomEditorButtons />
+            <EditRoomsButton />
             <ResetFurnitureButton />
             <RearrangeButton />
             <PhotoModeButton />

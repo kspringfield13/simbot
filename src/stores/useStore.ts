@@ -2,10 +2,12 @@ import { create } from 'zustand';
 import { createInitialRoomNeeds, decayRoomNeeds, boostRoomAfterTask } from '../systems/RoomState';
 import { getSimPeriod } from '../systems/TimeSystem';
 import { createAllRobotStates } from '../config/robots';
+import { DEFAULT_ACTIVE_WALLS } from '../utils/homeLayout';
 import type {
   CameraMode,
   ChatMessage,
   NavigationPoint,
+  Room,
   RobotId,
   RobotInstanceState,
   RobotMood,
@@ -59,6 +61,51 @@ function saveScheduledTasks(tasks: ScheduledTask[]) {
     localStorage.setItem(SCHEDULE_STORAGE_KEY, JSON.stringify(tasks));
   } catch { /* ignore quota errors */ }
 }
+
+// ── Room layout localStorage persistence ──────────────────────────
+const ROOM_LAYOUT_KEY = 'simbot-room-layout';
+
+interface RoomLayoutData {
+  overrides: Record<string, { name?: string; color?: string; position?: [number, number, number]; size?: [number, number] }>;
+  addedRooms: Room[];
+  deletedRoomIds: string[];
+}
+
+function loadRoomLayout(): RoomLayoutData {
+  try {
+    const stored = localStorage.getItem(ROOM_LAYOUT_KEY);
+    return stored ? JSON.parse(stored) : { overrides: {}, addedRooms: [], deletedRoomIds: [] };
+  } catch {
+    return { overrides: {}, addedRooms: [], deletedRoomIds: [] };
+  }
+}
+
+function saveRoomLayout(data: RoomLayoutData) {
+  try {
+    localStorage.setItem(ROOM_LAYOUT_KEY, JSON.stringify(data));
+  } catch { /* ignore quota errors */ }
+}
+
+// ── Wall editor localStorage persistence ──────────────────────────
+const WALL_EDITOR_KEY = 'simbot-custom-walls';
+
+function loadCustomWalls(): string[] | null {
+  try {
+    const stored = localStorage.getItem(WALL_EDITOR_KEY);
+    return stored ? JSON.parse(stored) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveCustomWalls(w: string[] | null) {
+  try {
+    if (w === null) localStorage.removeItem(WALL_EDITOR_KEY);
+    else localStorage.setItem(WALL_EDITOR_KEY, JSON.stringify(w));
+  } catch { /* ignore quota errors */ }
+}
+
+const initialRoomLayout = loadRoomLayout();
 
 interface SimBotStore {
   // Multi-robot state
@@ -195,6 +242,22 @@ interface SimBotStore {
   photoFilter: 'normal' | 'warm' | 'cool' | 'noir' | 'dreamy';
   setPhotoMode: (mode: boolean) => void;
   setPhotoFilter: (filter: 'normal' | 'warm' | 'cool' | 'noir' | 'dreamy') => void;
+
+  // Room/wall editor
+  editMode: boolean;
+  editSelectedRoomId: string | null;
+  setEditMode: (mode: boolean) => void;
+  setEditSelectedRoomId: (id: string | null) => void;
+  customWalls: string[] | null;
+  toggleWall: (key: string) => void;
+  resetWalls: () => void;
+
+  // Room layout editor
+  roomLayout: RoomLayoutData;
+  updateRoomBounds: (id: string, position: [number, number, number], size: [number, number]) => void;
+  addNewRoom: () => void;
+  deleteEditRoom: (id: string) => void;
+  resetRoomLayout: () => void;
 }
 
 const initialSimMinutes = (7 * 60) + 20;
@@ -489,6 +552,91 @@ export const useStore = create<SimBotStore>((set) => ({
   photoFilter: 'normal',
   setPhotoMode: (mode) => set({ photoMode: mode, ...(mode ? {} : { photoFilter: 'normal' }) }),
   setPhotoFilter: (filter) => set({ photoFilter: filter }),
+
+  // Room/wall editor
+  editMode: false,
+  editSelectedRoomId: null,
+  setEditMode: (mode) => set((state) => {
+    if (mode) {
+      if (state.customWalls === null) {
+        const walls = [...DEFAULT_ACTIVE_WALLS];
+        saveCustomWalls(walls);
+        return { editMode: true, customWalls: walls, rearrangeMode: false };
+      }
+      return { editMode: true, rearrangeMode: false };
+    }
+    return { editMode: false, editSelectedRoomId: null };
+  }),
+  setEditSelectedRoomId: (id) => set({ editSelectedRoomId: id }),
+  customWalls: loadCustomWalls(),
+  toggleWall: (key) => set((state) => {
+    const current = state.customWalls ?? [...DEFAULT_ACTIVE_WALLS];
+    const wallSet = new Set(current);
+    if (wallSet.has(key)) {
+      wallSet.delete(key);
+    } else {
+      wallSet.add(key);
+    }
+    const next = Array.from(wallSet);
+    saveCustomWalls(next);
+    return { customWalls: next };
+  }),
+  resetWalls: () => {
+    saveCustomWalls(null);
+    set({ customWalls: null, editMode: false, editSelectedRoomId: null });
+  },
+
+  // Room layout editor
+  roomLayout: initialRoomLayout,
+  updateRoomBounds: (id, position, size) => set((state) => {
+    const isAdded = state.roomLayout.addedRooms.some((r) => r.id === id);
+    if (isAdded) {
+      const addedRooms = state.roomLayout.addedRooms.map((r) =>
+        r.id === id ? { ...r, position, size } : r,
+      );
+      const next = { ...state.roomLayout, addedRooms };
+      saveRoomLayout(next);
+      return { roomLayout: next };
+    }
+    const overrides = { ...state.roomLayout.overrides };
+    overrides[id] = { ...overrides[id], position, size };
+    const next = { ...state.roomLayout, overrides };
+    saveRoomLayout(next);
+    return { roomLayout: next };
+  }),
+  addNewRoom: () => set((state) => {
+    const id = `room-${Date.now()}`;
+    const newRoom: Room = {
+      id,
+      name: `Room ${state.roomLayout.addedRooms.length + 1}`,
+      position: [0, 0, 0],
+      size: [8, 8],
+      color: '#4a4a4a',
+      furniture: [],
+    };
+    const next = { ...state.roomLayout, addedRooms: [...state.roomLayout.addedRooms, newRoom] };
+    saveRoomLayout(next);
+    return { roomLayout: next, editSelectedRoomId: id };
+  }),
+  deleteEditRoom: (id) => set((state) => {
+    const isAdded = state.roomLayout.addedRooms.some((r) => r.id === id);
+    let next: RoomLayoutData;
+    if (isAdded) {
+      next = { ...state.roomLayout, addedRooms: state.roomLayout.addedRooms.filter((r) => r.id !== id) };
+    } else {
+      next = { ...state.roomLayout, deletedRoomIds: [...state.roomLayout.deletedRoomIds, id] };
+    }
+    const overrides = { ...next.overrides };
+    delete overrides[id];
+    next = { ...next, overrides };
+    saveRoomLayout(next);
+    return { roomLayout: next, editSelectedRoomId: null };
+  }),
+  resetRoomLayout: () => {
+    const defaultLayout: RoomLayoutData = { overrides: {}, addedRooms: [], deletedRoomIds: [] };
+    saveRoomLayout(defaultLayout);
+    set({ roomLayout: defaultLayout, editSelectedRoomId: null });
+  },
 }));
 
 // Each completion reduces duration by ~5%, capping at 30% faster

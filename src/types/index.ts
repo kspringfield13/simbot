@@ -1,10 +1,4 @@
-export type RoomId =
-  | 'living-room'
-  | 'kitchen'
-  | 'hallway'
-  | 'laundry'
-  | 'bedroom'
-  | 'bathroom';
+export type RoomId = string;
 
 export type RobotId = 'sim' | 'chef' | 'sparkle';
 

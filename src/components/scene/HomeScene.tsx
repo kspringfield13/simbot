@@ -1,4 +1,6 @@
-import { rooms } from '../../utils/homeLayout';
+import { useMemo } from 'react';
+import { getEffectiveRooms } from '../../utils/homeLayout';
+import { useStore } from '../../stores/useStore';
 import { AIBrain } from '../../systems/AIBrain';
 import { ROBOT_IDS } from '../../types';
 import { TimeSystem } from '../../systems/TimeSystem';
@@ -15,6 +17,13 @@ import { WeatherEffects } from './WeatherEffects';
 import { ChargingStation } from './ChargingStation';
 
 export function HomeScene() {
+  const roomLayout = useStore((s) => s.roomLayout);
+  const editMode = useStore((s) => s.editMode);
+  const effectiveRooms = useMemo(
+    () => getEffectiveRooms(roomLayout.overrides, roomLayout.addedRooms, roomLayout.deletedRoomIds),
+    [roomLayout],
+  );
+
   return (
     <>
       <TimeSystem />
@@ -40,12 +49,17 @@ export function HomeScene() {
       <pointLight position={[0, 4.5, -2]} intensity={0.3} color="#ffe0b0" distance={12} decay={2} />
       <pointLight position={[10, 4.5, -2]} intensity={0.3} color="#fff5e0" distance={8} decay={2} />
 
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]} receiveShadow>
+      <mesh
+        rotation={[-Math.PI / 2, 0, 0]}
+        position={[0, -0.01, 0]}
+        receiveShadow
+        onClick={editMode ? () => useStore.getState().setEditSelectedRoomId(null) : undefined}
+      >
         <planeGeometry args={[80, 80]} />
         <meshStandardMaterial color="#3d3a36" roughness={0.8} />
       </mesh>
 
-      {rooms.map((room) => (
+      {effectiveRooms.map((room) => (
         <Room key={room.id} room={room} />
       ))}
 
