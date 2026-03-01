@@ -6,6 +6,7 @@ import { DEFAULT_ACTIVE_WALLS } from '../utils/homeLayout';
 import { getBatteryDrainMultiplier, getEnergyMultiplier } from '../config/shop';
 import type { CustomRobot } from '../config/crafting';
 import { getDeployedRobotBonuses } from '../config/crafting';
+import { getSkillQualityBonus } from '../config/skills';
 import { loadFloorPlanId, saveFloorPlanId } from '../config/floorPlans';
 import { getComfortMultiplier } from '../config/devices';
 import type { RoomDecoration } from '../config/decorations';
@@ -41,6 +42,7 @@ import type {
   RobotMood,
   RobotNeeds,
   RobotPersonalityData,
+  RobotSkillData,
   RobotState,
   RoomId,
   RoomNeedState,
@@ -295,6 +297,36 @@ function saveRoomDecorations(data: Record<string, RoomDecoration>) {
   } catch { /* ignore quota errors */ }
 }
 
+// ── Skill tree localStorage persistence ──────────────────────────
+const SKILLS_STORAGE_KEY = 'simbot-skills';
+
+function createInitialSkillData(): Record<RobotId, RobotSkillData> {
+  return {
+    sim: { unlockedSkills: [] },
+    chef: { unlockedSkills: [] },
+    sparkle: { unlockedSkills: [] },
+  };
+}
+
+function loadSkillData(): Record<RobotId, RobotSkillData> {
+  try {
+    const stored = localStorage.getItem(SKILLS_STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      return { ...createInitialSkillData(), ...parsed };
+    }
+    return createInitialSkillData();
+  } catch {
+    return createInitialSkillData();
+  }
+}
+
+function saveSkillData(data: Record<RobotId, RobotSkillData>) {
+  try {
+    localStorage.setItem(SKILLS_STORAGE_KEY, JSON.stringify(data));
+  } catch { /* ignore quota errors */ }
+}
+
 const initialShopData = loadShopData();
 const initialCraftingData = loadCraftingData();
 
@@ -362,7 +394,7 @@ interface SimBotStore {
   roomNeeds: Record<RoomId, RoomNeedState>;
   selectedRoomId: RoomId | null;
   setSelectedRoomId: (roomId: RoomId | null) => void;
-  applyRoomTaskResult: (roomId: RoomId, taskType: TaskType) => void;
+  applyRoomTaskResult: (roomId: RoomId, taskType: TaskType, robotId?: RobotId) => void;
 
   // Tasks
   tasks: Task[];
@@ -600,6 +632,12 @@ interface SimBotStore {
   notifications: AppNotification[];
   addNotification: (n: Omit<AppNotification, 'id' | 'createdAt'>) => void;
   dismissNotification: (id: string) => void;
+
+  // Skill tree
+  robotSkills: Record<RobotId, RobotSkillData>;
+  showSkillTree: boolean;
+  setShowSkillTree: (show: boolean) => void;
+  unlockSkill: (robotId: RobotId, skillId: string) => void;
 }
 
 const initialSimMinutes = (7 * 60) + 20;
@@ -777,15 +815,28 @@ export const useStore = create<SimBotStore>((set) => ({
   roomNeeds: createInitialRoomNeeds(),
   selectedRoomId: null,
   setSelectedRoomId: (roomId) => set({ selectedRoomId: roomId }),
-  applyRoomTaskResult: (roomId, taskType) => set((state) => {
+  applyRoomTaskResult: (roomId, taskType, robotId) => set((state) => {
     const current = state.roomNeeds[roomId];
     if (!current) return {};
+
+    const boosted = boostRoomAfterTask(current, taskType);
+    // Apply skill tree quality bonus (increases cleanliness/tidiness boost)
+    if (robotId) {
+      const qualBonus = getSkillQualityBonus(state.robotSkills[robotId].unlockedSkills, taskType);
+      if (qualBonus > 0) {
+        const extra = qualBonus; // e.g. 0.15 = 15% more boost
+        const cleanDelta = boosted.cleanliness - current.cleanliness;
+        const tidyDelta = boosted.tidiness - current.tidiness;
+        boosted.cleanliness = Math.min(100, boosted.cleanliness + cleanDelta * extra);
+        boosted.tidiness = Math.min(100, boosted.tidiness + tidyDelta * extra);
+      }
+    }
 
     return {
       roomNeeds: {
         ...state.roomNeeds,
         [roomId]: {
-          ...boostRoomAfterTask(current, taskType),
+          ...boosted,
           lastServicedAt: state.simMinutes,
         },
       },
@@ -1399,6 +1450,21 @@ export const useStore = create<SimBotStore>((set) => ({
   dismissNotification: (id) => set((state) => ({
     notifications: state.notifications.filter((n) => n.id !== id),
   })),
+
+  // Skill tree
+  robotSkills: loadSkillData(),
+  showSkillTree: false,
+  setShowSkillTree: (show) => set({ showSkillTree: show }),
+  unlockSkill: (robotId, skillId) => set((state) => {
+    const current = state.robotSkills[robotId];
+    if (current.unlockedSkills.includes(skillId)) return {};
+    const next = {
+      ...state.robotSkills,
+      [robotId]: { unlockedSkills: [...current.unlockedSkills, skillId] },
+    };
+    saveSkillData(next);
+    return { robotSkills: next };
+  }),
 }));
 
 // Each completion reduces duration by ~5%, capping at 30% faster

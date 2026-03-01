@@ -22,6 +22,7 @@ const STORAGE_KEYS = {
   personality: 'simbot-personality',
   floorPlan: 'simbot-floor-plan',
   cameraPresets: 'simbot-camera-presets',
+  skills: 'simbot-skills',
 } as const;
 
 interface SaveData {
@@ -142,6 +143,11 @@ function applySaveData(data: SaveData) {
     ownedParts: safeJsonParse(data.localStorage[STORAGE_KEYS.crafting], { ownedParts: [] }).ownedParts ?? [],
     customRobots: safeJsonParse(data.localStorage[STORAGE_KEYS.crafting], { customRobots: [] }).customRobots ?? [],
     cameraPresets: safeJsonParse(data.localStorage[STORAGE_KEYS.cameraPresets], []),
+    robotSkills: safeJsonParse(data.localStorage[STORAGE_KEYS.skills], {
+      sim: { unlockedSkills: [] },
+      chef: { unlockedSkills: [] },
+      sparkle: { unlockedSkills: [] },
+    }),
     personalities: loadPersonalities(),
     leaderboardData: loadLeaderboard(),
     // Clear transient state

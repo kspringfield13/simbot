@@ -242,6 +242,28 @@ export interface HomeEventHistoryEntry {
   respondingRobots: RobotId[];
 }
 
+// ── Robot Skill Tree ──────────────────────────────────────────
+export type SkillSpecialization = 'chef' | 'cleaning' | 'handyman';
+
+export interface SkillDefinition {
+  id: string;
+  name: string;
+  description: string;
+  specialization: SkillSpecialization;
+  requiredTaskTypes: TaskType[];
+  requiredCount: number;
+  prerequisiteId: string | null;
+  speedBonus: number;       // e.g. 0.10 = 10% faster
+  qualityBonus: number;     // e.g. 0.10 = 10% more cleanliness boost
+  affectedTasks: TaskType[];
+  row: number;              // visual row in tree (0=top/root)
+  col: number;              // visual column (0=left/main, 1=right/branch)
+}
+
+export interface RobotSkillData {
+  unlockedSkills: string[];
+}
+
 // ── Timelapse Replay ──────────────────────────────────────────
 export type TimelapseEventType = 'position' | 'task-start' | 'task-complete' | 'room-change';
 

@@ -42,6 +42,7 @@ import { NotificationSystem } from './components/ui/NotificationSystem';
 import { NotificationTracker } from './components/systems/NotificationTracker';
 import { StatsPanel } from './components/ui/StatsPanel';
 import { CameraPresetsPanel } from './components/ui/CameraPresetsPanel';
+import { SkillTreePanel } from './components/ui/SkillTreePanel';
 import { useStore } from './stores/useStore';
 import { useAccessibility } from './stores/useAccessibility';
 import { musicEngine } from './systems/MusicEngine';
@@ -514,6 +515,33 @@ function PersonalityButton() {
   );
 }
 
+function SkillTreeButton() {
+  const setShowSkillTree = useStore((s) => s.setShowSkillTree);
+  const activeRobotId = useStore((s) => s.activeRobotId);
+  const skillCount = useStore((s) => s.robotSkills[activeRobotId].unlockedSkills.length);
+
+  return (
+    <button
+      type="button"
+      onClick={() => setShowSkillTree(true)}
+      className="pointer-events-auto relative flex h-10 w-10 items-center justify-center rounded-full border border-emerald-400/30 bg-black/50 text-lg backdrop-blur-md transition-all hover:bg-emerald-400/20"
+      title="Skill tree"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-emerald-300">
+        <path d="M12 22v-7" />
+        <path d="M12 15c-2.5 0-5-1.5-5-5 0-2.5 1.5-4 3-5 .5-3 2-4 2-4s1.5 1 2 4c1.5 1 3 2.5 3 5 0 3.5-2.5 5-5 5z" />
+        <path d="M8 9c-1-.5-2-.5-3 0" />
+        <path d="M16 9c1-.5 2-.5 3 0" />
+      </svg>
+      {skillCount > 0 && (
+        <span className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-emerald-400 px-1 text-[9px] font-bold text-black">
+          {skillCount}
+        </span>
+      )}
+    </button>
+  );
+}
+
 function TrophyButton() {
   const setShowLeaderboard = useStore((s) => s.setShowLeaderboard);
   const totalTasks = useStore((s) => s.totalTasksCompleted);
@@ -637,6 +665,7 @@ function App() {
             <SmartHomeButton />
             <DiaryButton />
             <PersonalityButton />
+            <SkillTreeButton />
             <SocialButton />
             <TimelapseButton />
             <TimelineButton />
@@ -679,6 +708,7 @@ function App() {
       <DecoratePanel />
       <TaskTimelinePanel />
       <CameraPresetsPanel />
+      <SkillTreePanel />
       <AccessibilityPanel open={showA11y} onClose={() => setShowA11y(false)} />
       {!isSpectating && (
         <TutorialOverlay forceOpen={showTutorial} onClose={() => setShowTutorial(false)} />

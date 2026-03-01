@@ -5,6 +5,7 @@ import { getNavigationPath } from '../utils/pathfinding';
 import { demoCommands } from '../utils/demoTasks';
 import { getTaskCoinReward, getShopSpeedMultiplier } from '../config/shop';
 import { getDeployedRobotBonuses } from '../config/crafting';
+import { getSkillSpeedBonus } from '../config/skills';
 import { generateDiaryEntry } from '../config/diary';
 import type { Task, TaskSource, TaskType } from '../types';
 import { ROBOT_IDS } from '../types';
@@ -272,7 +273,9 @@ export const useTaskRunner = () => {
 
         const craftingBonuses = getDeployedRobotBonuses(state.customRobots);
         const shopSpeedMult = getShopSpeedMultiplier(state.purchasedUpgrades, craftingBonuses.speedBonus);
-        const step = (100 / activeTask.workDuration) * 0.1 * state.simSpeed / shopSpeedMult;
+        // Skill tree speed bonus: e.g. 0.25 = 25% faster → multiply step by 1.25
+        const skillBonus = getSkillSpeedBonus(state.robotSkills[rid].unlockedSkills, activeTask.taskType);
+        const step = (100 / activeTask.workDuration) * 0.1 * state.simSpeed / shopSpeedMult * (1 + skillBonus);
         const nextProgress = Math.min(100, activeTask.progress + step);
 
         updateTask(activeTask.id, { progress: nextProgress });
@@ -281,7 +284,7 @@ export const useTaskRunner = () => {
 
         updateTask(activeTask.id, { status: 'completed', progress: 100 });
 
-        applyRoomTaskResult(activeTask.targetRoom, activeTask.taskType);
+        applyRoomTaskResult(activeTask.targetRoom, activeTask.taskType, rid);
         state.recordTaskCompletion(activeTask.taskType);
         state.recordStats(activeTask.taskType, activeTask.targetRoom, rid);
         state.recordRobotTaskCompletion(rid, activeTask.taskType, activeTask.workDuration);
