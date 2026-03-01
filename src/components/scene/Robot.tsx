@@ -1,4 +1,4 @@
-import { useRef, useEffect, useMemo, Suspense } from 'react';
+import { useRef, useEffect, useMemo, useState, Suspense } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useGLTF, useAnimations, Html } from '@react-three/drei';
 import { useStore } from '../../stores/useStore';
@@ -8,6 +8,7 @@ import type { RobotId, ActiveChat } from '../../types';
 import { ROBOT_IDS } from '../../types';
 import { useRobotDisplayName } from '../../stores/useRobotNames';
 import { getFriendshipKey } from '../../config/conversations';
+import { getActiveRooms } from '../../utils/homeLayout';
 import * as THREE from 'three';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 
@@ -58,6 +59,23 @@ function getRobotAvoidanceForce(
 
   return [forceX, forceZ];
 }
+
+/** Check if all rooms have cleanliness >= 74 (green/"Clean" status) */
+function areAllRoomsClean(): boolean {
+  const roomNeeds = useStore.getState().roomNeeds;
+  const rooms = getActiveRooms();
+  if (rooms.length === 0) return false;
+  return rooms.every((room) => {
+    const needs = roomNeeds[room.id];
+    return needs && needs.cleanliness >= 74;
+  });
+}
+
+/** Shared high-five cooldown tracker between robot pairs (prevents double-triggering) */
+const highFiveCooldowns: Record<string, number> = {};
+const HIGHFIVE_PROXIMITY = 3.0;
+const HIGHFIVE_DURATION = 1.6; // seconds
+const HIGHFIVE_COOLDOWN = 15.0; // seconds between high-fives for same pair
 
 function RobotBatteryBar({ robotId }: { robotId: RobotId }) {
   const battery = useStore((s) => Math.round(s.robots[robotId].battery));
@@ -201,6 +219,30 @@ function FriendshipHeart({ robotId }: { robotId: RobotId }) {
   );
 }
 
+/** Floating celebration indicator (party popper) */
+function CelebrationIndicator({ active }: { active: boolean }) {
+  if (!active) return null;
+  return (
+    <Html center distanceFactor={10} position={[0, 3.4, 0]} transform>
+      <div className="pointer-events-none reaction-float text-[16px]">
+        🎉
+      </div>
+    </Html>
+  );
+}
+
+/** Floating high-five indicator */
+function HighFiveIndicator({ active }: { active: boolean }) {
+  if (!active) return null;
+  return (
+    <Html center distanceFactor={10} position={[-0.5, 3.2, 0]} transform>
+      <div className="pointer-events-none reaction-float text-[14px]">
+        🙌
+      </div>
+    </Html>
+  );
+}
+
 function RobotModel({ robotId }: { robotId: RobotId }) {
   const config = ROBOT_CONFIGS[robotId];
   const customColor = useStore((s) => s.robotColors[robotId]);
@@ -211,6 +253,19 @@ function RobotModel({ robotId }: { robotId: RobotId }) {
   const currentAnimRef = useRef<string>('idle');
   const stuckTimerRef = useRef(0);
   const lastDistRef = useRef(999);
+
+  // ── Celebration dance state (all rooms clean) ──
+  const celebratingRef = useRef(false);
+  const celebrationTimerRef = useRef(0);
+  const celebrationSpinRef = useRef(0);
+  const celebrationCooldownRef = useRef(0);
+  const wasAllCleanRef = useRef(false);
+  const [showCelebration, setShowCelebration] = useState(false);
+
+  // ── High-five state (two robots meet) ──
+  const highFiveTimerRef = useRef(0);
+  const highFiveActiveRef = useRef(false);
+  const [showHighFive, setShowHighFive] = useState(false);
 
   const { scene, animations } = useGLTF('/models/xbot.glb');
 
@@ -357,8 +412,88 @@ function RobotModel({ robotId }: { robotId: RobotId }) {
       playAnim('idle', 0.4);
     }
 
+    // ── Celebration dance: spin+jump when all rooms are clean ──
+    if (celebrationCooldownRef.current > 0) {
+      celebrationCooldownRef.current -= delta;
+    }
+
+    const allClean = areAllRoomsClean();
+    // Trigger on rising edge (rooms just became all-clean)
+    if (allClean && !wasAllCleanRef.current && celebrationCooldownRef.current <= 0 && !celebratingRef.current) {
+      celebratingRef.current = true;
+      celebrationTimerRef.current = 0;
+      celebrationSpinRef.current = 0;
+      setShowCelebration(true);
+    }
+    wasAllCleanRef.current = allClean;
+
+    let modelYOffset = 0;
+    let modelSpinOffset = 0;
+
+    if (celebratingRef.current) {
+      celebrationTimerRef.current += delta;
+      const t = celebrationTimerRef.current;
+      const duration = 2.0;
+
+      if (t < duration) {
+        // Spin: 2 full rotations
+        celebrationSpinRef.current = (t / duration) * Math.PI * 4;
+        modelSpinOffset = celebrationSpinRef.current;
+        // Jump: two smooth bounces via abs(sin)
+        modelYOffset = Math.abs(Math.sin(t / duration * Math.PI * 2)) * 0.6;
+        playAnim('agree', 0.2);
+      } else {
+        celebratingRef.current = false;
+        setShowCelebration(false);
+        celebrationCooldownRef.current = 30;
+      }
+    }
+
+    // ── High-five: when two idle robots meet ──
+    if (highFiveActiveRef.current) {
+      highFiveTimerRef.current += delta;
+      if (highFiveTimerRef.current < HIGHFIVE_DURATION) {
+        const t = highFiveTimerRef.current;
+        modelYOffset += Math.sin(t / HIGHFIVE_DURATION * Math.PI) * 0.3;
+        playAnim('agree', 0.2);
+      } else {
+        highFiveActiveRef.current = false;
+        setShowHighFive(false);
+      }
+    } else if (robot.state === 'idle' && !celebratingRef.current) {
+      for (const otherId of ROBOT_IDS) {
+        if (otherId === robotId) continue;
+        const other = s.robots[otherId];
+        if (other.state !== 'idle') continue;
+
+        const dx = robot.position[0] - other.position[0];
+        const dz = robot.position[2] - other.position[2];
+        const dist = Math.sqrt(dx * dx + dz * dz);
+
+        if (dist < HIGHFIVE_PROXIMITY) {
+          const pairKey = [robotId, otherId].sort().join('-');
+          const now = performance.now() / 1000;
+          const lastTime = highFiveCooldowns[pairKey] ?? 0;
+
+          if (now - lastTime > HIGHFIVE_COOLDOWN) {
+            highFiveCooldowns[pairKey] = now;
+            highFiveActiveRef.current = true;
+            highFiveTimerRef.current = 0;
+            setShowHighFive(true);
+            break;
+          }
+        }
+      }
+    }
+
+    // Apply transforms: base position on outer group, dance offsets on inner model
     groupRef.current.position.set(robot.position[0], robot.position[1], robot.position[2]);
     s.setRobotRotationY(robotId, groupRef.current.rotation.y);
+
+    if (modelRef.current) {
+      modelRef.current.position.y = modelYOffset / ROBOT_SCALE;
+      modelRef.current.rotation.y = modelSpinOffset;
+    }
   });
 
   const activeRobotId = useStore((s) => s.activeRobotId);
@@ -404,6 +539,12 @@ function RobotModel({ robotId }: { robotId: RobotId }) {
 
       {/* Friendship heart indicator */}
       <FriendshipHeart robotId={robotId} />
+
+      {/* Celebration dance indicator (all rooms clean) */}
+      <CelebrationIndicator active={showCelebration} />
+
+      {/* High-five indicator (robots meeting) */}
+      <HighFiveIndicator active={showHighFive} />
 
       {/* Selection ring */}
       {isActive && (
