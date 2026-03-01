@@ -37,6 +37,7 @@ import { InstallPrompt } from './components/ui/InstallPrompt';
 import { AccessibilityPanel } from './components/ui/AccessibilityPanel';
 import { ScreenReaderAnnouncer } from './components/ui/ScreenReaderAnnouncer';
 import { DecoratePanel } from './components/ui/DecoratePanel';
+import { TaskTimelinePanel, TimelineButton } from './components/ui/TaskTimelinePanel';
 import { useStore } from './stores/useStore';
 import { useAccessibility } from './stores/useAccessibility';
 import { musicEngine } from './systems/MusicEngine';
@@ -609,6 +610,7 @@ function App() {
             <PersonalityButton />
             <SocialButton />
             <TimelapseButton />
+            <TimelineButton />
             <ShareButton />
             <MusicToggle />
             <FloorPlanButton />
@@ -645,6 +647,7 @@ function App() {
       <TimelapsePanel />
       <FloorPlanSelector />
       <DecoratePanel />
+      <TaskTimelinePanel />
       <AccessibilityPanel open={showA11y} onClose={() => setShowA11y(false)} />
       {!isSpectating && (
         <TutorialOverlay forceOpen={showTutorial} onClose={() => setShowTutorial(false)} />

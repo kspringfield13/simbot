@@ -523,6 +523,10 @@ interface SimBotStore {
   setTimelapsePlaybackSpeed: (speed: 30 | 60 | 120) => void;
   setTimelapsePlaybackTime: (simMinutes: number) => void;
 
+  // Task timeline
+  showTimeline: boolean;
+  setShowTimeline: (show: boolean) => void;
+
   // Room decoration
   decorateMode: boolean;
   decorateSelectedRoomId: string | null;
@@ -1207,6 +1211,10 @@ export const useStore = create<SimBotStore>((set) => ({
     if (!state.timelapsePlayback) return {};
     return { timelapsePlayback: { ...state.timelapsePlayback, currentSimMinutes: simMinutes } };
   }),
+
+  // Task timeline
+  showTimeline: false,
+  setShowTimeline: (show) => set({ showTimeline: show }),
 
   // Room decoration
   decorateMode: false,
