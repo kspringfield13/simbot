@@ -31,6 +31,8 @@ import { HomeEventTracker } from './components/systems/HomeEventTracker';
 import { SocialTracker } from './components/systems/SocialTracker';
 import { EventBanner } from './components/ui/EventBanner';
 import { SocialPanel, SocialButton } from './components/ui/SocialPanel';
+import { TimelapsePanel, TimelapseButton } from './components/ui/TimelapsePanel';
+import { TimelapseRecorder } from './components/systems/TimelapseRecorder';
 import { useStore } from './stores/useStore';
 import { musicEngine } from './systems/MusicEngine';
 import { useSpectatorHost, useSpectatorViewer } from './hooks/useSpectator';
@@ -478,6 +480,7 @@ function App() {
           <PersonalityTracker />
           <HomeEventTracker />
           <SocialTracker />
+          <TimelapseRecorder />
         </>
       )}
 
@@ -501,6 +504,7 @@ function App() {
             <DiaryButton />
             <PersonalityButton />
             <SocialButton />
+            <TimelapseButton />
             <ShareButton />
             <MusicToggle />
             <FloorPlanButton />
@@ -531,6 +535,7 @@ function App() {
       <LeaderboardPanel />
       <PersonalityPanel />
       <SocialPanel />
+      <TimelapsePanel />
       <FloorPlanSelector />
       {!isSpectating && (
         <TutorialOverlay forceOpen={showTutorial} onClose={() => setShowTutorial(false)} />

@@ -232,3 +232,24 @@ export interface HomeEventHistoryEntry {
   detectedBy: RobotId;
   respondingRobots: RobotId[];
 }
+
+// ── Timelapse Replay ──────────────────────────────────────────
+export type TimelapseEventType = 'position' | 'task-start' | 'task-complete' | 'room-change';
+
+export interface TimelapseEvent {
+  type: TimelapseEventType;
+  simMinutes: number;       // sim time when event was recorded
+  robotId?: RobotId;
+  position?: [number, number, number];
+  taskType?: TaskType;
+  roomId?: RoomId;
+  cleanliness?: number;     // for room-change events
+}
+
+export interface TimelapsePlaybackState {
+  playing: boolean;
+  speed: 30 | 60 | 120;
+  startSimMinutes: number;  // beginning of the replay window
+  endSimMinutes: number;    // end of the replay window
+  currentSimMinutes: number; // current playback position
+}

@@ -47,6 +47,8 @@ import type {
   SimPeriod,
   Task,
   TaskType,
+  TimelapseEvent,
+  TimelapsePlaybackState,
   VisitorEvent,
   WeatherType,
 } from '../types';
@@ -489,6 +491,18 @@ interface SimBotStore {
   buildCustomRobot: (name: string, headId: string, bodyId: string, armsId: string, legsId: string) => void;
   deployCustomRobot: (robotId: string) => void;
   deleteCustomRobot: (robotId: string) => void;
+
+  // Timelapse replay
+  timelapseEvents: TimelapseEvent[];
+  timelapsePlayback: TimelapsePlaybackState | null;
+  showTimelapse: boolean;
+  setShowTimelapse: (show: boolean) => void;
+  pushTimelapseEvent: (event: TimelapseEvent) => void;
+  startTimelapsePlayback: () => void;
+  stopTimelapsePlayback: () => void;
+  setTimelapsePlaybackPlaying: (playing: boolean) => void;
+  setTimelapsePlaybackSpeed: (speed: 30 | 60 | 120) => void;
+  setTimelapsePlaybackTime: (simMinutes: number) => void;
 }
 
 const initialSimMinutes = (7 * 60) + 20;
@@ -1114,6 +1128,52 @@ export const useStore = create<SimBotStore>((set) => ({
     const nextRobots = state.customRobots.filter((r) => r.id !== robotId);
     saveCraftingData({ ownedParts: state.ownedParts, customRobots: nextRobots });
     return { customRobots: nextRobots };
+  }),
+
+  // Timelapse replay
+  timelapseEvents: [],
+  timelapsePlayback: null,
+  showTimelapse: false,
+  setShowTimelapse: (show) => set({ showTimelapse: show }),
+  pushTimelapseEvent: (event) => set((state) => {
+    // Circular buffer: keep up to 24 sim-hours (1440 sim-minutes) of events
+    // Position events every ~2 sim-min × 3 robots ≈ 2160 pos events/day + task/room events
+    const MAX_EVENTS = 8000;
+    const next = [...state.timelapseEvents, event];
+    if (next.length > MAX_EVENTS) {
+      // Trim from the front to keep the most recent events
+      return { timelapseEvents: next.slice(next.length - MAX_EVENTS) };
+    }
+    return { timelapseEvents: next };
+  }),
+  startTimelapsePlayback: () => set((state) => {
+    const events = state.timelapseEvents;
+    if (events.length === 0) return {};
+    const startSimMinutes = events[0].simMinutes;
+    const endSimMinutes = events[events.length - 1].simMinutes;
+    return {
+      timelapsePlayback: {
+        playing: true,
+        speed: 60,
+        startSimMinutes,
+        endSimMinutes,
+        currentSimMinutes: startSimMinutes,
+      },
+      showTimelapse: true,
+    };
+  }),
+  stopTimelapsePlayback: () => set({ timelapsePlayback: null }),
+  setTimelapsePlaybackPlaying: (playing) => set((state) => {
+    if (!state.timelapsePlayback) return {};
+    return { timelapsePlayback: { ...state.timelapsePlayback, playing } };
+  }),
+  setTimelapsePlaybackSpeed: (speed) => set((state) => {
+    if (!state.timelapsePlayback) return {};
+    return { timelapsePlayback: { ...state.timelapsePlayback, speed } };
+  }),
+  setTimelapsePlaybackTime: (simMinutes) => set((state) => {
+    if (!state.timelapsePlayback) return {};
+    return { timelapsePlayback: { ...state.timelapsePlayback, currentSimMinutes: simMinutes } };
   }),
 }));
 
