@@ -1,7 +1,10 @@
 import { Canvas } from '@react-three/fiber';
 import { Suspense } from 'react';
 import { HomeScene } from './components/scene/HomeScene';
+import { StreetView } from './components/scene/StreetView';
 import { RobotTerminal } from './components/ui/RobotTerminal';
+import { NeighborhoodPanel } from './components/ui/NeighborhoodPanel';
+import { NeighborhoodMap } from './components/ui/NeighborhoodMap';
 import { TaskProcessor } from './components/systems/TaskProcessor';
 import { useStore } from './stores/useStore';
 
@@ -22,7 +25,47 @@ function CameraToggle() {
   );
 }
 
+function NeighborhoodToggle() {
+  const showPanel = useStore((s) => s.showNeighborhoodPanel);
+  const setShowPanel = useStore((s) => s.setShowNeighborhoodPanel);
+  const streetView = useStore((s) => s.streetView);
+  const setStreetView = useStore((s) => s.setStreetView);
+  const activeVisits = useStore((s) => s.activeVisits);
+
+  return (
+    <div className="pointer-events-auto flex gap-1">
+      <button
+        type="button"
+        onClick={() => setShowPanel(!showPanel)}
+        className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-black/50 text-lg backdrop-blur-md transition-all hover:bg-black/70"
+        title="Neighborhood panel"
+      >
+        🏘️
+        {activeVisits.length > 0 && (
+          <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-green-500 text-[8px] font-bold text-white">
+            {activeVisits.length}
+          </span>
+        )}
+      </button>
+      <button
+        type="button"
+        onClick={() => setStreetView(!streetView)}
+        className={`flex h-10 w-10 items-center justify-center rounded-full border text-lg backdrop-blur-md transition-all ${
+          streetView
+            ? 'border-cyan-400/40 bg-cyan-500/30 hover:bg-cyan-500/40'
+            : 'border-white/10 bg-black/50 hover:bg-black/70'
+        }`}
+        title={streetView ? 'Go inside' : 'Street view'}
+      >
+        🛣️
+      </button>
+    </div>
+  );
+}
+
 function App() {
+  const streetView = useStore((s) => s.streetView);
+
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-black">
       <Canvas
@@ -32,13 +75,16 @@ function App() {
         dpr={[1, 1.5]}
       >
         <Suspense fallback={null}>
-          <HomeScene />
+          {streetView ? <StreetView /> : <HomeScene />}
         </Suspense>
       </Canvas>
 
       <TaskProcessor />
       <RobotTerminal />
+      <NeighborhoodPanel />
+      <NeighborhoodMap />
       <div className="pointer-events-none fixed right-4 top-4 z-30 flex gap-2" style={{ marginTop: 'env(safe-area-inset-top, 0px)' }}>
+        <NeighborhoodToggle />
         <CameraToggle />
       </div>
     </div>
