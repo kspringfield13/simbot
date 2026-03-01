@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 import { useStore } from '../../stores/useStore';
 import type { RobotMod, BehaviorMod, SkinMod, RobotId, SkinAccessory, ModType } from '../../types';
 import { ROBOT_IDS } from '../../types';
@@ -49,6 +49,50 @@ export function ModdingPanel() {
 
   // Test result state
   const [testResult, setTestResult] = useState<{ actions: { type: string; value?: number | string }[]; messages: string[]; error?: string } | null>(null);
+
+  // Import/export
+  const importInputRef = useRef<HTMLInputElement>(null);
+
+  const exportMods = useCallback(() => {
+    const json = JSON.stringify(mods, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `simbot-mods-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [mods]);
+
+  const importMods = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(reader.result as string);
+        if (!Array.isArray(parsed)) return;
+        const imported: RobotMod[] = parsed
+          .filter((m: RobotMod) => m.type === 'behavior' || m.type === 'skin')
+          .map((m: RobotMod) => ({
+            ...m,
+            id: generateModId(), // assign new IDs to avoid collisions
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          }));
+        if (imported.length > 0) {
+          const updated = [...imported, ...mods].slice(0, 50);
+          setMods(updated);
+          saveMods(updated);
+        }
+      } catch {
+        // invalid JSON — silently ignore
+      }
+      // reset input so same file can be re-imported
+      if (importInputRef.current) importInputRef.current.value = '';
+    };
+    reader.readAsText(file);
+  }, [mods]);
 
   // Filter state
   const [filterType, setFilterType] = useState<ModType | 'all'>('all');
@@ -304,6 +348,31 @@ export function ModdingPanel() {
             >
               + New Skin
             </button>
+            <div className="mx-1 h-4 w-px bg-white/10" />
+            <button
+              type="button"
+              onClick={exportMods}
+              disabled={mods.length === 0}
+              className="rounded-lg bg-white/5 px-3 py-1.5 text-xs font-medium text-gray-300 transition-colors hover:bg-white/10 disabled:opacity-30"
+              title="Export all mods as JSON"
+            >
+              Export
+            </button>
+            <button
+              type="button"
+              onClick={() => importInputRef.current?.click()}
+              className="rounded-lg bg-white/5 px-3 py-1.5 text-xs font-medium text-gray-300 transition-colors hover:bg-white/10"
+              title="Import mods from JSON"
+            >
+              Import
+            </button>
+            <input
+              ref={importInputRef}
+              type="file"
+              accept=".json"
+              onChange={importMods}
+              className="hidden"
+            />
             <div className="flex-1" />
             {/* Filter */}
             <div className="flex gap-1 rounded-lg bg-white/5 p-0.5">
