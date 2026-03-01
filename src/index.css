@@ -51,3 +51,8 @@ input, button { font: inherit; }
 .reaction-float {
   animation: reaction-float 2s ease-out forwards;
 }
+
+@keyframes slideUp {
+  from { transform: translate(-50%, 100%); opacity: 0; }
+  to { transform: translate(-50%, 0); opacity: 1; }
+}

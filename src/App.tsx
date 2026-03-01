@@ -33,6 +33,7 @@ import { EventBanner } from './components/ui/EventBanner';
 import { SocialPanel, SocialButton } from './components/ui/SocialPanel';
 import { TimelapsePanel, TimelapseButton } from './components/ui/TimelapsePanel';
 import { TimelapseRecorder } from './components/systems/TimelapseRecorder';
+import { InstallPrompt } from './components/ui/InstallPrompt';
 import { useStore } from './stores/useStore';
 import { musicEngine } from './systems/MusicEngine';
 import { useSpectatorHost, useSpectatorViewer } from './hooks/useSpectator';
@@ -540,6 +541,7 @@ function App() {
       {!isSpectating && (
         <TutorialOverlay forceOpen={showTutorial} onClose={() => setShowTutorial(false)} />
       )}
+      <InstallPrompt />
     </div>
   );
 }
