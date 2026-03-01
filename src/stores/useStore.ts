@@ -608,6 +608,16 @@ interface SimBotStore {
   setShowSmartSchedule: (show: boolean) => void;
   setSmartScheduleData: (data: import('../systems/SmartSchedule').SmartScheduleData) => void;
 
+  // Mini-games
+  showMiniGames: boolean;
+  setShowMiniGames: (show: boolean) => void;
+  showCookingGame: boolean;
+  setShowCookingGame: (show: boolean) => void;
+  showRepairGame: boolean;
+  setShowRepairGame: (show: boolean) => void;
+  showGardenGame: boolean;
+  setShowGardenGame: (show: boolean) => void;
+
   // Robot evolution / aging
   robotEvolutions: Record<RobotId, RobotEvolution>;
   showEvolutionPanel: boolean;
@@ -1367,6 +1377,16 @@ export const useStore = create<SimBotStore>((set) => ({
   showSmartSchedule: false,
   setShowSmartSchedule: (show) => set({ showSmartSchedule: show }),
   setSmartScheduleData: (data) => set({ smartScheduleData: data }),
+
+  // Mini-games
+  showMiniGames: false,
+  setShowMiniGames: (show) => set({ showMiniGames: show }),
+  showCookingGame: false,
+  setShowCookingGame: (show) => set({ showCookingGame: show }),
+  showRepairGame: false,
+  setShowRepairGame: (show) => set({ showRepairGame: show }),
+  showGardenGame: false,
+  setShowGardenGame: (show) => set({ showGardenGame: show }),
 
   // Robot evolution / aging
   robotEvolutions: loadEvolutionData(),

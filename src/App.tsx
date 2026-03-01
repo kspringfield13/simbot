@@ -57,6 +57,11 @@ import { SecurityPanel } from './components/ui/SecurityPanel';
 import { EvolutionPanel } from './components/ui/EvolutionPanel';
 import { SmartSchedulePanel } from './components/ui/SmartSchedulePanel';
 import { SmartScheduleTracker } from './components/systems/SmartScheduleTracker';
+import { MiniGamesPanel } from './components/ui/MiniGamesPanel';
+import { CookingMiniGame } from './components/ui/CookingMiniGame';
+import { RepairMiniGame } from './components/ui/RepairMiniGame';
+import { GardenMiniGame } from './components/ui/GardenMiniGame';
+import { MiniGameTrigger } from './components/systems/MiniGameTrigger';
 import { FloorSelector } from './components/ui/FloorSelector';
 import { INTRUDER_CONFIGS, type IntruderType } from './config/security';
 import { useStore } from './stores/useStore';
@@ -707,6 +712,27 @@ function SmartScheduleButton() {
   );
 }
 
+function MiniGamesButton() {
+  const setShow = useStore((s) => s.setShowMiniGames);
+
+  return (
+    <button
+      type="button"
+      onClick={() => setShow(true)}
+      className="pointer-events-auto relative flex h-10 w-10 items-center justify-center rounded-full border border-violet-400/30 bg-black/50 text-lg backdrop-blur-md transition-all hover:bg-violet-400/20"
+      title="Mini-Games"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-violet-300">
+        <rect x="2" y="6" width="20" height="12" rx="2" />
+        <circle cx="8.5" cy="12" r="1.5" />
+        <circle cx="15.5" cy="12" r="1.5" />
+        <path d="M6 12h5" />
+        <path d="M8.5 9.5v5" />
+      </svg>
+    </button>
+  );
+}
+
 function TrophyButton() {
   const setShowLeaderboard = useStore((s) => s.setShowLeaderboard);
   const totalTasks = useStore((s) => s.totalTasksCompleted);
@@ -994,6 +1020,7 @@ function App() {
           <FurnitureCraftingSystem />
           <SecurityTracker />
           <StoryDirectorTracker />
+          <MiniGameTrigger />
         </>
       )}
 
@@ -1017,6 +1044,7 @@ function App() {
             <TrophyButton />
             <EvolutionButton />
             <SmartScheduleButton />
+            <MiniGamesButton />
             <ShopButton />
             <CraftingButton />
             <FurnitureCraftingButton />
@@ -1084,6 +1112,10 @@ function App() {
       <SecurityPanel />
       <EvolutionPanel />
       <SmartSchedulePanel />
+      <MiniGamesPanel />
+      <CookingMiniGame />
+      <RepairMiniGame />
+      <GardenMiniGame />
       <ChallengeTimer />
       <FloorSelector />
       <AccessibilityPanel open={showA11y} onClose={() => setShowA11y(false)} />
