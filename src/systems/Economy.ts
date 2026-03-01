@@ -154,6 +154,44 @@ export function computeBudgetSummary(transactions: EconomyTransaction[]): Budget
   };
 }
 
+// ── Daily / weekly trend helpers ─────────────────────────────
+
+export interface DayTrend {
+  day: number; // sim-day (1-based)
+  income: number;
+  expenses: number;
+  net: number;
+}
+
+/** Group transactions by sim-day and return per-day income/expense totals. */
+export function computeDailyTrends(transactions: EconomyTransaction[]): DayTrend[] {
+  const byDay = new Map<number, { income: number; expenses: number }>();
+
+  for (const tx of transactions) {
+    const day = Math.floor(tx.simMinutes / 1440) + 1;
+    const entry = byDay.get(day) ?? { income: 0, expenses: 0 };
+    if (tx.type === 'income') {
+      entry.income += tx.amount;
+    } else {
+      entry.expenses += tx.amount;
+    }
+    byDay.set(day, entry);
+  }
+
+  // Fill in gaps so chart looks continuous
+  const days = Array.from(byDay.keys());
+  if (days.length === 0) return [];
+  const minDay = Math.min(...days);
+  const maxDay = Math.max(...days);
+
+  const result: DayTrend[] = [];
+  for (let d = minDay; d <= maxDay; d++) {
+    const entry = byDay.get(d) ?? { income: 0, expenses: 0 };
+    result.push({ day: d, income: entry.income, expenses: entry.expenses, net: entry.income - entry.expenses });
+  }
+  return result;
+}
+
 // ── localStorage persistence ─────────────────────────────────
 
 const ECONOMY_KEY = 'simbot-economy';

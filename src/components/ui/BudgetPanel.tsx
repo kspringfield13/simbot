@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useStore } from '../../stores/useStore';
-import { computeBudgetSummary } from '../../systems/Economy';
+import { computeBudgetSummary, computeDailyTrends } from '../../systems/Economy';
 import type { TransactionCategory } from '../../systems/Economy';
 
-type Tab = 'overview' | 'history';
+type Tab = 'overview' | 'history' | 'trends';
 
 const categoryLabels: Record<TransactionCategory, string> = {
   'task-reward': 'Task Rewards',
@@ -95,6 +95,17 @@ export function BudgetPanel() {
             }`}
           >
             History
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab('trends')}
+            className={`flex-1 py-2.5 text-sm font-medium transition-colors ${
+              tab === 'trends'
+                ? 'border-b-2 border-purple-400 text-purple-300'
+                : 'text-white/40 hover:text-white/70'
+            }`}
+          >
+            Trends
           </button>
         </div>
 
@@ -195,6 +206,8 @@ export function BudgetPanel() {
               )}
             </div>
           )}
+
+          {tab === 'trends' && <TrendsView transactions={transactions} />}
         </div>
 
         {/* Footer */}
@@ -204,6 +217,118 @@ export function BudgetPanel() {
           </p>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── Trends sub-component ────────────────────────────────────
+
+import type { EconomyTransaction } from '../../systems/Economy';
+
+function TrendsView({ transactions }: { transactions: EconomyTransaction[] }) {
+  const daily = useMemo(() => computeDailyTrends(transactions), [transactions]);
+
+  // Compute weekly summaries (group days into 7-day chunks)
+  const weekly = useMemo(() => {
+    if (daily.length === 0) return [];
+    const weeks: { week: number; income: number; expenses: number; net: number }[] = [];
+    let i = 0;
+    while (i < daily.length) {
+      const chunk = daily.slice(i, i + 7);
+      const income = chunk.reduce((s, d) => s + d.income, 0);
+      const expenses = chunk.reduce((s, d) => s + d.expenses, 0);
+      weeks.push({ week: weeks.length + 1, income, expenses, net: income - expenses });
+      i += 7;
+    }
+    return weeks;
+  }, [daily]);
+
+  if (daily.length === 0) {
+    return (
+      <div className="py-8 text-center text-sm text-white/30">
+        No data yet. Complete tasks to see spending trends!
+      </div>
+    );
+  }
+
+  // Show last 7 days for daily chart
+  const recentDays = daily.slice(-7);
+  const maxDaily = Math.max(...recentDays.map((d) => Math.max(d.income, d.expenses)), 1);
+
+  return (
+    <div className="space-y-5">
+      {/* Daily bar chart */}
+      <div>
+        <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-white/30">
+          Daily (Last 7 Days)
+        </div>
+        <div className="space-y-1.5">
+          {recentDays.map((d) => (
+            <div key={d.day} className="flex items-center gap-2">
+              <span className="w-10 text-right text-[10px] text-white/40">Day {d.day}</span>
+              <div className="flex-1 space-y-0.5">
+                {/* Income bar */}
+                <div className="flex items-center gap-1.5">
+                  <div
+                    className="h-2 rounded-full bg-emerald-500/70"
+                    style={{ width: `${(d.income / maxDaily) * 100}%`, minWidth: d.income > 0 ? 4 : 0 }}
+                  />
+                  {d.income > 0 && (
+                    <span className="text-[9px] text-emerald-400">+{d.income}</span>
+                  )}
+                </div>
+                {/* Expense bar */}
+                <div className="flex items-center gap-1.5">
+                  <div
+                    className="h-2 rounded-full bg-red-500/70"
+                    style={{ width: `${(d.expenses / maxDaily) * 100}%`, minWidth: d.expenses > 0 ? 4 : 0 }}
+                  />
+                  {d.expenses > 0 && (
+                    <span className="text-[9px] text-red-400">-{d.expenses}</span>
+                  )}
+                </div>
+              </div>
+              <span className={`w-8 text-right text-[10px] font-semibold ${d.net >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>
+                {d.net >= 0 ? '+' : ''}{d.net}
+              </span>
+            </div>
+          ))}
+        </div>
+        {/* Legend */}
+        <div className="mt-2 flex items-center justify-center gap-4">
+          <div className="flex items-center gap-1">
+            <div className="h-2 w-4 rounded-full bg-emerald-500/70" />
+            <span className="text-[9px] text-white/30">Income</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="h-2 w-4 rounded-full bg-red-500/70" />
+            <span className="text-[9px] text-white/30">Expenses</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Weekly summary cards */}
+      {weekly.length > 0 && (
+        <div>
+          <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-white/30">
+            Weekly Summary
+          </div>
+          <div className="space-y-1.5">
+            {weekly.slice(-4).map((w) => (
+              <div key={w.week} className="flex items-center justify-between rounded-lg border border-white/5 bg-white/[0.03] px-3 py-2">
+                <span className="text-xs text-white/50">Week {w.week}</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] text-emerald-400">+{w.income}</span>
+                  <span className="text-[10px] text-red-400">-{w.expenses}</span>
+                  <span className={`text-xs font-semibold ${w.net >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>
+                    {w.net >= 0 ? '+' : ''}{w.net}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
