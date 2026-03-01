@@ -505,8 +505,8 @@ interface SimBotStore {
   tasksByType: Partial<Record<TaskType, number>>;
   tasksByRoom: Partial<Record<RoomId, number>>;
   recordStats: (taskType: TaskType, roomId: RoomId, robotId?: RobotId) => void;
-  statsTab: 'overview' | 'graphs' | 'story';
-  setStatsTab: (tab: 'overview' | 'graphs' | 'story') => void;
+  statsTab: 'overview' | 'graphs' | 'story' | 'ai';
+  setStatsTab: (tab: 'overview' | 'graphs' | 'story' | 'ai') => void;
 
   // Graph history (sampled every 5 sim-minutes)
   cleanlinessHistory: { simMinutes: number; rooms: Record<string, number>; average: number }[];
@@ -1375,7 +1375,7 @@ export const useStore = create<SimBotStore>((set) => ({
   setShowCommunityGallery: (show) => set({ showCommunityGallery: show }),
 
   // Smart schedule AI
-  smartScheduleData: { events: [], roomPatterns: {}, lastAnalyzedAt: 0, userInteractionTimes: [], totalUserCommands: 0, peakActivityHour: 9 },
+  smartScheduleData: { events: [], roomPatterns: {}, lastAnalyzedAt: 0, userInteractionTimes: [], totalUserCommands: 0, peakActivityHour: 9, robotEfficiency: {}, insights: [] },
   smartScheduleEnabled: (() => { try { return localStorage.getItem('simbot-smart-schedule-enabled') === 'true'; } catch { return false; } })(),
   showSmartSchedule: false,
   setShowSmartSchedule: (show) => set({ showSmartSchedule: show }),

@@ -1,12 +1,14 @@
 import { useEffect, useRef } from 'react';
 import { useStore } from '../../stores/useStore';
 import {
-  loadSmartScheduleData,
+  loadSmartScheduleDataSafe,
   saveSmartScheduleData,
   recordCleaningEvent,
+  recordRobotEfficiency,
   shouldReanalyze,
   analyzePatterns,
   getAutoScheduleEntries,
+  getBestRobotForTask,
   type SmartScheduleData,
   type CleaningEvent,
 } from '../../systems/SmartSchedule';
@@ -43,7 +45,7 @@ function pickIdleRobot(s: ReturnType<typeof useStore.getState>): RobotId | null 
  * learned optimal times.
  */
 export function SmartScheduleTracker() {
-  const dataRef = useRef<SmartScheduleData>(loadSmartScheduleData());
+  const dataRef = useRef<SmartScheduleData>(loadSmartScheduleDataSafe());
   const seenTasksRef = useRef<Set<string>>(new Set());
   // Track which auto-schedule entries fired this sim-day
   const autoFiredRef = useRef<Set<string>>(new Set());
@@ -74,9 +76,12 @@ export function SmartScheduleTracker() {
           timeOfDay: s.simMinutes % MINUTES_PER_DAY,
           source: task.source === 'user' ? 'user' : task.source === 'schedule' ? 'schedule' : 'ai',
           cleanlinessBeforeTask: roomState ? roomState.cleanliness : 75,
+          robotId: task.assignedTo,
+          workDuration: task.workDuration,
         };
 
         data = recordCleaningEvent(data, event);
+        data = recordRobotEfficiency(data, task.assignedTo, task.taskType, task.workDuration);
         changed = true;
       }
 
@@ -116,7 +121,21 @@ export function SmartScheduleTracker() {
           const target = findTaskTarget(entry.command);
           if (!target) continue;
 
-          const robotId = pickIdleRobot(s);
+          // Prefer the best robot for this task type (AI-learned efficiency)
+          const bestRobot = getBestRobotForTask(data, entry.taskType);
+          let robotId: RobotId | null = null;
+          if (bestRobot) {
+            // Check if the best robot is available
+            const busySet = new Set(
+              s.tasks
+                .filter((t) => t.status === 'queued' || t.status === 'walking' || t.status === 'working')
+                .map((t) => t.assignedTo),
+            );
+            if (!busySet.has(bestRobot.robotId as RobotId)) {
+              robotId = bestRobot.robotId as RobotId;
+            }
+          }
+          if (!robotId) robotId = pickIdleRobot(s);
           if (!robotId) continue;
 
           const task: Task = {

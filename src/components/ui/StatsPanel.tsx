@@ -5,6 +5,7 @@ import { getEventConfig, getEventRoomName } from '../../systems/HomeEvents';
 import { SaveLoadButtons } from './SaveLoadSystem';
 import { StatsGraphs } from './StatsGraphs';
 import { StoryPanel } from './StoryPanel';
+import { LearnedPatternsPanel } from './LearnedPatternsPanel';
 import { PET_CONFIGS, PET_IDS } from '../../config/pets';
 
 const taskTypeLabels: Record<string, string> = {
@@ -133,6 +134,9 @@ export function StatsPanel() {
         <button style={tabStyle(statsTab === 'graphs')} onClick={() => setStatsTab('graphs')}>
           Graphs
         </button>
+        <button style={tabStyle(statsTab === 'ai')} onClick={() => setStatsTab('ai')}>
+          AI
+        </button>
         <button style={tabStyle(statsTab === 'story')} onClick={() => setStatsTab('story')}>
           Story
         </button>
@@ -140,6 +144,8 @@ export function StatsPanel() {
 
       {statsTab === 'story' ? (
         <StoryPanel />
+      ) : statsTab === 'ai' ? (
+        <LearnedPatternsPanel />
       ) : statsTab === 'graphs' ? (
         <StatsGraphs />
       ) : (

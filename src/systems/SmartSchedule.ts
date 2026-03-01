@@ -1,4 +1,4 @@
-import type { RoomId, TaskType, SimPeriod } from '../types';
+import type { RoomId, RobotId, TaskType, SimPeriod } from '../types';
 
 // ── Types ────────────────────────────────────────────────
 
@@ -10,6 +10,8 @@ export interface CleaningEvent {
   timeOfDay: number;        // 0-1439 within the day
   source: 'user' | 'ai' | 'schedule';
   cleanlinessBeforeTask: number;
+  robotId?: RobotId;        // which robot performed the task
+  workDuration?: number;    // how long the task took
 }
 
 /** Aggregated pattern for a single room */
@@ -33,6 +35,24 @@ export interface RoomPattern {
   topTasks: { taskType: string; count: number }[];
 }
 
+/** Tracks how efficiently each robot performs each task type */
+export interface RobotEfficiency {
+  robotId: string;
+  taskType: string;
+  completionCount: number;
+  avgWorkDuration: number;       // average sim-time per task
+  totalWorkDuration: number;
+}
+
+/** A natural-language insight derived from pattern analysis */
+export interface AIInsight {
+  id: string;
+  category: 'room' | 'timing' | 'robot' | 'efficiency' | 'trend';
+  text: string;
+  importance: number;            // 0-1, higher = more important
+  generatedAt: number;           // sim-minutes when generated
+}
+
 /** Full smart-schedule state persisted to localStorage */
 export interface SmartScheduleData {
   events: CleaningEvent[];
@@ -41,6 +61,8 @@ export interface SmartScheduleData {
   userInteractionTimes: number[]; // timeOfDay values when user gave commands
   totalUserCommands: number;
   peakActivityHour: number;     // global peak hour across all rooms
+  robotEfficiency: Record<string, RobotEfficiency[]>; // keyed by robotId
+  insights: AIInsight[];        // AI-generated natural language insights
 }
 
 // ── Constants ────────────────────────────────────────────
@@ -73,7 +95,17 @@ function createEmptyData(): SmartScheduleData {
     userInteractionTimes: [],
     totalUserCommands: 0,
     peakActivityHour: 9,
+    robotEfficiency: {},
+    insights: [],
   };
+}
+
+export function loadSmartScheduleDataSafe(): SmartScheduleData {
+  const data = loadSmartScheduleData();
+  // Backfill new fields for existing saves
+  if (!data.robotEfficiency) data.robotEfficiency = {};
+  if (!data.insights) data.insights = [];
+  return data;
 }
 
 // ── Recording ────────────────────────────────────────────
@@ -193,12 +225,40 @@ export function analyzePatterns(data: SmartScheduleData, currentSimMinutes: numb
     }
   }
 
-  return {
+  // Build robot efficiency from events that have robotId
+  const robotEffMap: Record<string, Record<string, { total: number; count: number }>> = {};
+  for (const ev of data.events) {
+    if (!ev.robotId || !ev.workDuration) continue;
+    if (!robotEffMap[ev.robotId]) robotEffMap[ev.robotId] = {};
+    const existing = robotEffMap[ev.robotId][ev.taskType] ?? { total: 0, count: 0 };
+    existing.total += ev.workDuration;
+    existing.count += 1;
+    robotEffMap[ev.robotId][ev.taskType] = existing;
+  }
+
+  const robotEfficiency: Record<string, RobotEfficiency[]> = { ...data.robotEfficiency };
+  for (const [robotId, tasks] of Object.entries(robotEffMap)) {
+    robotEfficiency[robotId] = Object.entries(tasks).map(([taskType, { total, count }]) => ({
+      robotId,
+      taskType,
+      completionCount: count,
+      avgWorkDuration: total / count,
+      totalWorkDuration: total,
+    }));
+  }
+
+  const withPatterns: SmartScheduleData = {
     ...data,
     roomPatterns,
     lastAnalyzedAt: currentSimMinutes,
     peakActivityHour,
+    robotEfficiency,
   };
+
+  // Generate insights from the updated patterns
+  withPatterns.insights = generateInsights(withPatterns, currentSimMinutes);
+
+  return withPatterns;
 }
 
 // ── Helpers for UI ───────────────────────────────────────
@@ -319,4 +379,224 @@ export function getConfidenceLevel(data: SmartScheduleData): 'low' | 'medium' | 
 
 export function getConfidencePercent(data: SmartScheduleData): number {
   return Math.min(100, Math.round((data.events.length / 80) * 100));
+}
+
+// ── Robot Efficiency Tracking ───────────────────────────
+
+export function recordRobotEfficiency(
+  data: SmartScheduleData,
+  robotId: string,
+  taskType: string,
+  workDuration: number,
+): SmartScheduleData {
+  const robotEntries = [...(data.robotEfficiency[robotId] ?? [])];
+  const existingIdx = robotEntries.findIndex((e) => e.taskType === taskType);
+
+  if (existingIdx >= 0) {
+    const existing = robotEntries[existingIdx];
+    const newCount = existing.completionCount + 1;
+    const newTotal = existing.totalWorkDuration + workDuration;
+    robotEntries[existingIdx] = {
+      ...existing,
+      completionCount: newCount,
+      totalWorkDuration: newTotal,
+      avgWorkDuration: newTotal / newCount,
+    };
+  } else {
+    robotEntries.push({
+      robotId,
+      taskType,
+      completionCount: 1,
+      avgWorkDuration: workDuration,
+      totalWorkDuration: workDuration,
+    });
+  }
+
+  return {
+    ...data,
+    robotEfficiency: {
+      ...data.robotEfficiency,
+      [robotId]: robotEntries,
+    },
+  };
+}
+
+/** Get best robot for a given task type based on efficiency data */
+export function getBestRobotForTask(
+  data: SmartScheduleData,
+  taskType: string,
+): { robotId: string; avgDuration: number } | null {
+  let best: { robotId: string; avgDuration: number } | null = null;
+
+  for (const [robotId, entries] of Object.entries(data.robotEfficiency)) {
+    const entry = entries.find((e) => e.taskType === taskType);
+    if (entry && entry.completionCount >= 2) {
+      if (!best || entry.avgWorkDuration < best.avgDuration) {
+        best = { robotId, avgDuration: entry.avgWorkDuration };
+      }
+    }
+  }
+
+  return best;
+}
+
+// ── AI Insight Generation ───────────────────────────────
+
+const ROOM_LABELS: Record<string, string> = {
+  'living-room': 'Living Room',
+  kitchen: 'Kitchen',
+  hallway: 'Hallway',
+  laundry: 'Laundry Room',
+  bedroom: 'Bedroom',
+  bathroom: 'Bathroom',
+  yard: 'Yard',
+  'f2-bedroom': 'Upstairs Bedroom',
+  'f2-office': 'Office',
+  'f2-balcony': 'Balcony',
+};
+
+const ROBOT_LABELS: Record<string, string> = {
+  sim: 'Sim',
+  chef: 'Chef',
+  sparkle: 'Sparkle',
+};
+
+const TASK_LABELS: Record<string, string> = {
+  cleaning: 'cleaning',
+  vacuuming: 'vacuuming',
+  dishes: 'dishes',
+  laundry: 'laundry',
+  organizing: 'organizing',
+  cooking: 'cooking',
+  'bed-making': 'bed making',
+  scrubbing: 'scrubbing',
+  sweeping: 'sweeping',
+  mowing: 'mowing',
+  watering: 'watering',
+  'leaf-blowing': 'leaf blowing',
+  weeding: 'weeding',
+};
+
+export function generateInsights(data: SmartScheduleData, currentSimMinutes: number): AIInsight[] {
+  const insights: AIInsight[] = [];
+  const patterns = Object.values(data.roomPatterns);
+  if (patterns.length === 0) return insights;
+
+  // 1. Dirtiest room insight
+  const sortedByDirt = [...patterns].sort((a, b) => b.avgDirtyRate - a.avgDirtyRate);
+  if (sortedByDirt.length > 0 && sortedByDirt[0].avgDirtyRate > 1) {
+    const room = sortedByDirt[0];
+    const label = ROOM_LABELS[room.roomId] ?? room.roomId;
+    insights.push({
+      id: 'dirtiest-room',
+      category: 'room',
+      text: `${label} gets dirty fastest (${room.avgDirtyRate.toFixed(1)}/hr) — schedule more frequent cleaning here.`,
+      importance: 0.9,
+      generatedAt: currentSimMinutes,
+    });
+  }
+
+  // 2. Cleanest room (least maintenance needed)
+  if (sortedByDirt.length > 1) {
+    const cleanest = sortedByDirt[sortedByDirt.length - 1];
+    const label = ROOM_LABELS[cleanest.roomId] ?? cleanest.roomId;
+    if (cleanest.avgDirtyRate < 2) {
+      insights.push({
+        id: 'cleanest-room',
+        category: 'room',
+        text: `${label} stays clean longest — only needs occasional attention.`,
+        importance: 0.3,
+        generatedAt: currentSimMinutes,
+      });
+    }
+  }
+
+  // 3. Peak activity time insight
+  if (data.totalUserCommands >= 5) {
+    const peakLabel = getPeriodLabel(data.peakActivityHour);
+    insights.push({
+      id: 'peak-activity',
+      category: 'timing',
+      text: `You're most active in the ${peakLabel} (around ${String(data.peakActivityHour).padStart(2, '0')}:00). Robots now pre-clean before this time.`,
+      importance: 0.8,
+      generatedAt: currentSimMinutes,
+    });
+  }
+
+  // 4. Robot specialization insights
+  for (const [robotId, entries] of Object.entries(data.robotEfficiency)) {
+    if (entries.length === 0) continue;
+    const sorted = [...entries].sort((a, b) => b.completionCount - a.completionCount);
+    const top = sorted[0];
+    if (top.completionCount >= 3) {
+      const robotName = ROBOT_LABELS[robotId] ?? robotId;
+      const taskLabel = TASK_LABELS[top.taskType] ?? top.taskType;
+      insights.push({
+        id: `robot-specialty-${robotId}`,
+        category: 'robot',
+        text: `${robotName} specializes in ${taskLabel} (${top.completionCount} completions, avg ${top.avgWorkDuration.toFixed(0)}s).`,
+        importance: 0.6,
+        generatedAt: currentSimMinutes,
+      });
+    }
+  }
+
+  // 5. Efficiency comparison — find task types done by multiple robots
+  const taskRobotMap = new Map<string, { robotId: string; avg: number; count: number }[]>();
+  for (const [robotId, entries] of Object.entries(data.robotEfficiency)) {
+    for (const entry of entries) {
+      if (entry.completionCount < 2) continue;
+      const list = taskRobotMap.get(entry.taskType) ?? [];
+      list.push({ robotId, avg: entry.avgWorkDuration, count: entry.completionCount });
+      taskRobotMap.set(entry.taskType, list);
+    }
+  }
+  for (const [taskType, robots] of taskRobotMap) {
+    if (robots.length < 2) continue;
+    const sorted = robots.sort((a, b) => a.avg - b.avg);
+    const fastest = sorted[0];
+    const slowest = sorted[sorted.length - 1];
+    const diff = ((slowest.avg - fastest.avg) / slowest.avg) * 100;
+    if (diff > 15) {
+      const fastName = ROBOT_LABELS[fastest.robotId] ?? fastest.robotId;
+      const taskLabel = TASK_LABELS[taskType] ?? taskType;
+      insights.push({
+        id: `efficiency-${taskType}`,
+        category: 'efficiency',
+        text: `${fastName} is ${Math.round(diff)}% faster at ${taskLabel} than other robots.`,
+        importance: 0.7,
+        generatedAt: currentSimMinutes,
+      });
+    }
+  }
+
+  // 6. Scheduling pattern — rooms needing pre-peak cleaning
+  const preCleanRooms = patterns.filter((p) => p.totalTaskCount >= 5 && p.userInteractionCount >= 2);
+  if (preCleanRooms.length > 0) {
+    const count = preCleanRooms.length;
+    insights.push({
+      id: 'auto-schedule-coverage',
+      category: 'trend',
+      text: `AI has learned optimal schedules for ${count} room${count > 1 ? 's' : ''}. Tasks auto-trigger before peak usage.`,
+      importance: 0.5,
+      generatedAt: currentSimMinutes,
+    });
+  }
+
+  // 7. User intervention pattern — rooms where user frequently intervenes manually
+  const highInterventionRooms = patterns.filter(
+    (p) => p.userInteractionCount >= 3 && p.avgDirtinessAtUserAction > 30,
+  );
+  for (const room of highInterventionRooms.slice(0, 2)) {
+    const label = ROOM_LABELS[room.roomId] ?? room.roomId;
+    insights.push({
+      id: `intervention-${room.roomId}`,
+      category: 'trend',
+      text: `You often clean ${label} manually when it's ${Math.round(room.avgDirtinessAtUserAction)}% dirty — AI is adjusting to clean earlier.`,
+      importance: 0.65,
+      generatedAt: currentSimMinutes,
+    });
+  }
+
+  return insights.sort((a, b) => b.importance - a.importance);
 }
