@@ -299,6 +299,7 @@ export const useTaskRunner = () => {
         state.recordTaskCompletion(activeTask.taskType);
         state.recordStats(activeTask.taskType, activeTask.targetRoom, rid);
         state.recordRobotTaskCompletion(rid, activeTask.taskType, activeTask.workDuration);
+        state.recordEvolution(rid, activeTask.taskType, activeTask.workDuration);
         state.recordPersonalityTaskCompletion(rid, activeTask.taskType);
 
         // Award coins for completing the task (difficulty-scaled)

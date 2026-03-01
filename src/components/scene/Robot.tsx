@@ -9,6 +9,7 @@ import { ROBOT_IDS } from '../../types';
 import { useRobotDisplayName } from '../../stores/useRobotNames';
 import { getFriendshipKey } from '../../config/conversations';
 import { getActiveRooms } from '../../utils/homeLayout';
+import { getEvolutionVisuals, getStageLabel, getStageColor } from '../../utils/evolution';
 import * as THREE from 'three';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 
@@ -243,10 +244,29 @@ function HighFiveIndicator({ active }: { active: boolean }) {
   );
 }
 
+function EvolutionBadge({ robotId }: { robotId: RobotId }) {
+  const evo = useStore((s) => s.robotEvolutions[robotId]);
+  if (!evo || evo.stage === 'newborn') return null;
+  const stageColor = getStageColor(evo.stage);
+  const label = getStageLabel(evo.stage);
+  return (
+    <Html center distanceFactor={12} position={[0, 3.3, 0]} transform>
+      <div
+        className="pointer-events-none rounded-full px-1.5 py-0.5 text-[7px] font-bold tracking-wider whitespace-nowrap backdrop-blur-sm"
+        style={{ background: `${stageColor}33`, color: stageColor, border: `1px solid ${stageColor}55` }}
+      >
+        {label}
+      </div>
+    </Html>
+  );
+}
+
 function RobotModel({ robotId }: { robotId: RobotId }) {
   const config = ROBOT_CONFIGS[robotId];
   const customColor = useStore((s) => s.robotColors[robotId]);
   const displayColor = customColor ?? config.color;
+  const evolution = useStore((s) => s.robotEvolutions[robotId]);
+  const evoVisuals = getEvolutionVisuals(evolution);
   const groupRef = useRef<THREE.Group>(null);
   const modelRef = useRef<THREE.Group>(null);
   const currentSpeedRef = useRef(0);
@@ -272,19 +292,28 @@ function RobotModel({ robotId }: { robotId: RobotId }) {
   // Clone scene for this robot instance with unique materials
   const clonedScene = useMemo(() => {
     const cloned = SkeletonUtils.clone(scene);
-    const color = new THREE.Color(displayColor);
+    const baseColor = new THREE.Color(displayColor);
+    // Apply evolution color shift via HSL adjustment
+    const hsl = { h: 0, s: 0, l: 0 };
+    baseColor.getHSL(hsl);
+    const [hShift, sShift, lShift] = evoVisuals.colorShift;
+    baseColor.setHSL(
+      (hsl.h + hShift) % 1,
+      Math.min(1, hsl.s + sShift),
+      Math.min(1, hsl.l + lShift),
+    );
     cloned.traverse((child: any) => {
       if (child.isMesh || child.isSkinnedMesh) {
         child.material = child.material.clone();
-        child.material.emissive = color;
-        child.material.emissiveIntensity = 0.2;
+        child.material.emissive = baseColor;
+        child.material.emissiveIntensity = evoVisuals.emissiveIntensity;
         child.castShadow = true;
         child.receiveShadow = true;
         child.frustumCulled = false;
       }
     });
     return cloned;
-  }, [scene, displayColor]);
+  }, [scene, displayColor, evoVisuals.emissiveIntensity, evoVisuals.colorShift[0], evoVisuals.colorShift[1], evoVisuals.colorShift[2]]);
 
   const { actions, mixer } = useAnimations(animations, modelRef);
 
@@ -493,6 +522,20 @@ function RobotModel({ robotId }: { robotId: RobotId }) {
     if (modelRef.current) {
       modelRef.current.position.y = modelYOffset / ROBOT_SCALE;
       modelRef.current.rotation.y = modelSpinOffset;
+
+      // Evolution glow pulse for veteran+ robots
+      if (evoVisuals.glowPulseSpeed > 0) {
+        const pulse = Math.sin(performance.now() / 1000 * evoVisuals.glowPulseSpeed) * 0.1 + evoVisuals.emissiveIntensity;
+        modelRef.current.traverse((child: any) => {
+          if ((child.isMesh || child.isSkinnedMesh) && child.material?.emissiveIntensity !== undefined) {
+            child.material.emissiveIntensity = pulse;
+          }
+        });
+      }
+
+      // Evolution scale
+      const evoScale = ROBOT_SCALE * evoVisuals.scaleMult;
+      modelRef.current.scale.setScalar(evoScale);
     }
   });
 
@@ -502,7 +545,7 @@ function RobotModel({ robotId }: { robotId: RobotId }) {
   const displayName = useRobotDisplayName(robotId);
   return (
     <group ref={groupRef} onClick={handleClick}>
-      <group ref={modelRef} scale={[ROBOT_SCALE, ROBOT_SCALE, ROBOT_SCALE]}>
+      <group ref={modelRef} scale={ROBOT_SCALE * evoVisuals.scaleMult}>
         <primitive object={clonedScene} />
       </group>
 
@@ -539,6 +582,9 @@ function RobotModel({ robotId }: { robotId: RobotId }) {
 
       {/* Friendship heart indicator */}
       <FriendshipHeart robotId={robotId} />
+
+      {/* Evolution stage badge */}
+      <EvolutionBadge robotId={robotId} />
 
       {/* Celebration dance indicator (all rooms clean) */}
       <CelebrationIndicator active={showCelebration} />

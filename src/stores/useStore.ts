@@ -10,6 +10,7 @@ import type { MaterialInventory, CraftedFurnitureItem, ActiveCraft } from '../co
 import { loadFurnitureCraftingData, saveFurnitureCraftingData, getRecipeById, canAffordRecipe } from '../config/furnitureCrafting';
 import type { CameraZoneId, AlarmState, SecurityLogEntry } from '../config/security';
 import type { StoryArc } from '../systems/StoryDirector';
+import { loadEvolutionData, saveEvolutionData, recordEvolutionTask } from '../utils/evolution';
 import type { NeighborHouse, VisitEvent } from '../systems/Neighborhood';
 import { generateNeighborhood, VISIT_ACTIVITIES } from '../systems/Neighborhood';
 import { loadSecurityData, saveSecurityData } from '../config/security';
@@ -67,6 +68,7 @@ import type {
   Task,
   TaskType,
   IntruderEvent,
+  RobotEvolution,
   TimelapseEvent,
   TimelapsePlaybackState,
   VisitorEvent,
@@ -598,6 +600,12 @@ interface SimBotStore {
   // Community gallery
   showCommunityGallery: boolean;
   setShowCommunityGallery: (show: boolean) => void;
+
+  // Robot evolution / aging
+  robotEvolutions: Record<RobotId, RobotEvolution>;
+  showEvolutionPanel: boolean;
+  setShowEvolutionPanel: (show: boolean) => void;
+  recordEvolution: (robotId: RobotId, taskType: TaskType, workDuration: number) => void;
 
   // Shop / economy
   coins: number;
@@ -1341,6 +1349,27 @@ export const useStore = create<SimBotStore>((set) => ({
   robotColors: initialShopData.robotColors,
   showCommunityGallery: false,
   setShowCommunityGallery: (show) => set({ showCommunityGallery: show }),
+
+  // Robot evolution / aging
+  robotEvolutions: loadEvolutionData(),
+  showEvolutionPanel: false,
+  setShowEvolutionPanel: (show) => set({ showEvolutionPanel: show }),
+  recordEvolution: (robotId, taskType, workDuration) => set((state) => {
+    const evo = state.robotEvolutions[robotId];
+    const { evolution, stageChanged } = recordEvolutionTask(evo, taskType, workDuration, state.simMinutes);
+    const next = { ...state.robotEvolutions, [robotId]: evolution };
+    saveEvolutionData(next);
+    if (stageChanged) {
+      const stageLabels: Record<string, string> = { junior: 'Junior', seasoned: 'Seasoned', veteran: 'Veteran', legendary: 'Legendary' };
+      state.addNotification({
+        type: 'achievement',
+        title: 'Evolution!',
+        message: `${robotId.charAt(0).toUpperCase() + robotId.slice(1)} evolved to ${stageLabels[evolution.stage] ?? evolution.stage} stage!`,
+      });
+    }
+    return { robotEvolutions: next };
+  }),
+
   showShop: false,
   setShowShop: (show) => set({ showShop: show }),
   addCoins: (amount) => set((state) => {

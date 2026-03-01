@@ -321,6 +321,19 @@ export type IntruderPhase = 'detected' | 'responding' | 'resolved';
 
 export type IntruderType = 'burglar' | 'raccoon' | 'prankster';
 
+// ── Robot Evolution / Aging ──────────────────────────────────
+export type EvolutionStage = 'newborn' | 'junior' | 'seasoned' | 'veteran' | 'legendary';
+
+export interface RobotEvolution {
+  totalTasksCompleted: number;
+  totalWorkTime: number;           // cumulative work-duration units
+  taskSpecialty: Partial<Record<TaskType, number>>; // per-task-type counts
+  firstActiveAt: number;           // sim-minutes when robot first did a task
+  lastActiveAt: number;            // sim-minutes of last task completion
+  stage: EvolutionStage;
+  stageUnlockedAt: Record<EvolutionStage, number | null>; // sim-minutes when each stage was reached
+}
+
 export interface IntruderEvent {
   id: string;
   type: IntruderType;

@@ -9,6 +9,7 @@ import { ShopPanel } from './components/ui/ShopPanel';
 import { BudgetPanel } from './components/ui/BudgetPanel';
 import { CoinAnimationOverlay } from './components/ui/CoinAnimation';
 import { CommunityGallery } from './components/ui/CommunityGallery';
+import { EvolutionPanel } from './components/ui/EvolutionPanel';
 import { TaskProcessor } from './components/systems/TaskProcessor';
 import { VisitTracker } from './components/systems/VisitTracker';
 import { TimeBar } from './components/game/TimeBar';
@@ -102,6 +103,23 @@ function EconomyButtons() {
         {'\u{1F6CD}\uFE0F'}
       </button>
     </div>
+  );
+}
+
+function EvolutionButton() {
+  const setShowEvolutionPanel = useStore((s) => s.setShowEvolutionPanel);
+
+  return (
+    <button
+      type="button"
+      onClick={() => setShowEvolutionPanel(true)}
+      className="pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-black/50 text-lg backdrop-blur-md transition-all hover:bg-black/70"
+      title="Robot Evolution"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-white">
+        <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
+      </svg>
+    </button>
   );
 }
 
@@ -208,8 +226,10 @@ function App() {
       <BudgetPanel />
       <CoinAnimationOverlay />
       <CommunityGallery />
+      <EvolutionPanel />
       <div className="pointer-events-none fixed right-4 top-4 z-30 flex gap-2" style={{ marginTop: 'env(safe-area-inset-top, 0px)' }}>
         <EconomyButtons />
+        <EvolutionButton />
         <CommunityButton />
         <NeighborhoodToggle />
         <CameraToggle />
