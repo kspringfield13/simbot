@@ -2,6 +2,7 @@ import { useStore } from '../../stores/useStore';
 import { rooms } from '../../utils/homeLayout';
 import { achievements, getUnlockedAchievements } from '../../systems/Achievements';
 import { getEventConfig, getEventRoomName } from '../../systems/HomeEvents';
+import { SaveLoadButtons } from './SaveLoadSystem';
 
 const taskTypeLabels: Record<string, string> = {
   cleaning: '🧹 Cleaning',
@@ -232,6 +233,14 @@ export function StatsPanel() {
             </div>
           );
         })}
+      </div>
+
+      {/* Save / Load */}
+      <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+        <div style={{ color: '#999', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
+          Save / Load
+        </div>
+        <SaveLoadButtons />
       </div>
     </div>
   );
