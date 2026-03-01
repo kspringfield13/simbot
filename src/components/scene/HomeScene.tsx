@@ -99,10 +99,107 @@ function DynamicCeilingLights({ lights }: { lights: { position: [number, number,
   );
 }
 
+// ── Neighbor House Interior (lightweight) ────────────────────
+// Renders a neighbor's floor plan without all the systems/AI/etc.
+function NeighborHouseScene() {
+  const visitingHouseId = useStore((s) => s.visitingHouseId);
+  const neighborHouses = useStore((s) => s.neighborHouses);
+
+  const house = useMemo(
+    () => neighborHouses.find((h) => h.id === visitingHouseId),
+    [neighborHouses, visitingHouseId],
+  );
+
+  if (!house) return null;
+
+  const plan = house.floorPlan;
+
+  return (
+    <>
+      <CameraController />
+      <DynamicSceneLighting />
+      <DynamicCeilingLights lights={plan.lights} />
+
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]} receiveShadow>
+        <planeGeometry args={[80, 80]} />
+        <meshStandardMaterial color="#3d3a36" roughness={0.8} />
+      </mesh>
+
+      {plan.rooms.map((room) => (
+        <Room key={room.id} room={room} />
+      ))}
+
+      {/* Simplified walls for neighbor house */}
+      {plan.walls.map((wall, i) => {
+        const dx = wall.end[0] - wall.start[0];
+        const dz = wall.end[1] - wall.start[1];
+        const length = Math.sqrt(dx * dx + dz * dz);
+        const cx = (wall.start[0] + wall.end[0]) / 2;
+        const cz = (wall.start[1] + wall.end[1]) / 2;
+        const angle = Math.atan2(dz, dx);
+
+        return (
+          <mesh
+            key={`nwall-${i}`}
+            position={[cx, wall.height / 2, cz]}
+            rotation={[0, -angle, 0]}
+            castShadow
+            receiveShadow
+          >
+            <boxGeometry args={[length, wall.height, wall.thickness]} />
+            <meshStandardMaterial color="#e8e0d8" roughness={0.7} />
+          </mesh>
+        );
+      })}
+
+      {/* Neighbor resident robots */}
+      {house.residents.map((resident, i) => (
+        <group key={resident.id} position={[i * 3 - 2, 0, 0]}>
+          <mesh position={[0, 1.2, 0]} castShadow>
+            <capsuleGeometry args={[0.4, 1, 8, 16]} />
+            <meshStandardMaterial color={resident.color} />
+          </mesh>
+          {/* Eyes */}
+          <mesh position={[-0.15, 1.6, 0.3]}>
+            <sphereGeometry args={[0.08, 8, 8]} />
+            <meshStandardMaterial color="#ffffff" emissive="#ffffff" emissiveIntensity={0.5} />
+          </mesh>
+          <mesh position={[0.15, 1.6, 0.3]}>
+            <sphereGeometry args={[0.08, 8, 8]} />
+            <meshStandardMaterial color="#ffffff" emissive="#ffffff" emissiveIntensity={0.5} />
+          </mesh>
+        </group>
+      ))}
+
+      {/* Visiting player robots */}
+      {house.visitingRobots.map((robotId, i) => {
+        const color = robotId === 'sim' ? '#4fc3f7' : robotId === 'chef' ? '#e57373' : '#81c784';
+        return (
+          <group key={robotId} position={[i * 3 + 4, 0, 3]}>
+            <mesh position={[0, 1.2, 0]} castShadow>
+              <capsuleGeometry args={[0.4, 1, 8, 16]} />
+              <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.2} />
+            </mesh>
+            <mesh position={[-0.15, 1.6, 0.3]}>
+              <sphereGeometry args={[0.08, 8, 8]} />
+              <meshStandardMaterial color="#ffffff" emissive="#4fc3f7" emissiveIntensity={0.8} />
+            </mesh>
+            <mesh position={[0.15, 1.6, 0.3]}>
+              <sphereGeometry args={[0.08, 8, 8]} />
+              <meshStandardMaterial color="#ffffff" emissive="#4fc3f7" emissiveIntensity={0.8} />
+            </mesh>
+          </group>
+        );
+      })}
+    </>
+  );
+}
+
 export function HomeScene() {
   const roomLayout = useStore((s) => s.roomLayout);
   const editMode = useStore((s) => s.editMode);
   const floorPlanId = useStore((s) => s.floorPlanId);
+  const visitingHouseId = useStore((s) => s.visitingHouseId);
 
   const plan = useMemo(() => getFloorPlan(floorPlanId), [floorPlanId]);
 
@@ -110,6 +207,11 @@ export function HomeScene() {
     () => getEffectiveRooms(roomLayout.overrides, roomLayout.addedRooms, roomLayout.deletedRoomIds, floorPlanId),
     [roomLayout, floorPlanId],
   );
+
+  // When visiting a neighbor house, show their interior instead
+  if (visitingHouseId) {
+    return <NeighborHouseScene />;
+  }
 
   return (
     <>
