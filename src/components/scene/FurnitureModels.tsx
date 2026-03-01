@@ -1,11 +1,271 @@
-import { Suspense, useRef } from 'react';
+import { Suspense, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import { Html } from '@react-three/drei';
 import { GLBModel } from './GLBModel';
 import { getActiveFurniture } from '../../utils/furnitureRegistry';
 import type { FurniturePiece } from '../../utils/furnitureRegistry';
 import { useStore } from '../../stores/useStore';
 import { getRoomFromPoint } from '../../utils/homeLayout';
+import { ROBOT_IDS } from '../../types';
+
+// ── TV Channel Overlay: cycles static/news/sports when robot in room ──
+
+const TV_CHANNELS = ['static', 'news', 'sports'] as const;
+type TVChannel = (typeof TV_CHANNELS)[number];
+const CHANNEL_CYCLE_SECS = 6;
+
+const channelColors: Record<TVChannel, string> = {
+  static: '#1a1a1a',
+  news: '#0d1b4a',
+  sports: '#0a3d1a',
+};
+
+function TVChannelOverlay({ roomId }: { roomId: string }) {
+  const robots = useStore((s) => s.robots);
+  const channelIdxRef = useRef(0);
+  const timerRef = useRef(0);
+  const [channel, setChannel] = useState<TVChannel>('news');
+  const screenRef = useRef<THREE.Mesh>(null);
+
+  let robotInRoom = false;
+  for (const rid of ROBOT_IDS) {
+    const pos = robots[rid]?.position;
+    if (pos && getRoomFromPoint(pos[0], pos[2]) === roomId) {
+      robotInRoom = true;
+      break;
+    }
+  }
+
+  useFrame((_, delta) => {
+    if (!robotInRoom) return;
+    timerRef.current += delta;
+    if (timerRef.current >= CHANNEL_CYCLE_SECS) {
+      timerRef.current = 0;
+      channelIdxRef.current = (channelIdxRef.current + 1) % TV_CHANNELS.length;
+      setChannel(TV_CHANNELS[channelIdxRef.current]);
+    }
+    if (screenRef.current) {
+      const mat = screenRef.current.material as THREE.MeshStandardMaterial;
+      if (channel === 'static') {
+        mat.emissiveIntensity = 0.3 + Math.random() * 0.5;
+      } else {
+        mat.emissiveIntensity = 0.6 + Math.sin(timerRef.current * 2) * 0.1;
+      }
+    }
+  });
+
+  if (!robotInRoom) return null;
+
+  const col = channelColors[channel];
+
+  return (
+    <group position={[0, 2.5, 0.16]}>
+      <mesh ref={screenRef}>
+        <planeGeometry args={[1.7, 1.0]} />
+        <meshStandardMaterial
+          color={col}
+          emissive={col}
+          emissiveIntensity={0.6}
+          toneMapped={false}
+        />
+      </mesh>
+      <Html
+        center
+        position={[0, 0, 0.01]}
+        distanceFactor={5}
+        style={{ pointerEvents: 'none', userSelect: 'none' }}
+      >
+        <div style={{
+          width: '140px',
+          height: '84px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: 'white',
+          fontFamily: 'monospace',
+          fontSize: '9px',
+          lineHeight: 1.3,
+          textAlign: 'center',
+        }}>
+          {channel === 'static' && (
+            <>
+              <div style={{ fontSize: '12px', opacity: 0.5, letterSpacing: '3px' }}>NO SIGNAL</div>
+              <div style={{ fontSize: '7px', opacity: 0.25, marginTop: '4px' }}>
+                {'█▓░█▓░█▓░█▓░█▓░█▓░'}
+              </div>
+            </>
+          )}
+          {channel === 'news' && (
+            <>
+              <div style={{ fontSize: '7px', color: '#ef5350', fontWeight: 'bold', letterSpacing: '1px' }}>
+                BREAKING NEWS
+              </div>
+              <div style={{ fontSize: '8px', marginTop: '4px', fontWeight: 'bold' }}>
+                Robot Assistants Set
+              </div>
+              <div style={{ fontSize: '8px' }}>
+                New Efficiency Record
+              </div>
+              <div style={{
+                fontSize: '6px', marginTop: '6px', color: '#64b5f6',
+                borderTop: '1px solid #444', paddingTop: '3px', width: '100%',
+              }}>
+                SIMBOT NEWS 24/7
+              </div>
+            </>
+          )}
+          {channel === 'sports' && (
+            <>
+              <div style={{ fontSize: '7px', color: '#ffd54f', fontWeight: 'bold', letterSpacing: '1px' }}>
+                SPORTS CENTER
+              </div>
+              <div style={{ fontSize: '9px', marginTop: '4px', fontWeight: 'bold' }}>
+                ROBOTS 42 — HUMANS 38
+              </div>
+              <div style={{ fontSize: '7px', color: '#aaa' }}>
+                Q4 · 2:30 remaining
+              </div>
+              <div style={{
+                fontSize: '6px', marginTop: '6px', color: '#81c784',
+                borderTop: '1px solid #444', paddingTop: '3px', width: '100%',
+              }}>
+                ROBO LEAGUE FINALS
+              </div>
+            </>
+          )}
+        </div>
+      </Html>
+      <pointLight color={col} intensity={0.4} distance={5} position={[0, 0, 0.8]} />
+    </group>
+  );
+}
+
+// ── Fridge Door: opens during grocery-list / cooking tasks ────
+
+function FridgeDoorOverlay() {
+  const tasks = useStore((s) => s.tasks);
+  const doorAngleRef = useRef(0);
+  const pivotRef = useRef<THREE.Group>(null);
+  const glowRef = useRef<THREE.PointLight>(null);
+
+  const isOpen = tasks.some(
+    (t) => (t.taskType === 'grocery-list' || t.taskType === 'cooking')
+      && (t.status === 'walking' || t.status === 'working'),
+  );
+
+  useFrame((_, delta) => {
+    const target = isOpen ? -1.2 : 0; // ~70° open
+    doorAngleRef.current += (target - doorAngleRef.current) * 3 * delta;
+    if (pivotRef.current) {
+      pivotRef.current.rotation.y = doorAngleRef.current;
+    }
+    if (glowRef.current) {
+      const ti = isOpen ? 0.5 : 0;
+      glowRef.current.intensity += (ti - glowRef.current.intensity) * 3 * delta;
+    }
+  });
+
+  return (
+    <group>
+      {/* Interior glow visible when door swings open */}
+      <pointLight
+        ref={glowRef}
+        color="#fff5cc"
+        intensity={0}
+        distance={4}
+        position={[0, 1.5, 0.3]}
+      />
+      {/* Door pivot at right edge of fridge front face */}
+      <group ref={pivotRef} position={[0.45, 0, 0.45]}>
+        <mesh position={[-0.45, 1.7, 0]}>
+          <boxGeometry args={[0.9, 3.2, 0.08]} />
+          <meshStandardMaterial color="#e0e0e0" metalness={0.4} roughness={0.3} />
+        </mesh>
+        {/* Door handle */}
+        <mesh position={[-0.78, 1.7, 0.06]}>
+          <boxGeometry args={[0.04, 0.45, 0.06]} />
+          <meshStandardMaterial color="#c0c0c0" metalness={0.8} roughness={0.2} />
+        </mesh>
+      </group>
+    </group>
+  );
+}
+
+// ── Oven Glow: orange glow when cooking task is active ────────
+
+function OvenGlowOverlay() {
+  const tasks = useStore((s) => s.tasks);
+  const glowRef = useRef<THREE.Mesh>(null);
+  const lightRef = useRef<THREE.PointLight>(null);
+  const burnerRef = useRef<THREE.Mesh>(null);
+
+  const isCooking = tasks.some(
+    (t) => t.taskType === 'cooking' && t.status === 'working',
+  );
+
+  useFrame((_, delta) => {
+    const t = Date.now() * 0.003;
+    const pulse = Math.sin(t) * 0.2;
+
+    if (glowRef.current) {
+      const mat = glowRef.current.material as THREE.MeshStandardMaterial;
+      const target = isCooking ? 1.5 + pulse : 0;
+      mat.emissiveIntensity += (target - mat.emissiveIntensity) * 3 * delta;
+      mat.opacity += ((isCooking ? 0.7 : 0) - mat.opacity) * 3 * delta;
+    }
+    if (burnerRef.current) {
+      const mat = burnerRef.current.material as THREE.MeshStandardMaterial;
+      const target = isCooking ? 1.2 + pulse * 0.5 : 0;
+      mat.emissiveIntensity += (target - mat.emissiveIntensity) * 3 * delta;
+      mat.opacity += ((isCooking ? 0.6 : 0) - mat.opacity) * 3 * delta;
+    }
+    if (lightRef.current) {
+      const target = isCooking ? 0.8 + pulse * 0.15 : 0;
+      lightRef.current.intensity += (target - lightRef.current.intensity) * 3 * delta;
+    }
+  });
+
+  return (
+    <group>
+      {/* Oven door glow — front face, lower area */}
+      <mesh ref={glowRef} position={[0, 0.6, 0.45]}>
+        <planeGeometry args={[0.8, 0.45]} />
+        <meshStandardMaterial
+          color="#ff6600"
+          emissive="#ff4400"
+          emissiveIntensity={0}
+          transparent
+          opacity={0}
+          toneMapped={false}
+        />
+      </mesh>
+      {/* Burner ring on stovetop */}
+      <mesh ref={burnerRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 1.35, 0]}>
+        <ringGeometry args={[0.2, 0.4, 24]} />
+        <meshStandardMaterial
+          color="#ff4400"
+          emissive="#ff3300"
+          emissiveIntensity={0}
+          transparent
+          opacity={0}
+          toneMapped={false}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+      {/* Orange point light */}
+      <pointLight
+        ref={lightRef}
+        color="#ff6600"
+        intensity={0}
+        distance={5}
+        decay={2}
+        position={[0, 1.0, 0.6]}
+      />
+    </group>
+  );
+}
 
 // ── Single interactive furniture group ─────────────────────────
 function FurnitureGroup({ piece }: { piece: FurniturePiece }) {
@@ -66,6 +326,11 @@ function FurnitureGroup({ piece }: { piece: FurniturePiece }) {
           scale={model.scale}
         />
       ))}
+
+      {/* Dynamic furniture state effects */}
+      {piece.id === 'tv-stand' && <TVChannelOverlay roomId={piece.roomId} />}
+      {piece.id === 'fridge' && <FridgeDoorOverlay />}
+      {piece.id === 'stove' && <OvenGlowOverlay />}
 
       {/* Invisible click target — larger than the visible model */}
       {rearrangeMode && piece.movable && (
