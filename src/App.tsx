@@ -60,6 +60,7 @@ import { SmartSchedulePanel } from './components/ui/SmartSchedulePanel';
 import { SmartScheduleTracker } from './components/systems/SmartScheduleTracker';
 import { StoryModePanel } from './components/ui/StoryModePanel';
 import { MiniGamesPanel } from './components/ui/MiniGamesPanel';
+import { TournamentsPanel } from './components/ui/TournamentsPanel';
 import { CookingMiniGame } from './components/ui/CookingMiniGame';
 import { RepairMiniGame } from './components/ui/RepairMiniGame';
 import { GardenMiniGame } from './components/ui/GardenMiniGame';
@@ -764,6 +765,28 @@ function StoryModeButton() {
   );
 }
 
+function TournamentsButton() {
+  const setShow = useStore((s) => s.setShowTournaments);
+
+  return (
+    <button
+      type="button"
+      onClick={() => setShow(true)}
+      className="pointer-events-auto relative flex h-10 w-10 items-center justify-center rounded-full border border-cyan-400/30 bg-black/50 text-lg backdrop-blur-md transition-all hover:bg-cyan-400/20"
+      title="Tournaments"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-cyan-300">
+        <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+        <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+        <path d="M4 22h16" />
+        <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
+        <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
+        <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
+      </svg>
+    </button>
+  );
+}
+
 function TrophyButton() {
   const setShowLeaderboard = useStore((s) => s.setShowLeaderboard);
   const totalTasks = useStore((s) => s.totalTasksCompleted);
@@ -1080,6 +1103,7 @@ function App() {
             <SmartScheduleButton />
             <MiniGamesButton />
             <StoryModeButton />
+            <TournamentsButton />
             <ShopButton />
             <CraftingButton />
             <FurnitureCraftingButton />
@@ -1149,6 +1173,7 @@ function App() {
       <SmartSchedulePanel />
       <StoryModePanel />
       <MiniGamesPanel />
+      <TournamentsPanel />
       <CookingMiniGame />
       <RepairMiniGame />
       <GardenMiniGame />
