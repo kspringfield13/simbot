@@ -46,6 +46,8 @@ import { SkillTreePanel } from './components/ui/SkillTreePanel';
 import { useStore } from './stores/useStore';
 import { useAccessibility } from './stores/useAccessibility';
 import { musicEngine } from './systems/MusicEngine';
+import { moodMusicEngine } from './systems/MoodMusicEngine';
+import { MoodMusicSystem } from './components/systems/MoodMusicSystem';
 import { useSpectatorHost, useSpectatorViewer } from './hooks/useSpectator';
 
 function ColorblindFilters() {
@@ -112,6 +114,43 @@ function MusicToggle() {
       {musicEnabled && genreLabel && (
         <span className="whitespace-nowrap rounded-full border border-purple-400/30 bg-black/60 px-2.5 py-1 text-[11px] text-purple-200 backdrop-blur-md">
           {genreLabel}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function MoodMusicToggle() {
+  const moodMusicEnabled = useStore((s) => s.moodMusicEnabled);
+  const setMoodMusicEnabled = useStore((s) => s.setMoodMusicEnabled);
+  const moodLabel = useStore((s) => s.moodMusicLabel);
+
+  const toggle = useCallback(() => {
+    const nowEnabled = moodMusicEngine.toggle();
+    setMoodMusicEnabled(nowEnabled);
+  }, [setMoodMusicEnabled]);
+
+  return (
+    <div className="pointer-events-auto flex items-center gap-1.5">
+      <button
+        type="button"
+        onClick={toggle}
+        className={`flex h-10 w-10 items-center justify-center rounded-full border text-lg backdrop-blur-md transition-all ${
+          moodMusicEnabled
+            ? 'border-teal-400/50 bg-teal-500/30 hover:bg-teal-500/50'
+            : 'border-white/10 bg-black/50 hover:bg-black/70'
+        }`}
+        title={moodMusicEnabled ? 'Mute mood music' : 'Play mood music'}
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-white">
+          <path d="M9 18V5l12-2v13" />
+          <circle cx="6" cy="18" r="3" />
+          <circle cx="18" cy="16" r="3" />
+        </svg>
+      </button>
+      {moodMusicEnabled && moodLabel && (
+        <span className="whitespace-nowrap rounded-full border border-teal-400/30 bg-black/60 px-2.5 py-1 text-[11px] text-teal-200 backdrop-blur-md">
+          {moodLabel}
         </span>
       )}
     </div>
@@ -639,6 +678,7 @@ function App() {
           <SocialTracker />
           <TimelapseRecorder />
           <NotificationTracker />
+          <MoodMusicSystem />
         </>
       )}
 
@@ -671,6 +711,7 @@ function App() {
             <TimelineButton />
             <ShareButton />
             <MusicToggle />
+            <MoodMusicToggle />
             <FloorPlanButton />
             <RoomEditorButtons />
             <EditRoomsButton />

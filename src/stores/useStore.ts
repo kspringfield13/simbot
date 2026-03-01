@@ -495,6 +495,12 @@ interface SimBotStore {
   setMusicEnabled: (enabled: boolean) => void;
   setMusicGenreLabel: (label: string) => void;
 
+  // Mood music (ambient layer)
+  moodMusicEnabled: boolean;
+  moodMusicLabel: string;
+  setMoodMusicEnabled: (enabled: boolean) => void;
+  setMoodMusicLabel: (label: string) => void;
+
   // Photo mode
   photoMode: boolean;
   photoFilter: 'normal' | 'warm' | 'cool' | 'noir' | 'dreamy';
@@ -1034,6 +1040,12 @@ export const useStore = create<SimBotStore>((set) => ({
   musicGenreLabel: '',
   setMusicEnabled: (enabled) => set({ musicEnabled: enabled }),
   setMusicGenreLabel: (label) => set({ musicGenreLabel: label }),
+
+  // Mood music (ambient layer)
+  moodMusicEnabled: false,
+  moodMusicLabel: '',
+  setMoodMusicEnabled: (enabled) => set({ moodMusicEnabled: enabled }),
+  setMoodMusicLabel: (label) => set({ moodMusicLabel: label }),
 
   // Photo mode
   photoMode: false,
