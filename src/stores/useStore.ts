@@ -8,6 +8,8 @@ import type { CustomRobot } from '../config/crafting';
 import { getDeployedRobotBonuses } from '../config/crafting';
 import { getSkillQualityBonus } from '../config/skills';
 import { loadFloorPlanId, saveFloorPlanId } from '../config/floorPlans';
+import type { ChallengeDefinition, BestTime } from '../config/challenges';
+import { loadBestTimes, saveBestTime, getStarsForTime } from '../config/challenges';
 import { getComfortMultiplier } from '../config/devices';
 import { createDisaster, DISASTER_TYPES } from '../systems/DisasterEvents';
 import type { RoomDecoration } from '../config/decorations';
@@ -720,6 +722,29 @@ interface SimBotStore {
   setShowPetPanel: (show: boolean) => void;
   feedPet: (petId: 'fish' | 'hamster', simMinutes: number) => void;
   decayPetHappiness: (amount: number) => void;
+
+  // Time challenges
+  activeChallenge: {
+    challenge: ChallengeDefinition;
+    startedAt: number;       // Date.now() real-time start
+    tasksCompleted: number;
+    totalTasks: number;
+    challengeTaskIds: string[];  // task IDs spawned for this challenge
+  } | null;
+  challengeResult: {
+    challenge: ChallengeDefinition;
+    timeSeconds: number;
+    stars: 1 | 2 | 3;
+    isNewBest: boolean;
+  } | null;
+  challengeBestTimes: Record<string, BestTime>;
+  showChallengePanel: boolean;
+  setShowChallengePanel: (show: boolean) => void;
+  startChallenge: (challenge: ChallengeDefinition, taskIds: string[]) => void;
+  advanceChallengeTask: () => void;
+  completeChallenge: () => void;
+  cancelChallenge: () => void;
+  dismissChallengeResult: () => void;
 }
 
 const initialSimMinutes = (7 * 60) + 20;
@@ -1618,6 +1643,63 @@ export const useStore = create<SimBotStore>((set) => ({
     savePetData(next);
     return { petStates: next };
   }),
+
+  // Time challenges
+  activeChallenge: null,
+  challengeResult: null,
+  challengeBestTimes: loadBestTimes(),
+  showChallengePanel: false,
+  setShowChallengePanel: (show) => set({ showChallengePanel: show }),
+  startChallenge: (challenge, taskIds) => set({
+    activeChallenge: {
+      challenge,
+      startedAt: Date.now(),
+      tasksCompleted: 0,
+      totalTasks: challenge.tasks.length,
+      challengeTaskIds: taskIds,
+    },
+    challengeResult: null,
+    showChallengePanel: false,
+  }),
+  advanceChallengeTask: () => set((s) => {
+    if (!s.activeChallenge) return {};
+    return {
+      activeChallenge: {
+        ...s.activeChallenge,
+        tasksCompleted: s.activeChallenge.tasksCompleted + 1,
+      },
+    };
+  }),
+  completeChallenge: () => set((s) => {
+    if (!s.activeChallenge) return {};
+    const elapsed = (Date.now() - s.activeChallenge.startedAt) / 1000;
+    const stars = getStarsForTime(s.activeChallenge.challenge, elapsed);
+    const existing = s.challengeBestTimes[s.activeChallenge.challenge.id];
+    const isNewBest = !existing || elapsed < existing.timeSeconds;
+    const best: BestTime = {
+      challengeId: s.activeChallenge.challenge.id,
+      timeSeconds: elapsed,
+      stars,
+      completedAt: Date.now(),
+    };
+    if (isNewBest) saveBestTime(best);
+    const coinReward = s.activeChallenge.challenge.coinReward * stars;
+    return {
+      activeChallenge: null,
+      challengeResult: {
+        challenge: s.activeChallenge.challenge,
+        timeSeconds: elapsed,
+        stars,
+        isNewBest,
+      },
+      challengeBestTimes: isNewBest
+        ? { ...s.challengeBestTimes, [best.challengeId]: best }
+        : s.challengeBestTimes,
+      coins: s.coins + coinReward,
+    };
+  }),
+  cancelChallenge: () => set({ activeChallenge: null }),
+  dismissChallengeResult: () => set({ challengeResult: null }),
 }));
 
 // Each completion reduces duration by ~5%, capping at 30% faster

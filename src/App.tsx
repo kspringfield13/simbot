@@ -47,6 +47,8 @@ import { CameraPresetsPanel } from './components/ui/CameraPresetsPanel';
 import { SkillTreePanel } from './components/ui/SkillTreePanel';
 import { ThemeSelectorPanel } from './components/ui/ThemeSelectorPanel';
 import { PetPanel } from './components/ui/PetPanel';
+import { ChallengePanel, ChallengeTimer, ChallengeResultsModal } from './components/ui/ChallengePanel';
+import { ChallengeSystem } from './components/systems/ChallengeSystem';
 import { useStore } from './stores/useStore';
 import { useAccessibility } from './stores/useAccessibility';
 import { musicEngine } from './systems/MusicEngine';
@@ -676,6 +678,30 @@ function PetButton() {
   );
 }
 
+function ChallengeButton() {
+  const setShowChallengePanel = useStore((s) => s.setShowChallengePanel);
+  const activeChallenge = useStore((s) => s.activeChallenge);
+
+  return (
+    <button
+      type="button"
+      onClick={() => setShowChallengePanel(true)}
+      disabled={!!activeChallenge}
+      className={`pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full border text-lg backdrop-blur-md transition-all ${
+        activeChallenge
+          ? 'border-orange-400/50 bg-orange-500/30 animate-pulse'
+          : 'border-orange-400/30 bg-black/50 hover:bg-orange-500/30'
+      }`}
+      title="Time Challenges"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={`h-5 w-5 ${activeChallenge ? 'text-orange-300' : 'text-orange-400'}`}>
+        <circle cx="12" cy="12" r="10" />
+        <polyline points="12 6 12 12 16 14" />
+      </svg>
+    </button>
+  );
+}
+
 function DisasterButton() {
   const triggerDisaster = useStore((s) => s.triggerDisaster);
   const activeDisaster = useStore((s) => s.activeDisaster);
@@ -795,6 +821,7 @@ function App() {
           <TimelapseRecorder />
           <NotificationTracker />
           <MoodMusicSystem />
+          <ChallengeSystem />
         </>
       )}
 
@@ -841,6 +868,7 @@ function App() {
             <CameraPresetsButton />
             <CameraToggle />
             <PetButton />
+            <ChallengeButton />
             <DisasterButton />
             <AccessibilityButton onClick={() => setShowA11y(true)} />
             <HelpButton onClick={() => setShowTutorial(true)} />
@@ -873,6 +901,9 @@ function App() {
       <SkillTreePanel />
       <ThemeSelectorPanel />
       <PetPanel />
+      <ChallengePanel />
+      <ChallengeResultsModal />
+      <ChallengeTimer />
       <AccessibilityPanel open={showA11y} onClose={() => setShowA11y(false)} />
       {!isSpectating && (
         <TutorialOverlay forceOpen={showTutorial} onClose={() => setShowTutorial(false)} />
