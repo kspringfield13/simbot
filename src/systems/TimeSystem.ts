@@ -165,6 +165,7 @@ export function TimeSystem() {
     advanceTime(delta);
 
     const s = useStore.getState();
+    s.sampleGraphData();
     const idx = Math.floor(s.simMinutes / WEATHER_INTERVAL) % WEATHER_CYCLE.length;
     if (idx !== lastWeatherIdxRef.current) {
       lastWeatherIdxRef.current = idx;

@@ -362,7 +362,17 @@ interface SimBotStore {
   totalTasksCompleted: number;
   tasksByType: Partial<Record<TaskType, number>>;
   tasksByRoom: Partial<Record<RoomId, number>>;
-  recordStats: (taskType: TaskType, roomId: RoomId) => void;
+  recordStats: (taskType: TaskType, roomId: RoomId, robotId?: RobotId) => void;
+  statsTab: 'overview' | 'graphs';
+  setStatsTab: (tab: 'overview' | 'graphs') => void;
+
+  // Graph history (sampled every 5 sim-minutes)
+  cleanlinessHistory: { simMinutes: number; rooms: Record<string, number>; average: number }[];
+  efficiencyHistory: { simMinutes: number; robots: Record<string, number> }[];
+  _lastGraphSampleAt: number;
+  _robotTaskCounts: Record<string, number>;
+  _robotTaskSnapshots: Record<string, number>;
+  sampleGraphData: () => void;
 
   // Emoji reactions
   currentEmoji: string | null;
@@ -773,11 +783,65 @@ export const useStore = create<SimBotStore>((set) => ({
   totalTasksCompleted: 0,
   tasksByType: {},
   tasksByRoom: {},
-  recordStats: (taskType, roomId) => set((state) => ({
+  recordStats: (taskType, roomId, robotId) => set((state) => ({
     totalTasksCompleted: state.totalTasksCompleted + 1,
     tasksByType: { ...state.tasksByType, [taskType]: (state.tasksByType[taskType] ?? 0) + 1 },
     tasksByRoom: { ...state.tasksByRoom, [roomId]: (state.tasksByRoom[roomId] ?? 0) + 1 },
+    _robotTaskCounts: robotId
+      ? { ...state._robotTaskCounts, [robotId]: (state._robotTaskCounts[robotId] ?? 0) + 1 }
+      : state._robotTaskCounts,
   })),
+  statsTab: 'overview',
+  setStatsTab: (tab) => set({ statsTab: tab }),
+
+  // Graph history
+  cleanlinessHistory: [],
+  efficiencyHistory: [],
+  _lastGraphSampleAt: 0,
+  _robotTaskCounts: {},
+  _robotTaskSnapshots: {},
+  sampleGraphData: () => set((state) => {
+    const interval = 5; // sample every 5 sim-minutes
+    if (state.simMinutes - state._lastGraphSampleAt < interval) return {};
+
+    // Cleanliness snapshot
+    const roomIds = Object.keys(state.roomNeeds);
+    const rooms: Record<string, number> = {};
+    let sum = 0;
+    for (const id of roomIds) {
+      const c = Math.round(state.roomNeeds[id as keyof typeof state.roomNeeds]?.cleanliness ?? 0);
+      rooms[id] = c;
+      sum += c;
+    }
+    const average = roomIds.length > 0 ? Math.round(sum / roomIds.length) : 0;
+    const cleanlinessPoint = { simMinutes: state.simMinutes, rooms, average };
+
+    // Efficiency: tasks completed per robot since last sample
+    const prevSnaps = state._robotTaskSnapshots;
+    const currentSnaps: Record<string, number> = {};
+    const robotRates: Record<string, number> = {};
+    for (const rid of ROBOT_IDS) {
+      const current = state._robotTaskCounts[rid] ?? 0;
+      currentSnaps[rid] = current;
+      const prev = prevSnaps[rid] ?? 0;
+      const delta = current - prev;
+      // Convert to tasks/hour: delta tasks in `interval` sim-minutes
+      robotRates[rid] = Math.round((delta / interval) * 60 * 10) / 10;
+    }
+    const efficiencyPoint = { simMinutes: state.simMinutes, robots: robotRates };
+
+    // Keep last 200 data points max (= ~1000 sim-minutes = ~16.7 sim-hours)
+    const maxPoints = 200;
+    const newCleanliness = [...state.cleanlinessHistory, cleanlinessPoint].slice(-maxPoints);
+    const newEfficiency = [...state.efficiencyHistory, efficiencyPoint].slice(-maxPoints);
+
+    return {
+      cleanlinessHistory: newCleanliness,
+      efficiencyHistory: newEfficiency,
+      _lastGraphSampleAt: state.simMinutes,
+      _robotTaskSnapshots: currentSnaps,
+    };
+  }),
 
   // Emoji reactions
   currentEmoji: null,

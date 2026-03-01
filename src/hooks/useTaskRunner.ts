@@ -283,7 +283,7 @@ export const useTaskRunner = () => {
 
         applyRoomTaskResult(activeTask.targetRoom, activeTask.taskType);
         state.recordTaskCompletion(activeTask.taskType);
-        state.recordStats(activeTask.taskType, activeTask.targetRoom);
+        state.recordStats(activeTask.taskType, activeTask.targetRoom, rid);
         state.recordRobotTaskCompletion(rid, activeTask.taskType, activeTask.workDuration);
         state.recordPersonalityTaskCompletion(rid, activeTask.taskType);
 
