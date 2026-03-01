@@ -55,6 +55,8 @@ import { SecurityTracker } from './components/systems/SecurityTracker';
 import { StoryDirectorTracker } from './components/systems/StoryDirectorTracker';
 import { SecurityPanel } from './components/ui/SecurityPanel';
 import { EvolutionPanel } from './components/ui/EvolutionPanel';
+import { SmartSchedulePanel } from './components/ui/SmartSchedulePanel';
+import { SmartScheduleTracker } from './components/systems/SmartScheduleTracker';
 import { FloorSelector } from './components/ui/FloorSelector';
 import { INTRUDER_CONFIGS, type IntruderType } from './config/security';
 import { useStore } from './stores/useStore';
@@ -681,6 +683,30 @@ function EvolutionButton() {
   );
 }
 
+function SmartScheduleButton() {
+  const setShow = useStore((s) => s.setShowSmartSchedule);
+  const eventCount = useStore((s) => s.smartScheduleData.events.length);
+
+  return (
+    <button
+      type="button"
+      onClick={() => setShow(true)}
+      className="pointer-events-auto relative flex h-10 w-10 items-center justify-center rounded-full border border-indigo-400/30 bg-black/50 text-lg backdrop-blur-md transition-all hover:bg-indigo-400/20"
+      title="Smart Schedule AI"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-indigo-300">
+        <circle cx="12" cy="12" r="10" />
+        <path d="M12 6v6l4 2" />
+      </svg>
+      {eventCount > 0 && (
+        <span className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-indigo-400 px-1 text-[9px] font-bold text-black">
+          {eventCount > 99 ? '99+' : eventCount}
+        </span>
+      )}
+    </button>
+  );
+}
+
 function TrophyButton() {
   const setShowLeaderboard = useStore((s) => s.setShowLeaderboard);
   const totalTasks = useStore((s) => s.totalTasksCompleted);
@@ -954,6 +980,7 @@ function App() {
         <>
           <TaskProcessor />
           <ScheduleSystem />
+          <SmartScheduleTracker />
           <BatterySystem />
           <LeaderboardTracker />
           <PersonalityTracker />
@@ -989,6 +1016,7 @@ function App() {
             <CoinDisplay />
             <TrophyButton />
             <EvolutionButton />
+            <SmartScheduleButton />
             <ShopButton />
             <CraftingButton />
             <FurnitureCraftingButton />
@@ -1055,6 +1083,7 @@ function App() {
       <FurnitureCraftingPanel />
       <SecurityPanel />
       <EvolutionPanel />
+      <SmartSchedulePanel />
       <ChallengeTimer />
       <FloorSelector />
       <AccessibilityPanel open={showA11y} onClose={() => setShowA11y(false)} />

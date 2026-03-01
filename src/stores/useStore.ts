@@ -602,6 +602,12 @@ interface SimBotStore {
   showCommunityGallery: boolean;
   setShowCommunityGallery: (show: boolean) => void;
 
+  // Smart schedule AI
+  smartScheduleData: import('../systems/SmartSchedule').SmartScheduleData;
+  showSmartSchedule: boolean;
+  setShowSmartSchedule: (show: boolean) => void;
+  setSmartScheduleData: (data: import('../systems/SmartSchedule').SmartScheduleData) => void;
+
   // Robot evolution / aging
   robotEvolutions: Record<RobotId, RobotEvolution>;
   showEvolutionPanel: boolean;
@@ -1355,6 +1361,12 @@ export const useStore = create<SimBotStore>((set) => ({
   robotColors: initialShopData.robotColors,
   showCommunityGallery: false,
   setShowCommunityGallery: (show) => set({ showCommunityGallery: show }),
+
+  // Smart schedule AI
+  smartScheduleData: { events: [], roomPatterns: {}, lastAnalyzedAt: 0, userInteractionTimes: [], totalUserCommands: 0, peakActivityHour: 9 },
+  showSmartSchedule: false,
+  setShowSmartSchedule: (show) => set({ showSmartSchedule: show }),
+  setSmartScheduleData: (data) => set({ smartScheduleData: data }),
 
   // Robot evolution / aging
   robotEvolutions: loadEvolutionData(),
