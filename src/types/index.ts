@@ -217,6 +217,34 @@ export interface ActiveChat {
   nextLineAt: number;         // sim-minutes when next line shows
 }
 
+// ── Disasters ──────────────────────────────────────────
+export type DisasterType = 'fire' | 'flood' | 'earthquake';
+export type DisasterPhase = 'detection' | 'response' | 'resolution';
+
+export interface Disaster {
+  id: string;
+  type: DisasterType;
+  phase: DisasterPhase;
+  roomId: RoomId;
+  severity: number;        // 1-3, escalates if not handled
+  progress: number;        // 0-100, how much has been resolved
+  startedAt: number;       // sim-minutes
+  detectedBy: RobotId | null;
+  respondingRobots: RobotId[];
+  resolvedAt: number | null;
+}
+
+export interface DisasterHistoryEntry {
+  id: string;
+  type: DisasterType;
+  roomId: RoomId;
+  maxSeverity: number;
+  startedAt: number;
+  resolvedAt: number;
+  detectedBy: RobotId;
+  respondingRobots: RobotId[];
+}
+
 // ── Home Events ──────────────────────────────────────────
 export type HomeEventType = 'plumbing-leak' | 'power-outage' | 'pest-invasion';
 export type HomeEventPhase = 'detection' | 'response' | 'resolution';

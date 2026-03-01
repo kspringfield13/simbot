@@ -28,8 +28,10 @@ import { PersonalityPanel } from './components/ui/PersonalityPanel';
 import { LeaderboardTracker } from './components/systems/LeaderboardTracker';
 import { PersonalityTracker } from './components/systems/PersonalityTracker';
 import { HomeEventTracker } from './components/systems/HomeEventTracker';
+import { DisasterTracker } from './components/systems/DisasterTracker';
 import { SocialTracker } from './components/systems/SocialTracker';
 import { EventBanner } from './components/ui/EventBanner';
+import { DisasterBanner } from './components/ui/DisasterBanner';
 import { SocialPanel, SocialButton } from './components/ui/SocialPanel';
 import { TimelapsePanel, TimelapseButton } from './components/ui/TimelapsePanel';
 import { TimelapseRecorder } from './components/systems/TimelapseRecorder';
@@ -622,6 +624,67 @@ function HelpButton({ onClick }: { onClick: () => void }) {
   );
 }
 
+function DisasterButton() {
+  const triggerDisaster = useStore((s) => s.triggerDisaster);
+  const activeDisaster = useStore((s) => s.activeDisaster);
+
+  return (
+    <button
+      type="button"
+      onClick={() => triggerDisaster()}
+      disabled={!!activeDisaster}
+      className={`pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full border text-lg backdrop-blur-md transition-all ${
+        activeDisaster
+          ? 'border-red-400/50 bg-red-500/30 cursor-not-allowed opacity-60'
+          : 'border-red-400/30 bg-black/50 hover:bg-red-500/30'
+      }`}
+      title={activeDisaster ? 'Disaster in progress...' : 'Trigger random disaster'}
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={`h-5 w-5 ${activeDisaster ? 'text-red-400' : 'text-red-300'}`}>
+        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+      </svg>
+    </button>
+  );
+}
+
+function DisasterOverlay() {
+  const disaster = useStore((s) => s.activeDisaster);
+  const reducedMotion = useAccessibility((s) => s.reducedMotion);
+
+  if (!disaster || reducedMotion) return null;
+
+  const severity = disaster.severity as 1 | 2 | 3;
+
+  if (disaster.type === 'earthquake') {
+    return (
+      <div
+        className={`pointer-events-none fixed inset-0 z-[60] earthquake-shake-${severity}`}
+        aria-hidden="true"
+      />
+    );
+  }
+
+  if (disaster.type === 'fire') {
+    return (
+      <div
+        className={`pointer-events-none fixed inset-0 z-[60] ${severity >= 2 ? 'disaster-fire-overlay-severe' : 'disaster-fire-overlay'}`}
+        aria-hidden="true"
+      />
+    );
+  }
+
+  if (disaster.type === 'flood') {
+    return (
+      <div
+        className="pointer-events-none fixed inset-0 z-[60] disaster-flood-overlay"
+        aria-hidden="true"
+      />
+    );
+  }
+
+  return null;
+}
+
 function App() {
   const screenshotMode = useStore((s) => s.screenshotMode);
   const photoMode = useStore((s) => s.photoMode);
@@ -675,6 +738,7 @@ function App() {
           <LeaderboardTracker />
           <PersonalityTracker />
           <HomeEventTracker />
+          <DisasterTracker />
           <SocialTracker />
           <TimelapseRecorder />
           <NotificationTracker />
@@ -723,6 +787,7 @@ function App() {
             <ScreenshotButton />
             <CameraPresetsButton />
             <CameraToggle />
+            <DisasterButton />
             <AccessibilityButton onClick={() => setShowA11y(true)} />
             <HelpButton onClick={() => setShowTutorial(true)} />
           </nav>
@@ -732,6 +797,8 @@ function App() {
       <VisitorToast />
       <SeasonToast />
       <EventBanner />
+      <DisasterBanner />
+      <DisasterOverlay />
       <ScreenshotModal />
       {!screenshotMode && !photoMode && !isSpectating && <ChatPanel />}
       {!screenshotMode && !photoMode && !isSpectating && <BatteryIndicator />}

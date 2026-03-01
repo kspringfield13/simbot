@@ -9,6 +9,7 @@ import { getDeployedRobotBonuses } from '../config/crafting';
 import { getSkillQualityBonus } from '../config/skills';
 import { loadFloorPlanId, saveFloorPlanId } from '../config/floorPlans';
 import { getComfortMultiplier } from '../config/devices';
+import { createDisaster, DISASTER_TYPES } from '../systems/DisasterEvents';
 import type { RoomDecoration } from '../config/decorations';
 import {
   createSessionStats,
@@ -31,6 +32,8 @@ import type {
   CameraPreset,
   ChatMessage,
   DeviceState,
+  Disaster,
+  DisasterHistoryEntry,
   DiaryEntry,
   FriendshipPair,
   HomeEvent,
@@ -588,6 +591,14 @@ interface SimBotStore {
   setActiveHomeEvent: (event: HomeEvent | null) => void;
   updateHomeEvent: (updates: Partial<HomeEvent>) => void;
   resolveHomeEvent: (entry: HomeEventHistoryEntry) => void;
+
+  // Disasters
+  activeDisaster: Disaster | null;
+  disasterHistory: DisasterHistoryEntry[];
+  setActiveDisaster: (disaster: Disaster | null) => void;
+  updateDisaster: (updates: Partial<Disaster>) => void;
+  resolveDisaster: (entry: DisasterHistoryEntry) => void;
+  triggerDisaster: (type?: import('../types').DisasterType) => void;
 
   // Robot social / friendships
   friendships: Record<string, FriendshipPair>;
@@ -1295,6 +1306,25 @@ export const useStore = create<SimBotStore>((set) => ({
     activeHomeEvent: null,
     homeEventHistory: [...state.homeEventHistory, entry],
   })),
+
+  // Disasters
+  activeDisaster: null,
+  disasterHistory: [],
+  setActiveDisaster: (disaster) => set({ activeDisaster: disaster }),
+  updateDisaster: (updates) => set((state) => {
+    if (!state.activeDisaster) return {};
+    return { activeDisaster: { ...state.activeDisaster, ...updates } };
+  }),
+  resolveDisaster: (entry) => set((state) => ({
+    activeDisaster: null,
+    disasterHistory: [...state.disasterHistory, entry],
+  })),
+  triggerDisaster: (type) => set((state) => {
+    if (state.activeDisaster || state.activeHomeEvent) return {};
+    const disasterType = type ?? DISASTER_TYPES[Math.floor(Math.random() * DISASTER_TYPES.length)];
+    const disaster = createDisaster(disasterType, state.simMinutes);
+    return { activeDisaster: disaster };
+  }),
 
   // Robot social / friendships
   friendships: loadFriendships(),

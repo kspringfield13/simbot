@@ -139,3 +139,52 @@ input, button { font: inherit; }
   animation-iteration-count: 1 !important;
   transition-duration: 0.01ms !important;
 }
+
+/* ── Disaster: Earthquake screen shake ───────────────── */
+@keyframes earthquake-shake {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  10% { transform: translate(-3px, -2px) rotate(-0.3deg); }
+  20% { transform: translate(3px, 1px) rotate(0.3deg); }
+  30% { transform: translate(-2px, 3px) rotate(-0.2deg); }
+  40% { transform: translate(2px, -1px) rotate(0.2deg); }
+  50% { transform: translate(-1px, 2px) rotate(-0.1deg); }
+  60% { transform: translate(3px, -2px) rotate(0.3deg); }
+  70% { transform: translate(-3px, 1px) rotate(-0.3deg); }
+  80% { transform: translate(1px, -3px) rotate(0.1deg); }
+  90% { transform: translate(-2px, 2px) rotate(-0.2deg); }
+}
+.earthquake-shake-1 {
+  animation: earthquake-shake 0.4s linear infinite;
+}
+.earthquake-shake-2 {
+  animation: earthquake-shake 0.25s linear infinite;
+  --shake-scale: 1.5;
+}
+.earthquake-shake-3 {
+  animation: earthquake-shake 0.15s linear infinite;
+  --shake-scale: 2.5;
+}
+
+/* ── Disaster: Fire glow overlay ─────────────────────── */
+@keyframes fire-glow-pulse {
+  0%, 100% { opacity: 0.08; }
+  50% { opacity: 0.18; }
+}
+.disaster-fire-overlay {
+  animation: fire-glow-pulse 1.5s ease-in-out infinite;
+  background: radial-gradient(ellipse at bottom, rgba(255,80,0,0.25), transparent 70%);
+}
+.disaster-fire-overlay-severe {
+  animation: fire-glow-pulse 0.8s ease-in-out infinite;
+  background: radial-gradient(ellipse at bottom, rgba(255,40,0,0.35), transparent 70%);
+}
+
+/* ── Disaster: Flood overlay ─────────────────────────── */
+@keyframes flood-wave {
+  0%, 100% { opacity: 0.06; transform: translateY(0); }
+  50% { opacity: 0.15; transform: translateY(-2px); }
+}
+.disaster-flood-overlay {
+  animation: flood-wave 2s ease-in-out infinite;
+  background: linear-gradient(to top, rgba(50,130,220,0.2), transparent 40%);
+}
