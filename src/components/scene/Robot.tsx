@@ -261,6 +261,146 @@ function EvolutionBadge({ robotId }: { robotId: RobotId }) {
   );
 }
 
+/** Antenna accessory — appears for junior+ robots */
+function RobotAntenna({ color, stage }: { color: string; stage: string }) {
+  const stageIdx = ['newborn', 'junior', 'seasoned', 'veteran', 'legendary'].indexOf(stage);
+  if (stageIdx < 1) return null;
+
+  const tipRef = useRef<THREE.Mesh>(null);
+  useFrame(() => {
+    if (tipRef.current) {
+      tipRef.current.position.y = 2.35 + Math.sin(performance.now() / 600) * 0.04;
+    }
+  });
+
+  return (
+    <group position={[0, 0, 0]}>
+      {/* Antenna stalk */}
+      <mesh position={[0, 2.15, -0.05]}>
+        <cylinderGeometry args={[0.015, 0.025, 0.35, 6]} />
+        <meshStandardMaterial color="#666" metalness={0.8} roughness={0.3} />
+      </mesh>
+      {/* Antenna tip — glows with stage color */}
+      <mesh ref={tipRef} position={[0, 2.35, -0.05]}>
+        <sphereGeometry args={[0.045, 12, 12]} />
+        <meshStandardMaterial
+          color={color}
+          emissive={color}
+          emissiveIntensity={0.6 + stageIdx * 0.2}
+        />
+      </mesh>
+    </group>
+  );
+}
+
+/** Shoulder accent lights — seasoned+ robots */
+function ShoulderAccents({ color, stage }: { color: string; stage: string }) {
+  const stageIdx = ['newborn', 'junior', 'seasoned', 'veteran', 'legendary'].indexOf(stage);
+  if (stageIdx < 2) return null;
+
+  const leftRef = useRef<THREE.Mesh>(null);
+  const rightRef = useRef<THREE.Mesh>(null);
+  useFrame(() => {
+    const t = performance.now() / 1000;
+    const pulse = 0.4 + Math.sin(t * 2) * 0.2;
+    if (leftRef.current) {
+      (leftRef.current.material as THREE.MeshStandardMaterial).emissiveIntensity = pulse;
+    }
+    if (rightRef.current) {
+      (rightRef.current.material as THREE.MeshStandardMaterial).emissiveIntensity = pulse;
+    }
+  });
+
+  return (
+    <group>
+      <mesh ref={leftRef} position={[-0.28, 1.4, 0]}>
+        <boxGeometry args={[0.06, 0.06, 0.12]} />
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.4} metalness={0.6} roughness={0.3} />
+      </mesh>
+      <mesh ref={rightRef} position={[0.28, 1.4, 0]}>
+        <boxGeometry args={[0.06, 0.06, 0.12]} />
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.4} metalness={0.6} roughness={0.3} />
+      </mesh>
+    </group>
+  );
+}
+
+/** Orbiting particle ring — veteran+ robots */
+function OrbitRing({ color, stage }: { color: string; stage: string }) {
+  const stageIdx = ['newborn', 'junior', 'seasoned', 'veteran', 'legendary'].indexOf(stage);
+  if (stageIdx < 3) return null;
+
+  const groupRef = useRef<THREE.Group>(null);
+  const particleCount = stageIdx >= 4 ? 8 : 5;
+
+  useFrame(() => {
+    if (groupRef.current) {
+      groupRef.current.rotation.y += 0.015;
+    }
+  });
+
+  return (
+    <group ref={groupRef} position={[0, 0.8, 0]}>
+      {Array.from({ length: particleCount }).map((_, i) => {
+        const angle = (i / particleCount) * Math.PI * 2;
+        const radius = 0.65;
+        return (
+          <mesh key={i} position={[Math.cos(angle) * radius, 0, Math.sin(angle) * radius]}>
+            <sphereGeometry args={[0.025, 8, 8]} />
+            <meshStandardMaterial
+              color={color}
+              emissive={color}
+              emissiveIntensity={1.2}
+              transparent
+              opacity={0.8}
+            />
+          </mesh>
+        );
+      })}
+    </group>
+  );
+}
+
+/** Crown/halo — legendary robots only */
+function LegendaryCrown({ color }: { color: string }) {
+  const ringRef = useRef<THREE.Mesh>(null);
+  useFrame(() => {
+    if (ringRef.current) {
+      ringRef.current.rotation.z = Math.sin(performance.now() / 2000) * 0.05;
+      (ringRef.current.material as THREE.MeshStandardMaterial).emissiveIntensity =
+        0.8 + Math.sin(performance.now() / 800) * 0.3;
+    }
+  });
+
+  return (
+    <group position={[0, 2.05, 0]}>
+      {/* Halo ring */}
+      <mesh ref={ringRef} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[0.22, 0.025, 12, 24]} />
+        <meshStandardMaterial
+          color={color}
+          emissive={color}
+          emissiveIntensity={0.8}
+          metalness={0.9}
+          roughness={0.1}
+          transparent
+          opacity={0.9}
+        />
+      </mesh>
+      {/* Crown points */}
+      {[0, 1, 2, 3, 4].map((i) => {
+        const angle = (i / 5) * Math.PI * 2;
+        return (
+          <mesh key={i} position={[Math.cos(angle) * 0.18, 0.04, Math.sin(angle) * 0.18]}>
+            <coneGeometry args={[0.025, 0.08, 4]} />
+            <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.6} metalness={0.8} roughness={0.2} />
+          </mesh>
+        );
+      })}
+    </group>
+  );
+}
+
 function RobotModel({ robotId }: { robotId: RobotId }) {
   const config = ROBOT_CONFIGS[robotId];
   const customColor = useStore((s) => s.robotColors[robotId]);
@@ -547,6 +687,11 @@ function RobotModel({ robotId }: { robotId: RobotId }) {
     <group ref={groupRef} onClick={handleClick}>
       <group ref={modelRef} scale={ROBOT_SCALE * evoVisuals.scaleMult}>
         <primitive object={clonedScene} />
+        {/* Evolution visual accessories */}
+        <RobotAntenna color={getStageColor(evolution.stage)} stage={evolution.stage} />
+        <ShoulderAccents color={getStageColor(evolution.stage)} stage={evolution.stage} />
+        <OrbitRing color={getStageColor(evolution.stage)} stage={evolution.stage} />
+        {evolution.stage === 'legendary' && <LegendaryCrown color={getStageColor(evolution.stage)} />}
       </group>
 
       {/* Night mode flashlight */}

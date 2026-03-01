@@ -212,22 +212,38 @@ export function EvolutionPanel() {
           ))}
         </div>
 
-        {/* Legend */}
+        {/* Legend with visual descriptions */}
         <div className="mt-4 rounded-xl border border-white/5 bg-white/5 p-3">
           <div className="mb-2 text-[10px] font-bold text-white/50">Evolution Stages</div>
-          <div className="grid grid-cols-5 gap-1">
-            {STAGES.map((stage) => (
-              <div key={stage} className="text-center">
-                <div
-                  className="mx-auto mb-0.5 h-2 w-2 rounded-full"
-                  style={{ background: getStageColor(stage) }}
-                />
-                <div className="text-[8px] text-white/40">{getStageLabel(stage)}</div>
-              </div>
-            ))}
-          </div>
-          <div className="mt-2 text-[9px] text-white/30">
-            10 tasks = Junior | 40 = Seasoned | 100 = Veteran | 200 = Legendary
+          <div className="space-y-2">
+            {STAGES.map((stage, idx) => {
+              const color = getStageColor(stage);
+              const thresholds = [0, 10, 40, 100, 200];
+              const visuals: Record<string, string> = {
+                newborn: 'Base appearance — no accessories',
+                junior: 'Glowing antenna + subtle size increase',
+                seasoned: 'Shoulder accent lights + color shift',
+                veteran: 'Orbiting particle ring + glow pulse',
+                legendary: 'Crown halo + dense particle ring + max glow',
+              };
+              return (
+                <div key={stage} className="flex items-start gap-2 rounded-lg bg-white/5 px-2 py-1.5">
+                  <div
+                    className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full text-[8px] font-bold"
+                    style={{ background: `${color}33`, color, border: `1px solid ${color}66` }}
+                  >
+                    {idx + 1}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] font-bold" style={{ color }}>{getStageLabel(stage)}</span>
+                      <span className="text-[9px] text-white/30">{thresholds[idx]}+ tasks</span>
+                    </div>
+                    <div className="text-[9px] text-white/40">{visuals[stage]}</div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
