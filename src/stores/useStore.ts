@@ -4,6 +4,8 @@ import { getSimPeriod } from '../systems/TimeSystem';
 import { createAllRobotStates } from '../config/robots';
 import { DEFAULT_ACTIVE_WALLS } from '../utils/homeLayout';
 import { getBatteryDrainMultiplier, getEnergyMultiplier } from '../config/shop';
+import type { CustomRobot } from '../config/crafting';
+import { getDeployedRobotBonuses } from '../config/crafting';
 import { loadFloorPlanId, saveFloorPlanId } from '../config/floorPlans';
 import { getComfortMultiplier } from '../config/devices';
 import {
@@ -155,6 +157,29 @@ function saveShopData(data: ShopData) {
   } catch { /* ignore quota errors */ }
 }
 
+// ── Crafting localStorage persistence ──────────────────────────
+const CRAFTING_STORAGE_KEY = 'simbot-crafting';
+
+interface CraftingData {
+  ownedParts: string[];
+  customRobots: CustomRobot[];
+}
+
+function loadCraftingData(): CraftingData {
+  try {
+    const stored = localStorage.getItem(CRAFTING_STORAGE_KEY);
+    return stored ? JSON.parse(stored) : { ownedParts: [], customRobots: [] };
+  } catch {
+    return { ownedParts: [], customRobots: [] };
+  }
+}
+
+function saveCraftingData(data: CraftingData) {
+  try {
+    localStorage.setItem(CRAFTING_STORAGE_KEY, JSON.stringify(data));
+  } catch { /* ignore quota errors */ }
+}
+
 // ── Device localStorage persistence ──────────────────────────
 const DEVICE_STORAGE_KEY = 'simbot-devices';
 
@@ -191,6 +216,7 @@ function saveDeviceStates(states: Record<string, DeviceState>) {
 }
 
 const initialShopData = loadShopData();
+const initialCraftingData = loadCraftingData();
 
 const initialRoomLayout = loadRoomLayout();
 
@@ -411,6 +437,16 @@ interface SimBotStore {
   setActiveHomeEvent: (event: HomeEvent | null) => void;
   updateHomeEvent: (updates: Partial<HomeEvent>) => void;
   resolveHomeEvent: (entry: HomeEventHistoryEntry) => void;
+
+  // Crafting workshop
+  showCrafting: boolean;
+  setShowCrafting: (show: boolean) => void;
+  ownedParts: string[];
+  customRobots: CustomRobot[];
+  purchasePart: (partId: string, cost: number) => boolean;
+  buildCustomRobot: (name: string, headId: string, bodyId: string, armsId: string, legsId: string) => void;
+  deployCustomRobot: (robotId: string) => void;
+  deleteCustomRobot: (robotId: string) => void;
 }
 
 const initialSimMinutes = (7 * 60) + 20;
@@ -508,6 +544,7 @@ export const useStore = create<SimBotStore>((set) => ({
 
     // Tick all robots' needs
     const updatedRobots = { ...state.robots };
+    const craftBonuses = getDeployedRobotBonuses(state.customRobots);
     for (const id of ROBOT_IDS) {
       const r = updatedRobots[id];
       const n = r.needs;
@@ -517,15 +554,15 @@ export const useStore = create<SimBotStore>((set) => ({
       // Weather happiness bonus: rain = cozy (+0.01/min), snow = excited (+0.02/min)
       const weatherHappinessBonus = state.weather === 'rainy' ? 0.01 : state.weather === 'snowy' ? 0.02 : 0;
 
-      // Battery drain/charge rates (per sim-minute), modified by shop upgrades
-      const battDrainMult = getBatteryDrainMultiplier(state.purchasedUpgrades);
+      // Battery drain/charge rates (per sim-minute), modified by shop upgrades + crafting
+      const battDrainMult = getBatteryDrainMultiplier(state.purchasedUpgrades, craftBonuses.batteryBonus);
       const batteryDelta = r.isCharging
         ? deltaSimMinutes * 0.5
         : isWorking ? -deltaSimMinutes * 0.12 * battDrainMult
         : isIdle ? -deltaSimMinutes * 0.01 * battDrainMult
         : -deltaSimMinutes * 0.06 * battDrainMult;
 
-      const energyMult = getEnergyMultiplier(state.purchasedUpgrades);
+      const energyMult = getEnergyMultiplier(state.purchasedUpgrades, craftBonuses.efficiencyBonus);
 
       // Thermostat comfort affects happiness
       const thermoDevice = state.deviceStates['thermostat'];
@@ -953,6 +990,53 @@ export const useStore = create<SimBotStore>((set) => ({
     activeHomeEvent: null,
     homeEventHistory: [...state.homeEventHistory, entry],
   })),
+
+  // Crafting workshop
+  showCrafting: false,
+  setShowCrafting: (show) => set({ showCrafting: show }),
+  ownedParts: initialCraftingData.ownedParts,
+  customRobots: initialCraftingData.customRobots,
+  purchasePart: (partId, cost) => {
+    const state = useStore.getState();
+    if (state.coins < cost || state.ownedParts.includes(partId)) return false;
+    const nextCoins = state.coins - cost;
+    const nextParts = [...state.ownedParts, partId];
+    // Save shop coins
+    const shopData = { coins: nextCoins, purchasedUpgrades: state.purchasedUpgrades, robotColors: state.robotColors };
+    saveShopData(shopData);
+    // Save crafting parts
+    saveCraftingData({ ownedParts: nextParts, customRobots: state.customRobots });
+    set({ coins: nextCoins, ownedParts: nextParts });
+    return true;
+  },
+  buildCustomRobot: (name, headId, bodyId, armsId, legsId) => set((state) => {
+    const newRobot: CustomRobot = {
+      id: `custom-${Date.now()}`,
+      name,
+      headId,
+      bodyId,
+      armsId,
+      legsId,
+      createdAt: Date.now(),
+      deployed: false,
+    };
+    const nextRobots = [...state.customRobots, newRobot];
+    saveCraftingData({ ownedParts: state.ownedParts, customRobots: nextRobots });
+    return { customRobots: nextRobots };
+  }),
+  deployCustomRobot: (robotId) => set((state) => {
+    const nextRobots = state.customRobots.map((r) => ({
+      ...r,
+      deployed: r.id === robotId ? !r.deployed : false,
+    }));
+    saveCraftingData({ ownedParts: state.ownedParts, customRobots: nextRobots });
+    return { customRobots: nextRobots };
+  }),
+  deleteCustomRobot: (robotId) => set((state) => {
+    const nextRobots = state.customRobots.filter((r) => r.id !== robotId);
+    saveCraftingData({ ownedParts: state.ownedParts, customRobots: nextRobots });
+    return { customRobots: nextRobots };
+  }),
 }));
 
 // Each completion reduces duration by ~5%, capping at 30% faster

@@ -4,6 +4,7 @@ import { findTaskTarget } from '../utils/homeLayout';
 import { getNavigationPath } from '../utils/pathfinding';
 import { demoCommands } from '../utils/demoTasks';
 import { getTaskCoinReward, getShopSpeedMultiplier } from '../config/shop';
+import { getDeployedRobotBonuses } from '../config/crafting';
 import { generateDiaryEntry } from '../config/diary';
 import type { Task, TaskSource, TaskType } from '../types';
 import { ROBOT_IDS } from '../types';
@@ -261,7 +262,8 @@ export const useTaskRunner = () => {
         const activeTask = state.tasks.find((task) => task.assignedTo === rid && task.status === 'working');
         if (!activeTask) continue;
 
-        const shopSpeedMult = getShopSpeedMultiplier(state.purchasedUpgrades);
+        const craftingBonuses = getDeployedRobotBonuses(state.customRobots);
+        const shopSpeedMult = getShopSpeedMultiplier(state.purchasedUpgrades, craftingBonuses.speedBonus);
         const step = (100 / activeTask.workDuration) * 0.1 * state.simSpeed / shopSpeedMult;
         const nextProgress = Math.min(100, activeTask.progress + step);
 

@@ -19,6 +19,7 @@ import { BatteryIndicator } from './components/ui/BatteryIndicator';
 import { ShareButton } from './components/ui/ShareButton';
 import { SpectatorBadge } from './components/ui/SpectatorBadge';
 import { ShopPanel } from './components/ui/ShopPanel';
+import { CraftingPanel } from './components/ui/CraftingPanel';
 import { DevicePanel } from './components/ui/DevicePanel';
 import { DiaryPanel } from './components/ui/DiaryPanel';
 import { FloorPlanSelector } from './components/ui/FloorPlanSelector';
@@ -291,6 +292,29 @@ function ShopButton() {
   );
 }
 
+function CraftingButton() {
+  const setShowCrafting = useStore((s) => s.setShowCrafting);
+  const customRobotCount = useStore((s) => s.customRobots.length);
+
+  return (
+    <button
+      type="button"
+      onClick={() => setShowCrafting(true)}
+      className="pointer-events-auto relative flex h-10 w-10 items-center justify-center rounded-full border border-cyan-400/30 bg-black/50 text-lg backdrop-blur-md transition-all hover:bg-cyan-400/20"
+      title="Crafting Workshop"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-cyan-300">
+        <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+      </svg>
+      {customRobotCount > 0 && (
+        <span className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-cyan-400 px-1 text-[9px] font-bold text-black">
+          {customRobotCount}
+        </span>
+      )}
+    </button>
+  );
+}
+
 function SmartHomeButton() {
   const setShowDevicePanel = useStore((s) => s.setShowDevicePanel);
 
@@ -469,6 +493,7 @@ function App() {
             <CoinDisplay />
             <TrophyButton />
             <ShopButton />
+            <CraftingButton />
             <SmartHomeButton />
             <DiaryButton />
             <PersonalityButton />
@@ -496,6 +521,7 @@ function App() {
 
       <PhotoModeOverlay />
       <ShopPanel />
+      <CraftingPanel />
       <DevicePanel />
       <DiaryPanel />
       <LeaderboardPanel />

@@ -48,28 +48,32 @@ export function getTaskCoinReward(workDuration: number): number {
   return Math.min(15, Math.max(5, Math.round(5 + workDuration * 0.4)));
 }
 
-/** Speed multiplier from purchased shop upgrades. Returns e.g. 0.55 for 45% faster. */
-export function getShopSpeedMultiplier(purchasedUpgrades: string[]): number {
-  if (purchasedUpgrades.includes('speed-3')) return 0.55;
-  if (purchasedUpgrades.includes('speed-2')) return 0.70;
-  if (purchasedUpgrades.includes('speed-1')) return 0.85;
-  return 1;
+/** Speed multiplier from purchased shop upgrades + deployed custom robot bonus. Lower = faster. */
+export function getShopSpeedMultiplier(purchasedUpgrades: string[], craftingBonus = 0): number {
+  let base = 1;
+  if (purchasedUpgrades.includes('speed-3')) base = 0.55;
+  else if (purchasedUpgrades.includes('speed-2')) base = 0.70;
+  else if (purchasedUpgrades.includes('speed-1')) base = 0.85;
+  // Apply crafting bonus: e.g. 0.20 bonus -> multiply by 0.80
+  return Math.max(0.20, base * (1 - craftingBonus));
 }
 
-/** Battery drain multiplier from purchased upgrades. Returns e.g. 0.25 for 75% slower drain. */
-export function getBatteryDrainMultiplier(purchasedUpgrades: string[]): number {
-  if (purchasedUpgrades.includes('battery-3')) return 0.25;
-  if (purchasedUpgrades.includes('battery-2')) return 0.50;
-  if (purchasedUpgrades.includes('battery-1')) return 0.75;
-  return 1;
+/** Battery drain multiplier from purchased upgrades + deployed custom robot bonus. Lower = less drain. */
+export function getBatteryDrainMultiplier(purchasedUpgrades: string[], craftingBonus = 0): number {
+  let base = 1;
+  if (purchasedUpgrades.includes('battery-3')) base = 0.25;
+  else if (purchasedUpgrades.includes('battery-2')) base = 0.50;
+  else if (purchasedUpgrades.includes('battery-1')) base = 0.75;
+  return Math.max(0.10, base * (1 - craftingBonus));
 }
 
-/** Energy usage multiplier from purchased upgrades. */
-export function getEnergyMultiplier(purchasedUpgrades: string[]): number {
-  if (purchasedUpgrades.includes('efficiency-3')) return 0.40;
-  if (purchasedUpgrades.includes('efficiency-2')) return 0.60;
-  if (purchasedUpgrades.includes('efficiency-1')) return 0.80;
-  return 1;
+/** Energy usage multiplier from purchased upgrades + deployed custom robot bonus. */
+export function getEnergyMultiplier(purchasedUpgrades: string[], craftingBonus = 0): number {
+  let base = 1;
+  if (purchasedUpgrades.includes('efficiency-3')) base = 0.40;
+  else if (purchasedUpgrades.includes('efficiency-2')) base = 0.60;
+  else if (purchasedUpgrades.includes('efficiency-1')) base = 0.80;
+  return Math.max(0.15, base * (1 - craftingBonus));
 }
 
 /** Get custom color for a robot, or null for default. */
