@@ -6,6 +6,15 @@ import { DEFAULT_ACTIVE_WALLS } from '../utils/homeLayout';
 import { getBatteryDrainMultiplier, getEnergyMultiplier } from '../config/shop';
 import { loadFloorPlanId, saveFloorPlanId } from '../config/floorPlans';
 import { getComfortMultiplier } from '../config/devices';
+import {
+  createSessionStats,
+  recordRobotTask,
+  recordCleanlinessReading,
+  saveSession,
+  loadLeaderboard,
+  type LeaderboardData,
+  type RobotSessionStats,
+} from '../systems/Leaderboard';
 import type {
   CameraMode,
   ChatMessage,
@@ -370,6 +379,15 @@ interface SimBotStore {
   showFloorPlanSelector: boolean;
   setShowFloorPlanSelector: (show: boolean) => void;
   setFloorPlan: (id: string) => void;
+
+  // Leaderboard
+  showLeaderboard: boolean;
+  setShowLeaderboard: (show: boolean) => void;
+  sessionStats: Record<RobotId, RobotSessionStats>;
+  leaderboardData: LeaderboardData;
+  recordRobotTaskCompletion: (robotId: RobotId, taskType: TaskType, workDuration: number) => void;
+  sampleCleanliness: (avgCleanliness: number) => void;
+  flushSession: (simMinutesPlayed: number) => void;
 }
 
 const initialSimMinutes = (7 * 60) + 20;
@@ -868,6 +886,22 @@ export const useStore = create<SimBotStore>((set) => ({
       robots: createAllRobotStates(),
     });
   },
+
+  // Leaderboard
+  showLeaderboard: false,
+  setShowLeaderboard: (show) => set({ showLeaderboard: show }),
+  sessionStats: createSessionStats(),
+  leaderboardData: loadLeaderboard(),
+  recordRobotTaskCompletion: (robotId, taskType, workDuration) => set((state) => ({
+    sessionStats: recordRobotTask(state.sessionStats, robotId, taskType, workDuration),
+  })),
+  sampleCleanliness: (avgCleanliness) => set((state) => ({
+    sessionStats: recordCleanlinessReading(state.sessionStats, avgCleanliness),
+  })),
+  flushSession: (simMinutesPlayed) => set((state) => ({
+    leaderboardData: saveSession(state.sessionStats, simMinutesPlayed),
+    sessionStats: createSessionStats(),
+  })),
 }));
 
 // Each completion reduces duration by ~5%, capping at 30% faster

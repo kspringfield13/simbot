@@ -22,6 +22,8 @@ import { ShopPanel } from './components/ui/ShopPanel';
 import { DevicePanel } from './components/ui/DevicePanel';
 import { DiaryPanel } from './components/ui/DiaryPanel';
 import { FloorPlanSelector } from './components/ui/FloorPlanSelector';
+import { LeaderboardPanel } from './components/ui/LeaderboardPanel';
+import { LeaderboardTracker } from './components/systems/LeaderboardTracker';
 import { useStore } from './stores/useStore';
 import { musicEngine } from './systems/MusicEngine';
 import { useSpectatorHost, useSpectatorViewer } from './hooks/useSpectator';
@@ -332,6 +334,34 @@ function DiaryButton() {
   );
 }
 
+function TrophyButton() {
+  const setShowLeaderboard = useStore((s) => s.setShowLeaderboard);
+  const totalTasks = useStore((s) => s.totalTasksCompleted);
+
+  return (
+    <button
+      type="button"
+      onClick={() => setShowLeaderboard(true)}
+      className="pointer-events-auto relative flex h-10 w-10 items-center justify-center rounded-full border border-yellow-400/30 bg-black/50 text-lg backdrop-blur-md transition-all hover:bg-yellow-400/20"
+      title="Leaderboard"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-yellow-300">
+        <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+        <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+        <path d="M4 22h16" />
+        <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
+        <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
+        <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
+      </svg>
+      {totalTasks > 0 && (
+        <span className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-yellow-400 px-1 text-[9px] font-bold text-black">
+          {totalTasks > 99 ? '99+' : totalTasks}
+        </span>
+      )}
+    </button>
+  );
+}
+
 function HelpButton({ onClick }: { onClick: () => void }) {
   return (
     <button
@@ -378,6 +408,7 @@ function App() {
           <TaskProcessor />
           <ScheduleSystem />
           <BatterySystem />
+          <LeaderboardTracker />
         </>
       )}
 
@@ -394,6 +425,7 @@ function App() {
             style={{ marginTop: 'env(safe-area-inset-top, 0px)' }}
           >
             <CoinDisplay />
+            <TrophyButton />
             <ShopButton />
             <SmartHomeButton />
             <DiaryButton />
@@ -422,6 +454,7 @@ function App() {
       <ShopPanel />
       <DevicePanel />
       <DiaryPanel />
+      <LeaderboardPanel />
       <FloorPlanSelector />
       {!isSpectating && (
         <TutorialOverlay forceOpen={showTutorial} onClose={() => setShowTutorial(false)} />
