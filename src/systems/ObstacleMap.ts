@@ -1,12 +1,12 @@
 import { useStore } from '../stores/useStore';
-import { FURNITURE_PIECES } from '../utils/furnitureRegistry';
+import { getActiveFurniture } from '../utils/furnitureRegistry';
 
 export interface Obstacle { x: number; z: number; r: number; }
 
 /** Build obstacles from current furniture positions (reads store). */
 export function getObstacles(): Obstacle[] {
   const positions = useStore.getState().furniturePositions;
-  return FURNITURE_PIECES.map((piece) => {
+  return getActiveFurniture().map((piece) => {
     const override = positions[piece.id];
     return {
       x: override ? override[0] : piece.defaultPosition[0],

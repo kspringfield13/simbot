@@ -4,6 +4,7 @@ import { getSimPeriod } from '../systems/TimeSystem';
 import { createAllRobotStates } from '../config/robots';
 import { DEFAULT_ACTIVE_WALLS } from '../utils/homeLayout';
 import { getBatteryDrainMultiplier, getEnergyMultiplier } from '../config/shop';
+import { loadFloorPlanId, saveFloorPlanId } from '../config/floorPlans';
 import { getComfortMultiplier } from '../config/devices';
 import type {
   CameraMode,
@@ -363,6 +364,12 @@ interface SimBotStore {
   setShowDiary: (show: boolean) => void;
   addDiaryEntry: (entry: DiaryEntry) => void;
   resetDiary: (day: number) => void;
+
+  // Floor plan presets
+  floorPlanId: string;
+  showFloorPlanSelector: boolean;
+  setShowFloorPlanSelector: (show: boolean) => void;
+  setFloorPlan: (id: string) => void;
 }
 
 const initialSimMinutes = (7 * 60) + 20;
@@ -834,6 +841,33 @@ export const useStore = create<SimBotStore>((set) => ({
     },
   })),
   resetDiary: (day) => set({ diaryEntries: { sim: [], chef: [], sparkle: [] }, diaryDay: day }),
+
+  // Floor plan presets
+  floorPlanId: loadFloorPlanId(),
+  showFloorPlanSelector: false,
+  setShowFloorPlanSelector: (show) => set({ showFloorPlanSelector: show }),
+  setFloorPlan: (id) => {
+    saveFloorPlanId(id);
+    // Reset room/furniture/wall customizations when switching floor plans
+    const defaultLayout = { overrides: {}, addedRooms: [], deletedRoomIds: [] };
+    saveRoomLayout(defaultLayout);
+    saveFurniturePositions({});
+    saveCustomWalls(null);
+    set({
+      floorPlanId: id,
+      showFloorPlanSelector: false,
+      roomLayout: defaultLayout,
+      furniturePositions: {},
+      customWalls: null,
+      editMode: false,
+      editSelectedRoomId: null,
+      rearrangeMode: false,
+      selectedFurnitureId: null,
+      // Reset all robots to idle
+      tasks: [],
+      robots: createAllRobotStates(),
+    });
+  },
 }));
 
 // Each completion reduces duration by ~5%, capping at 30% faster

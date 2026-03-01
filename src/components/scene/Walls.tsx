@@ -1,12 +1,17 @@
+import { useMemo } from 'react';
 import * as THREE from 'three';
-import { walls } from '../../utils/homeLayout';
+import { getFloorPlan } from '../../config/floorPlans';
+import { useStore } from '../../stores/useStore';
 
-const S = 2; // scale factor
+const S = 2;
 
 export function Walls() {
+  const floorPlanId = useStore((s) => s.floorPlanId);
+  const plan = useMemo(() => getFloorPlan(floorPlanId), [floorPlanId]);
+
   return (
     <group>
-      {walls.map((wall, i) => {
+      {plan.walls.map((wall, i) => {
         const dx = wall.end[0] - wall.start[0];
         const dz = wall.end[1] - wall.start[1];
         const length = Math.sqrt(dx * dx + dz * dz);
@@ -32,13 +37,8 @@ export function Walls() {
         );
       })}
 
-      {/* Door frames — scaled positions */}
-      {[
-        { cx: 0.25 * S, cz: -2 * S, alongZ: false, gapWidth: 6.0 * S, h: 2.4 * S },
-        { cx: -1.25 * S, cz: 0, alongZ: false, gapWidth: 1.2 * S, h: 2.3 * S },
-        { cx: 2.25 * S, cz: 0, alongZ: false, gapWidth: 1.2 * S, h: 2.3 * S },
-        { cx: 3.5 * S, cz: -1 * S, alongZ: true, gapWidth: 1.0 * S, h: 2.3 * S },
-      ].map((frame, i) => {
+      {/* Door frames */}
+      {plan.doorFrames.map((frame, i) => {
         const jambW = 0.05 * S;
         const jambD = 0.14 * S;
         const halfGap = frame.gapWidth / 2;
@@ -80,15 +80,8 @@ export function Walls() {
         );
       })}
 
-      {/* Ceiling planes — scaled */}
-      {[
-        { pos: [-4 * S, 2.8 * S, -6 * S] as [number, number, number], size: [8 * S, 8 * S] as [number, number] },
-        { pos: [4 * S, 2.8 * S, -6 * S] as [number, number, number], size: [8 * S, 8 * S] as [number, number] },
-        { pos: [-2 * S, 2.8 * S, -1 * S] as [number, number, number], size: [12 * S, 2 * S] as [number, number] },
-        { pos: [5 * S, 2.8 * S, -1 * S] as [number, number, number], size: [3 * S, 2 * S] as [number, number] },
-        { pos: [-4 * S, 2.8 * S, 4 * S] as [number, number, number], size: [8 * S, 8 * S] as [number, number] },
-        { pos: [4 * S, 2.8 * S, 4 * S] as [number, number, number], size: [8 * S, 8 * S] as [number, number] },
-      ].map((ceil, i) => (
+      {/* Ceiling planes */}
+      {plan.ceilings.map((ceil, i) => (
         <mesh key={`ceil-${i}`} rotation={[-Math.PI / 2, 0, 0]} position={ceil.pos}>
           <planeGeometry args={ceil.size} />
           <meshStandardMaterial color="#d8d0c4" transparent opacity={0.05} roughness={1} side={THREE.DoubleSide} />

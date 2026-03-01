@@ -1,4 +1,4 @@
-import { roomTaskAnchors, rooms } from '../utils/homeLayout';
+import { getActiveRooms, getRoomTaskAnchors } from '../utils/homeLayout';
 import { findClearPosition } from './ObstacleMap';
 import type { RoomId, RoomNeedState, SimPeriod, TaskType } from '../types';
 
@@ -14,8 +14,9 @@ const baseDecayByRoom: Record<RoomId, { cleanliness: number; tidiness: number }>
 };
 
 export function createInitialRoomNeeds(): Record<RoomId, RoomNeedState> {
+  const rooms = getActiveRooms();
   return rooms.reduce((acc, room) => {
-    const decay = baseDecayByRoom[room.id];
+    const decay = baseDecayByRoom[room.id] ?? { cleanliness: 0.1, tidiness: 0.1 };
     acc[room.id] = {
       cleanliness: 78 + Math.random() * 15,
       tidiness: 76 + Math.random() * 16,
@@ -120,7 +121,7 @@ export function scoreRoomAttention(
 
   // Proximity bonus: prefer nearby rooms when scores are close
   if (robotPosition) {
-    const room = rooms.find((r) => r.id === roomId);
+    const room = getActiveRooms().find((r) => r.id === roomId);
     if (room) {
       const dx = robotPosition[0] - room.position[0];
       const dz = robotPosition[2] - room.position[2];
@@ -190,7 +191,7 @@ export function buildAutonomousTask(roomId: RoomId, period: SimPeriod): {
   position: [number, number, number];
 } {
   const preset = pickPreset(roomId, period);
-  const anchors = roomTaskAnchors[roomId];
+  const anchors = getRoomTaskAnchors()[roomId];
   const raw = anchors[Math.floor(Math.random() * anchors.length)] ?? [0, 0, -1];
   
   // Ensure target position is clear of obstacles

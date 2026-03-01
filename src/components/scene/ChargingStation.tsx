@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { useStore } from '../../stores/useStore';
 import { ROBOT_IDS } from '../../types';
 import { ROBOT_CONFIGS } from '../../config/robots';
-import { CHARGING_STATION_POSITION } from '../../utils/battery';
+import { getActiveChargingPosition } from '../../utils/battery';
 
 /**
  * 3D charging station in the hallway.
@@ -42,7 +42,7 @@ export function ChargingStation() {
     }
   });
 
-  const [px, , pz] = CHARGING_STATION_POSITION;
+  const [px, , pz] = getActiveChargingPosition();
 
   // Find which robots are charging for the label
   const chargingRobots = useStore((s) =>

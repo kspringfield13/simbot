@@ -1,48 +1,14 @@
 import type { NavigationPoint } from '../types';
+import { getFloorPlan, type WaypointDef } from '../config/floorPlans';
+import { useStore } from '../stores/useStore';
 
-const S = 2;
-
-interface Waypoint {
-  id: string;
-  pos: [number, number];
-  connections: string[];
-  pauseAtDoorway?: boolean;
+function getActiveWaypoints(): WaypointDef[] {
+  const id = useStore.getState().floorPlanId;
+  return getFloorPlan(id).waypoints;
 }
 
-const waypoints: Waypoint[] = [
-  // Living room — center of open floor
-  { id: 'living-center', pos: [-3.5 * S, -6 * S], connections: ['living-south', 'dining-area'] },
-  { id: 'living-south', pos: [-3.5 * S, -3.5 * S], connections: ['living-center', 'hall-entry'] },
-
-  // Front door (south wall center)
-  { id: 'front-door', pos: [0, -9 * S], connections: ['dining-area'] },
-
-  // Transition between living + kitchen
-  { id: 'dining-area', pos: [0, -6 * S], connections: ['living-center', 'kitchen-center', 'front-door'] },
-
-  // Kitchen — wide open center, far from back wall appliances
-  { id: 'kitchen-center', pos: [3.5 * S, -6 * S], connections: ['dining-area', 'kitchen-south'] },
-  { id: 'kitchen-south', pos: [3.5 * S, -3.5 * S], connections: ['kitchen-center', 'hall-east'] },
-
-  // Hallway
-  { id: 'hall-entry', pos: [-2 * S, -1 * S], connections: ['living-south', 'hall-center'], pauseAtDoorway: true },
-  { id: 'hall-center', pos: [0, -1 * S], connections: ['hall-entry', 'hall-east', 'bedroom-door', 'bathroom-door'] },
-  { id: 'hall-east', pos: [2 * S, -1 * S], connections: ['hall-center', 'kitchen-south', 'laundry-door'] },
-
-  // Laundry
-  { id: 'laundry-door', pos: [3.5 * S, -1 * S], connections: ['hall-east', 'laundry-center'], pauseAtDoorway: true },
-  { id: 'laundry-center', pos: [5 * S, -1 * S], connections: ['laundry-door'] },
-
-  // Bedroom — open center
-  { id: 'bedroom-door', pos: [-1.2 * S, 0.5 * S], connections: ['hall-center', 'bedroom-center'], pauseAtDoorway: true },
-  { id: 'bedroom-center', pos: [-4 * S, 4 * S], connections: ['bedroom-door'] },
-
-  // Bathroom — open center
-  { id: 'bathroom-door', pos: [2 * S, 0.5 * S], connections: ['hall-center', 'bathroom-center'], pauseAtDoorway: true },
-  { id: 'bathroom-center', pos: [4 * S, 4 * S], connections: ['bathroom-door'] },
-];
-
-function findNearestWaypoint(x: number, z: number): Waypoint {
+function findNearestWaypoint(x: number, z: number): WaypointDef {
+  const waypoints = getActiveWaypoints();
   let nearest = waypoints[0];
   let minDist = Number.POSITIVE_INFINITY;
   for (const wp of waypoints) {
@@ -53,6 +19,7 @@ function findNearestWaypoint(x: number, z: number): Waypoint {
 }
 
 function bfsPath(startId: string, endId: string): string[] {
+  const waypoints = getActiveWaypoints();
   if (startId === endId) return [startId];
   const visited = new Set<string>([startId]);
   const queue: string[][] = [[startId]];
@@ -74,13 +41,14 @@ function bfsPath(startId: string, endId: string): string[] {
 }
 
 export function getNavigationPath(from: [number, number, number], to: [number, number, number]): NavigationPoint[] {
+  const waypoints = getActiveWaypoints();
   const start = findNearestWaypoint(from[0], from[2]);
   const end = findNearestWaypoint(to[0], to[2]);
   const route = bfsPath(start.id, end.id);
   const path: NavigationPoint[] = route
     .map((id) => waypoints.find((e) => e.id === id))
-    .filter((e): e is Waypoint => Boolean(e))
-    .map((e) => ({ id: e.id, position: [e.pos[0], 0, e.pos[1]], pauseAtDoorway: e.pauseAtDoorway }));
+    .filter((e): e is WaypointDef => Boolean(e))
+    .map((e) => ({ id: e.id, position: [e.pos[0], 0, e.pos[1]] as [number, number, number], pauseAtDoorway: e.pauseAtDoorway }));
   path.push({ id: 'destination', position: to });
   return path;
 }

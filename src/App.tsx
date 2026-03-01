@@ -21,6 +21,7 @@ import { SpectatorBadge } from './components/ui/SpectatorBadge';
 import { ShopPanel } from './components/ui/ShopPanel';
 import { DevicePanel } from './components/ui/DevicePanel';
 import { DiaryPanel } from './components/ui/DiaryPanel';
+import { FloorPlanSelector } from './components/ui/FloorPlanSelector';
 import { useStore } from './stores/useStore';
 import { musicEngine } from './systems/MusicEngine';
 import { useSpectatorHost, useSpectatorViewer } from './hooks/useSpectator';
@@ -190,6 +191,24 @@ function EditRoomsButton() {
         <rect x="14" y="3" width="7" height="7" />
         <rect x="3" y="14" width="7" height="7" />
         <rect x="14" y="14" width="7" height="7" />
+      </svg>
+    </button>
+  );
+}
+
+function FloorPlanButton() {
+  const setShow = useStore((s) => s.setShowFloorPlanSelector);
+
+  return (
+    <button
+      type="button"
+      onClick={() => setShow(true)}
+      className="pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-black/50 text-lg backdrop-blur-md transition-all hover:bg-black/70"
+      title="Choose floor plan"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-white">
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+        <polyline points="9 22 9 12 15 12 15 22" />
       </svg>
     </button>
   );
@@ -380,6 +399,7 @@ function App() {
             <DiaryButton />
             <ShareButton />
             <MusicToggle />
+            <FloorPlanButton />
             <RoomEditorButtons />
             <EditRoomsButton />
             <ResetFurnitureButton />
@@ -402,6 +422,7 @@ function App() {
       <ShopPanel />
       <DevicePanel />
       <DiaryPanel />
+      <FloorPlanSelector />
       {!isSpectating && (
         <TutorialOverlay forceOpen={showTutorial} onClose={() => setShowTutorial(false)} />
       )}

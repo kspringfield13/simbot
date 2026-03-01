@@ -4,10 +4,10 @@ import { getNavigationPath } from '../../utils/pathfinding';
 import { ROBOT_IDS } from '../../types';
 import type { RobotId } from '../../types';
 import {
-  CHARGING_STATION_POSITION,
   CHARGING_RANGE,
   LOW_BATTERY_THRESHOLD,
   FULL_CHARGE_THRESHOLD,
+  getActiveChargingPosition,
 } from '../../utils/battery';
 
 /**
@@ -31,7 +31,7 @@ export function BatterySystem() {
       for (const robotId of ROBOT_IDS) {
         const robot = s.robots[robotId];
         const [rx, , rz] = robot.position;
-        const [cx, , cz] = CHARGING_STATION_POSITION;
+        const [cx, , cz] = getActiveChargingPosition();
         const dist = Math.hypot(rx - cx, rz - cz);
         const nearStation = dist < CHARGING_RANGE;
 
@@ -74,14 +74,15 @@ export function BatterySystem() {
           s.clearActiveTaskState(robotId);
           s.clearQueuedAiTasks(robotId);
 
-          const path = getNavigationPath(robot.position, CHARGING_STATION_POSITION);
+          const chargingPos = getActiveChargingPosition();
+          const path = getNavigationPath(robot.position, chargingPos);
           if (path.length > 0) {
             s.addTask({
               id: crypto.randomUUID(),
               command: 'Heading to charging station',
               source: 'ai',
               targetRoom: 'hallway',
-              targetPosition: CHARGING_STATION_POSITION,
+              targetPosition: chargingPos,
               status: 'queued',
               progress: 0,
               description: 'Navigating to charging station.',

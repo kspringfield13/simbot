@@ -1,66 +1,45 @@
 import type { Room, RoomId, TaskTarget, TaskType, Wall } from '../types';
+import { getFloorPlan } from '../config/floorPlans';
+import { useStore } from '../stores/useStore';
 
-// Scale factor: 2x from original layout. Robot at 0.22 scale = ~0.83 units.
-// Rooms are now 16x16 units, walls 5.6 tall. Robot is roughly 1/7 wall height = realistic.
+// Scale factor: 2x from original layout.
 const S = 2;
 
-export const rooms: Room[] = [
-  {
-    id: 'living-room',
-    name: 'Living Room',
-    position: [-4 * S, 0, -6 * S],
-    size: [8 * S, 8 * S],
-    color: '#4a4644',
-    furniture: [],
-  },
-  {
-    id: 'kitchen',
-    name: 'Kitchen',
-    position: [4 * S, 0, -6 * S],
-    size: [8 * S, 8 * S],
-    color: '#484848',
-    furniture: [],
-  },
-  {
-    id: 'hallway',
-    name: 'Hallway',
-    position: [-2 * S, 0, -1 * S],
-    size: [12 * S, 2 * S],
-    color: '#454443',
-    furniture: [],
-  },
-  {
-    id: 'laundry',
-    name: 'Laundry Closet',
-    position: [5 * S, 0, -1 * S],
-    size: [3 * S, 2 * S],
-    color: '#484646',
-    furniture: [],
-  },
-  {
-    id: 'bedroom',
-    name: 'Master Bedroom',
-    position: [-4 * S, 0, 4 * S],
-    size: [8 * S, 8 * S],
-    color: '#444446',
-    furniture: [],
-  },
-  {
-    id: 'bathroom',
-    name: 'Master Bathroom',
-    position: [4 * S, 0, 4 * S],
-    size: [8 * S, 8 * S],
-    color: '#464848',
-    furniture: [],
-  },
-];
+// ── Dynamic getters that read the active floor plan ─────────────
+
+export function getActiveRooms(): Room[] {
+  const id = useStore.getState().floorPlanId;
+  return getFloorPlan(id).rooms;
+}
+
+export function getActiveWalls(): Wall[] {
+  const id = useStore.getState().floorPlanId;
+  return getFloorPlan(id).walls;
+}
+
+export function getActiveWindowSpots(): [number, number, number][] {
+  const id = useStore.getState().floorPlanId;
+  return getFloorPlan(id).windowSpots;
+}
+
+// ── Static default exports (for backward compat) ────────────────
+// These resolve to the *house* preset at import time and are used
+// only in contexts where the store may not yet exist (e.g. wall editor grid).
+
+export const rooms = getFloorPlan('house').rooms;
+export const walls = getFloorPlan('house').walls;
+export const windowSpots = getFloorPlan('house').windowSpots;
+
+// ── Effective rooms (merges editor overrides) ───────────────────
 
 export function getEffectiveRooms(
   overrides: Record<string, { name?: string; color?: string; position?: [number, number, number]; size?: [number, number] }>,
   addedRooms: Room[],
   deletedRoomIds: string[],
+  floorPlanId?: string,
 ): Room[] {
-  const base = rooms.filter((r) => !deletedRoomIds.includes(r.id));
+  const baseRooms = floorPlanId ? getFloorPlan(floorPlanId).rooms : getActiveRooms();
+  const base = baseRooms.filter((r) => !deletedRoomIds.includes(r.id));
   const all = [...base, ...addedRooms];
   return all.map((r) => {
     const o = overrides[r.id];
@@ -75,69 +54,28 @@ export function getEffectiveRooms(
   });
 }
 
-export const walls: Wall[] = [
-  // Outer walls
-  { start: [-8 * S, -10 * S], end: [8 * S, -10 * S], height: 2.8 * S, thickness: 0.15 * S },
-  { start: [-8 * S, -10 * S], end: [-8 * S, 8 * S], height: 2.8 * S, thickness: 0.15 * S },
-  { start: [8 * S, -10 * S], end: [8 * S, 8 * S], height: 2.8 * S, thickness: 0.15 * S },
-  { start: [-8 * S, 8 * S], end: [8 * S, 8 * S], height: 2.8 * S, thickness: 0.15 * S },
+// ── Room task anchors (computed from room centers) ───────────────
 
-  // Great room → hallway (z = -2*S), wide opening
-  { start: [-8 * S, -2 * S], end: [-3 * S, -2 * S], height: 2.8 * S, thickness: 0.12 * S },
-  { start: [3.5 * S, -2 * S], end: [8 * S, -2 * S], height: 2.8 * S, thickness: 0.12 * S },
+export function getRoomTaskAnchors(): Record<RoomId, [number, number, number][]> {
+  const activeRooms = getActiveRooms();
+  const anchors: Record<RoomId, [number, number, number][]> = {};
+  for (const room of activeRooms) {
+    const [cx, , cz] = room.position;
+    const hw = room.size[0] / 4;
+    const hd = room.size[1] / 4;
+    anchors[room.id] = [
+      [cx, 0, cz],
+      [cx - hw, 0, cz - hd],
+      [cx + hw, 0, cz + hd],
+    ];
+  }
+  return anchors;
+}
 
-  // Laundry closet walls
-  { start: [3.5 * S, -2 * S], end: [3.5 * S, 0], height: 2.8 * S, thickness: 0.12 * S },
-  { start: [6.5 * S, -2 * S], end: [6.5 * S, 0], height: 2.8 * S, thickness: 0.12 * S },
+export const roomTaskAnchors = getRoomTaskAnchors();
 
-  // Hallway → bedrooms (z = 0)
-  { start: [-8 * S, 0], end: [-2 * S, 0], height: 2.8 * S, thickness: 0.12 * S },
-  { start: [-0.5 * S, 0], end: [0, 0], height: 2.8 * S, thickness: 0.12 * S },
-  { start: [0, 0], end: [1.5 * S, 0], height: 2.8 * S, thickness: 0.12 * S },
-  { start: [3 * S, 0], end: [8 * S, 0], height: 2.8 * S, thickness: 0.12 * S },
+// ── Wall editor grid (stays the same, generic) ──────────────────
 
-  // Center divider
-  { start: [0, 0], end: [0, 8 * S], height: 2.8 * S, thickness: 0.12 * S },
-];
-
-export const roomTaskAnchors: Record<RoomId, [number, number, number][]> = {
-  'living-room': [
-    [-8, 0, -12],    // center of room
-    [-8, 0, -8],     // near front
-    [-6, 0, -14],    // near tv
-  ],
-  kitchen: [
-    [6, 0, -14],     // center open area
-    [8, 0, -12],     // mid room
-    [4, 0, -10],     // near entry
-  ],
-  hallway: [
-    [-4, 0, -2],     // hallway center
-    [0, 0, -2],      // hallway mid
-  ],
-  laundry: [
-    [10, 0, -1.5],   // center of laundry
-  ],
-  bedroom: [
-    [-8, 0, 8],      // center of room
-    [-8, 0, 10],     // near bed
-    [-6, 0, 4],      // near desk area
-  ],
-  bathroom: [
-    [8, 0, 8],       // center of room
-    [5, 0, 4],       // near sink
-    [8, 0, 12],      // mid room
-  ],
-};
-
-export const windowSpots: [number, number, number][] = [
-  [-7.4 * S, 0, -8.5 * S],
-  [7.4 * S, 0, -8.5 * S],
-  [-7.4 * S, 0, 6.8 * S],
-  [7.4 * S, 0, 6.8 * S],
-];
-
-// ── Wall editor grid ──────────────────────────────────────────
 export const WALL_GRID_X = [-16, -8, 0, 8, 16];
 export const WALL_GRID_Z = [-20, -12, -4, 0, 8, 16];
 
@@ -180,13 +118,17 @@ export const DEFAULT_ACTIVE_WALLS: string[] = [
   'v:0:0', 'v:0:8',
 ];
 
+// ── Helpers ─────────────────────────────────────────────────────
+
 export function getRoomCenter(roomId: RoomId): [number, number, number] {
-  const room = rooms.find((entry) => entry.id === roomId);
+  const activeRooms = getActiveRooms();
+  const room = activeRooms.find((entry) => entry.id === roomId);
   return room ? [room.position[0], 0, room.position[2]] : [0, 0, -1 * S];
 }
 
 export function getRoomFromPoint(x: number, z: number): RoomId | null {
-  const found = rooms.find((room) => {
+  const activeRooms = getActiveRooms();
+  const found = activeRooms.find((room) => {
     const halfW = room.size[0] / 2;
     const halfD = room.size[1] / 2;
     return x >= room.position[0] - halfW
@@ -196,6 +138,8 @@ export function getRoomFromPoint(x: number, z: number): RoomId | null {
   });
   return found?.id ?? null;
 }
+
+// ── Task target lookup ──────────────────────────────────────────
 
 function toTarget(
   roomId: RoomId,
@@ -209,37 +153,45 @@ function toTarget(
   return { roomId, position, description, taskType, workDuration, response, thought };
 }
 
+/** Get a task position inside the given room, offset from center. */
+function roomPos(roomId: RoomId, dx = 0, dz = 0): [number, number, number] {
+  const [cx, , cz] = getRoomCenter(roomId);
+  return [cx + dx, 0, cz + dz];
+}
+
 export function findTaskTarget(command: string): TaskTarget | null {
   const cmd = command.toLowerCase();
+  const activeRooms = getActiveRooms();
+  const hasRoom = (id: string) => activeRooms.some((r) => r.id === id);
 
   if (cmd.includes('dish') || (cmd.includes('wash') && cmd.includes('kitchen')))
-    return toTarget('kitchen', [6 * S, 0, -9 * S], 'Washing dishes.', 'dishes', 24, 'Routing to sink.', 'Kitchen sink calling.');
+    return hasRoom('kitchen') ? toTarget('kitchen', roomPos('kitchen', 2, 2), 'Washing dishes.', 'dishes', 24, 'Routing to sink.', 'Kitchen sink calling.') : null;
   if (cmd.includes('cook') || cmd.includes('meal') || cmd.includes('dinner') || cmd.includes('breakfast'))
-    return toTarget('kitchen', [4 * S, 0, -9 * S], 'Preparing a meal.', 'cooking', 36, 'Starting to cook.', 'Time to prep something.');
+    return hasRoom('kitchen') ? toTarget('kitchen', roomPos('kitchen', -1, 2), 'Preparing a meal.', 'cooking', 36, 'Starting to cook.', 'Time to prep something.') : null;
   if (cmd.includes('grocer') || cmd.includes('fridge'))
-    return toTarget('kitchen', [1.5 * S, 0, -9 * S], 'Checking pantry.', 'grocery-list', 20, 'Checking supplies.', 'Auditing pantry.');
+    return hasRoom('kitchen') ? toTarget('kitchen', roomPos('kitchen', -3, 2), 'Checking pantry.', 'grocery-list', 20, 'Checking supplies.', 'Auditing pantry.') : null;
   if (cmd.includes('vacuum')) {
-    if (cmd.includes('bedroom')) return toTarget('bedroom', [-4 * S, 0, 4 * S], 'Vacuuming bedroom.', 'vacuuming', 30, 'Vacuuming bedroom.', 'Bedroom needs a pass.');
-    if (cmd.includes('kitchen')) return toTarget('kitchen', [4 * S, 0, -6 * S], 'Vacuuming kitchen.', 'vacuuming', 30, 'Vacuuming kitchen.', 'Kitchen crumbs.');
-    return toTarget('living-room', [-4 * S, 0, -6 * S], 'Vacuuming living room.', 'vacuuming', 30, 'Vacuuming living room.', 'Living room rug.');
+    if (cmd.includes('bedroom') && hasRoom('bedroom')) return toTarget('bedroom', roomPos('bedroom'), 'Vacuuming bedroom.', 'vacuuming', 30, 'Vacuuming bedroom.', 'Bedroom needs a pass.');
+    if (cmd.includes('kitchen') && hasRoom('kitchen')) return toTarget('kitchen', roomPos('kitchen'), 'Vacuuming kitchen.', 'vacuuming', 30, 'Vacuuming kitchen.', 'Kitchen crumbs.');
+    return hasRoom('living-room') ? toTarget('living-room', roomPos('living-room'), 'Vacuuming living room.', 'vacuuming', 30, 'Vacuuming living room.', 'Living room rug.') : null;
   }
   if (cmd.includes('sweep') || cmd.includes('mop'))
-    return toTarget('kitchen', [4 * S, 0, -5 * S], 'Sweeping kitchen.', 'sweeping', 22, 'Sweeping now.', 'Kitchen getting gritty.');
+    return hasRoom('kitchen') ? toTarget('kitchen', roomPos('kitchen', 0, 1), 'Sweeping kitchen.', 'sweeping', 22, 'Sweeping now.', 'Kitchen getting gritty.') : null;
   if (cmd.includes('bed') && (cmd.includes('make') || cmd.includes('tidy')))
-    return toTarget('bedroom', [-5 * S, 0, 5.5 * S], 'Making the bed.', 'bed-making', 18, 'Making the bed.', 'Bed needs straightening.');
+    return hasRoom('bedroom') ? toTarget('bedroom', roomPos('bedroom', -1, 1.5), 'Making the bed.', 'bed-making', 18, 'Making the bed.', 'Bed needs straightening.') : null;
   if (cmd.includes('laundry') || cmd.includes('fold'))
-    return toTarget('laundry', [5 * S, 0, -1 * S], 'Sorting laundry.', 'laundry', 28, 'Heading to laundry.', 'Laundry stack waiting.');
+    return hasRoom('laundry') ? toTarget('laundry', roomPos('laundry'), 'Sorting laundry.', 'laundry', 28, 'Heading to laundry.', 'Laundry stack waiting.') : null;
   if (cmd.includes('organize') || cmd.includes('desk'))
-    return toTarget('bedroom', [-1.5 * S, 0, 1.5 * S], 'Organizing desk.', 'organizing', 24, 'Organizing.', 'Desk needs cleanup.');
+    return hasRoom('bedroom') ? toTarget('bedroom', roomPos('bedroom', 2, -2), 'Organizing desk.', 'organizing', 24, 'Organizing.', 'Desk needs cleanup.') : null;
   if (cmd.includes('bath') || cmd.includes('shower') || cmd.includes('scrub') || cmd.includes('toilet'))
-    return toTarget('bathroom', [4 * S, 0, 4 * S], 'Cleaning bathroom.', 'scrubbing', 30, 'Scrubbing bathroom.', 'Bathroom needs scrub.');
+    return hasRoom('bathroom') ? toTarget('bathroom', roomPos('bathroom'), 'Cleaning bathroom.', 'scrubbing', 30, 'Scrubbing bathroom.', 'Bathroom needs scrub.') : null;
   if (cmd.includes('kitchen') && (cmd.includes('clean') || cmd.includes('wipe')))
-    return toTarget('kitchen', [4 * S, 0, -6 * S], 'Cleaning kitchen.', 'cleaning', 24, 'Cleaning kitchen.', 'Kitchen counters.');
+    return hasRoom('kitchen') ? toTarget('kitchen', roomPos('kitchen'), 'Cleaning kitchen.', 'cleaning', 24, 'Cleaning kitchen.', 'Kitchen counters.') : null;
   if (cmd.includes('living') || cmd.includes('couch') || cmd.includes('tv'))
-    return toTarget('living-room', [-4 * S, 0, -6 * S], 'Tidying living room.', 'cleaning', 24, 'Cleaning living room.', 'Living room reset.');
+    return hasRoom('living-room') ? toTarget('living-room', roomPos('living-room'), 'Tidying living room.', 'cleaning', 24, 'Cleaning living room.', 'Living room reset.') : null;
   if (cmd.includes('bedroom'))
-    return toTarget('bedroom', [-4 * S, 0, 4 * S], 'Tidying bedroom.', 'cleaning', 24, 'Tidying bedroom.', 'Bedroom reset.');
+    return hasRoom('bedroom') ? toTarget('bedroom', roomPos('bedroom'), 'Tidying bedroom.', 'cleaning', 24, 'Tidying bedroom.', 'Bedroom reset.') : null;
   if (cmd.includes('clean') || cmd.includes('tidy'))
-    return toTarget('living-room', [-4 * S, 0, -6 * S], 'General cleanup.', 'cleaning', 20, 'Starting cleanup.', 'Quick sweep.');
+    return hasRoom('living-room') ? toTarget('living-room', roomPos('living-room'), 'General cleanup.', 'cleaning', 20, 'Starting cleanup.', 'Quick sweep.') : null;
   return null;
 }

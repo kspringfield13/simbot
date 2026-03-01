@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { getEffectiveRooms } from '../../utils/homeLayout';
+import { getFloorPlan } from '../../config/floorPlans';
 import { useStore } from '../../stores/useStore';
 import { AIBrain } from '../../systems/AIBrain';
 import { ROBOT_IDS } from '../../types';
@@ -20,9 +21,13 @@ import { SmartDevices } from './SmartDevices';
 export function HomeScene() {
   const roomLayout = useStore((s) => s.roomLayout);
   const editMode = useStore((s) => s.editMode);
+  const floorPlanId = useStore((s) => s.floorPlanId);
+
+  const plan = useMemo(() => getFloorPlan(floorPlanId), [floorPlanId]);
+
   const effectiveRooms = useMemo(
-    () => getEffectiveRooms(roomLayout.overrides, roomLayout.addedRooms, roomLayout.deletedRoomIds),
-    [roomLayout],
+    () => getEffectiveRooms(roomLayout.overrides, roomLayout.addedRooms, roomLayout.deletedRoomIds, floorPlanId),
+    [roomLayout, floorPlanId],
   );
 
   return (
@@ -42,13 +47,17 @@ export function HomeScene() {
       />
       <directionalLight position={[-8, 15, -5]} intensity={0.3} />
 
-      {/* Room ceiling lights — warm per-room ambiance */}
-      <pointLight position={[-8, 4.5, -12]} intensity={0.5} color="#ffe8c0" distance={18} decay={2} />
-      <pointLight position={[8, 4.5, -12]} intensity={0.6} color="#fff5e0" distance={18} decay={2} />
-      <pointLight position={[-8, 4.5, 8]} intensity={0.4} color="#e8e0ff" distance={18} decay={2} />
-      <pointLight position={[8, 4.5, 8]} intensity={0.5} color="#f0f5ff" distance={18} decay={2} />
-      <pointLight position={[0, 4.5, -2]} intensity={0.3} color="#ffe0b0" distance={12} decay={2} />
-      <pointLight position={[10, 4.5, -2]} intensity={0.3} color="#fff5e0" distance={8} decay={2} />
+      {/* Room ceiling lights — warm per-room ambiance (dynamic per floor plan) */}
+      {plan.lights.map((light, i) => (
+        <pointLight
+          key={`light-${i}`}
+          position={light.position}
+          intensity={light.intensity}
+          color={light.color}
+          distance={light.distance}
+          decay={2}
+        />
+      ))}
 
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}

@@ -1,10 +1,10 @@
 import { useFrame } from '@react-three/fiber';
 import { useRef } from 'react';
 import { buildAutonomousTask, scoreRoomAttention } from './RoomState';
-import { rooms, windowSpots, getRoomFromPoint, roomTaskAnchors } from '../utils/homeLayout';
+import { getActiveRooms, getActiveWindowSpots, getRoomFromPoint, getRoomTaskAnchors } from '../utils/homeLayout';
 import { findClearPosition } from './ObstacleMap';
 import { useStore, getTaskSpeedMultiplier } from '../stores/useStore';
-import type { RobotId, RobotMood, RoomId } from '../types';
+import type { RobotId, RobotMood, Room, RoomId } from '../types';
 import { ROBOT_IDS } from '../types';
 import { ROBOT_CONFIGS } from '../config/robots';
 import { getComfortMultiplier } from '../config/devices';
@@ -496,6 +496,9 @@ export function AIBrain({ robotId }: { robotId: RobotId }) {
     }
 
     // ── DECIDE ──
+    const rooms = getActiveRooms();
+    const windowSpots = getActiveWindowSpots();
+    const roomTaskAnchors = getRoomTaskAnchors();
     const behavior = decideBehavior(s, robot, needs, now);
 
     switch (behavior.type) {
@@ -725,6 +728,7 @@ export function AIBrain({ robotId }: { robotId: RobotId }) {
     needs: { energy: number; happiness: number; social: number; boredom: number },
     now: number,
   ): Behavior {
+    const rooms: Room[] = getActiveRooms();
     // Don't take on work if battery is low — BatterySystem handles navigation to charger
     if (robot.battery < 20) return { type: 'rest' };
 

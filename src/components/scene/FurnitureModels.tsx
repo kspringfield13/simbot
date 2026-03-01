@@ -2,7 +2,7 @@ import { Suspense, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { GLBModel } from './GLBModel';
-import { FURNITURE_PIECES } from '../../utils/furnitureRegistry';
+import { getActiveFurniture } from '../../utils/furnitureRegistry';
 import type { FurniturePiece } from '../../utils/furnitureRegistry';
 import { useStore } from '../../stores/useStore';
 import { getRoomFromPoint } from '../../utils/homeLayout';
@@ -126,10 +126,13 @@ function FloorClickHandler() {
 
 // ── Main export: renders all furniture + floor click handler ───
 export function AllFurniture() {
+  const floorPlanId = useStore((s) => s.floorPlanId);
+  const furniture = getActiveFurniture();
+
   return (
     <Suspense fallback={null}>
-      {FURNITURE_PIECES.map((piece) => (
-        <FurnitureGroup key={piece.id} piece={piece} />
+      {furniture.map((piece) => (
+        <FurnitureGroup key={`${floorPlanId}-${piece.id}`} piece={piece} />
       ))}
       <FloorClickHandler />
     </Suspense>
