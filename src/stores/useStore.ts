@@ -6,6 +6,8 @@ import { DEFAULT_ACTIVE_WALLS } from '../utils/homeLayout';
 import { getBatteryDrainMultiplier, getEnergyMultiplier } from '../config/shop';
 import type { CustomRobot } from '../config/crafting';
 import { getDeployedRobotBonuses } from '../config/crafting';
+import type { MaterialInventory, CraftedFurnitureItem, ActiveCraft } from '../config/furnitureCrafting';
+import { loadFurnitureCraftingData, saveFurnitureCraftingData, getRecipeById, canAffordRecipe } from '../config/furnitureCrafting';
 import { getSkillQualityBonus } from '../config/skills';
 import { loadFloorPlanId, saveFloorPlanId } from '../config/floorPlans';
 import type { ChallengeDefinition, BestTime } from '../config/challenges';
@@ -383,6 +385,7 @@ function savePetData(data: PetsStorageData) {
 
 const initialShopData = loadShopData();
 const initialCraftingData = loadCraftingData();
+const initialFurnitureCraftingData = loadFurnitureCraftingData();
 
 const initialRoomLayout = loadRoomLayout();
 
@@ -745,6 +748,20 @@ interface SimBotStore {
   completeChallenge: () => void;
   cancelChallenge: () => void;
   dismissChallengeResult: () => void;
+
+  // Furniture crafting
+  furnitureMaterials: MaterialInventory;
+  craftedFurniture: CraftedFurnitureItem[];
+  activeFurnitureCraft: ActiveCraft | null;
+  showFurnitureCrafting: boolean;
+  setShowFurnitureCrafting: (show: boolean) => void;
+  addMaterials: (drops: Partial<MaterialInventory>) => void;
+  startFurnitureCraft: (recipeId: string) => boolean;
+  completeFurnitureCraft: () => void;
+  cancelFurnitureCraft: () => void;
+  placeCraftedFurniture: (itemId: string, roomId: string, position: [number, number]) => void;
+  unplaceCraftedFurniture: (itemId: string) => void;
+  deleteCraftedFurniture: (itemId: string) => void;
 }
 
 const initialSimMinutes = (7 * 60) + 20;
@@ -1700,6 +1717,101 @@ export const useStore = create<SimBotStore>((set) => ({
   }),
   cancelChallenge: () => set({ activeChallenge: null }),
   dismissChallengeResult: () => set({ challengeResult: null }),
+
+  // ── Furniture crafting ──────────────────────────────────
+  furnitureMaterials: initialFurnitureCraftingData.materials,
+  craftedFurniture: initialFurnitureCraftingData.craftedItems,
+  activeFurnitureCraft: initialFurnitureCraftingData.activeCraft,
+  showFurnitureCrafting: false,
+  setShowFurnitureCrafting: (show) => set({ showFurnitureCrafting: show }),
+
+  addMaterials: (drops) => set((state) => {
+    const next = { ...state.furnitureMaterials };
+    for (const [mat, qty] of Object.entries(drops) as [keyof MaterialInventory, number][]) {
+      next[mat] = (next[mat] ?? 0) + qty;
+    }
+    saveFurnitureCraftingData({ materials: next, craftedItems: state.craftedFurniture, activeCraft: state.activeFurnitureCraft });
+    return { furnitureMaterials: next };
+  }),
+
+  startFurnitureCraft: (recipeId) => {
+    const state = useStore.getState();
+    const recipe = getRecipeById(recipeId);
+    if (!recipe || state.activeFurnitureCraft) return false;
+    if (!canAffordRecipe(state.furnitureMaterials, recipe)) return false;
+
+    // Deduct materials
+    const nextMats = { ...state.furnitureMaterials };
+    for (const [mat, qty] of Object.entries(recipe.materials) as [keyof MaterialInventory, number][]) {
+      nextMats[mat] = Math.max(0, (nextMats[mat] ?? 0) - qty);
+    }
+
+    const craft: ActiveCraft = {
+      recipeId,
+      startedAt: state.simMinutes,
+      craftDuration: recipe.craftTimeSeconds / 60, // convert seconds to sim-minutes
+    };
+
+    saveFurnitureCraftingData({ materials: nextMats, craftedItems: state.craftedFurniture, activeCraft: craft });
+    set({ furnitureMaterials: nextMats, activeFurnitureCraft: craft });
+    return true;
+  },
+
+  completeFurnitureCraft: () => set((state) => {
+    if (!state.activeFurnitureCraft) return {};
+    const recipe = getRecipeById(state.activeFurnitureCraft.recipeId);
+    if (!recipe) return { activeFurnitureCraft: null };
+
+    const newItem: CraftedFurnitureItem = {
+      id: `cfurn-${Date.now()}`,
+      recipeId: recipe.id,
+      craftedAt: Date.now(),
+      placed: false,
+      roomId: null,
+      position: null,
+    };
+    const nextItems = [...state.craftedFurniture, newItem];
+    saveFurnitureCraftingData({ materials: state.furnitureMaterials, craftedItems: nextItems, activeCraft: null });
+    return { craftedFurniture: nextItems, activeFurnitureCraft: null };
+  }),
+
+  cancelFurnitureCraft: () => set((state) => {
+    if (!state.activeFurnitureCraft) return {};
+    // Refund materials
+    const recipe = getRecipeById(state.activeFurnitureCraft.recipeId);
+    if (!recipe) {
+      saveFurnitureCraftingData({ materials: state.furnitureMaterials, craftedItems: state.craftedFurniture, activeCraft: null });
+      return { activeFurnitureCraft: null };
+    }
+    const nextMats = { ...state.furnitureMaterials };
+    for (const [mat, qty] of Object.entries(recipe.materials) as [keyof MaterialInventory, number][]) {
+      nextMats[mat] = (nextMats[mat] ?? 0) + qty;
+    }
+    saveFurnitureCraftingData({ materials: nextMats, craftedItems: state.craftedFurniture, activeCraft: null });
+    return { furnitureMaterials: nextMats, activeFurnitureCraft: null };
+  }),
+
+  placeCraftedFurniture: (itemId, roomId, position) => set((state) => {
+    const nextItems = state.craftedFurniture.map((item) =>
+      item.id === itemId ? { ...item, placed: true, roomId, position } : item,
+    );
+    saveFurnitureCraftingData({ materials: state.furnitureMaterials, craftedItems: nextItems, activeCraft: state.activeFurnitureCraft });
+    return { craftedFurniture: nextItems };
+  }),
+
+  unplaceCraftedFurniture: (itemId) => set((state) => {
+    const nextItems = state.craftedFurniture.map((item) =>
+      item.id === itemId ? { ...item, placed: false, roomId: null, position: null } : item,
+    );
+    saveFurnitureCraftingData({ materials: state.furnitureMaterials, craftedItems: nextItems, activeCraft: state.activeFurnitureCraft });
+    return { craftedFurniture: nextItems };
+  }),
+
+  deleteCraftedFurniture: (itemId) => set((state) => {
+    const nextItems = state.craftedFurniture.filter((item) => item.id !== itemId);
+    saveFurnitureCraftingData({ materials: state.furnitureMaterials, craftedItems: nextItems, activeCraft: state.activeFurnitureCraft });
+    return { craftedFurniture: nextItems };
+  }),
 }));
 
 // Each completion reduces duration by ~5%, capping at 30% faster

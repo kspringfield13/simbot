@@ -49,6 +49,8 @@ import { ThemeSelectorPanel } from './components/ui/ThemeSelectorPanel';
 import { PetPanel } from './components/ui/PetPanel';
 import { ChallengePanel, ChallengeTimer, ChallengeResultsModal } from './components/ui/ChallengePanel';
 import { ChallengeSystem } from './components/systems/ChallengeSystem';
+import { FurnitureCraftingSystem } from './components/systems/FurnitureCraftingSystem';
+import { FurnitureCraftingPanel } from './components/ui/FurnitureCraftingPanel';
 import { useStore } from './stores/useStore';
 import { useAccessibility } from './stores/useAccessibility';
 import { musicEngine } from './systems/MusicEngine';
@@ -500,6 +502,36 @@ function CraftingButton() {
   );
 }
 
+function FurnitureCraftingButton() {
+  const setShow = useStore((s) => s.setShowFurnitureCrafting);
+  const activeCraft = useStore((s) => s.activeFurnitureCraft);
+  const itemCount = useStore((s) => s.craftedFurniture.filter((i) => !i.placed).length);
+
+  return (
+    <button
+      type="button"
+      onClick={() => setShow(true)}
+      className={`pointer-events-auto relative flex h-10 w-10 items-center justify-center rounded-full border text-lg backdrop-blur-md transition-all ${
+        activeCraft
+          ? 'border-amber-400/50 bg-amber-500/30 animate-pulse hover:bg-amber-500/50'
+          : 'border-amber-400/30 bg-black/50 hover:bg-amber-400/20'
+      }`}
+      title="Furniture Workshop"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={`h-5 w-5 ${activeCraft ? 'text-amber-300' : 'text-amber-400'}`}>
+        <path d="M15 12l-8.5 8.5c-.83.83-2.17.83-3 0 0 0 0 0 0 0a2.12 2.12 0 0 1 0-3L12 9" />
+        <path d="M17.64 15L22 10.64" />
+        <path d="M20.91 11.7l-1.25-1.25c-.6-.6-.93-1.4-.93-2.25v-.86L16.01 4.6a5.56 5.56 0 0 0-3.94-1.64H9l.92.82A6.18 6.18 0 0 1 12 8.4v1.56l2 2h2.47l2.26 1.91" />
+      </svg>
+      {itemCount > 0 && (
+        <span className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-amber-400 px-1 text-[9px] font-bold text-black">
+          {itemCount}
+        </span>
+      )}
+    </button>
+  );
+}
+
 function SmartHomeButton() {
   const setShowDevicePanel = useStore((s) => s.setShowDevicePanel);
 
@@ -822,6 +854,7 @@ function App() {
           <NotificationTracker />
           <MoodMusicSystem />
           <ChallengeSystem />
+          <FurnitureCraftingSystem />
         </>
       )}
 
@@ -845,6 +878,7 @@ function App() {
             <TrophyButton />
             <ShopButton />
             <CraftingButton />
+            <FurnitureCraftingButton />
             <SmartHomeButton />
             <DiaryButton />
             <PersonalityButton />
@@ -903,6 +937,7 @@ function App() {
       <PetPanel />
       <ChallengePanel />
       <ChallengeResultsModal />
+      <FurnitureCraftingPanel />
       <ChallengeTimer />
       <AccessibilityPanel open={showA11y} onClose={() => setShowA11y(false)} />
       {!isSpectating && (

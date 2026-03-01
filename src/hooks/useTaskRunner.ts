@@ -5,6 +5,7 @@ import { getNavigationPath } from '../utils/pathfinding';
 import { demoCommands } from '../utils/demoTasks';
 import { getTaskCoinReward, getShopSpeedMultiplier } from '../config/shop';
 import { getDeployedRobotBonuses } from '../config/crafting';
+import { rollMaterialDrop } from '../config/furnitureCrafting';
 import { getSkillSpeedBonus } from '../config/skills';
 import { generateDiaryEntry } from '../config/diary';
 import type { Task, TaskSource, TaskType } from '../types';
@@ -297,6 +298,10 @@ export const useTaskRunner = () => {
         // Award coins for completing the task
         const coinReward = getTaskCoinReward(activeTask.workDuration);
         state.addCoins(coinReward);
+
+        // Award crafting materials
+        const materialDrop = rollMaterialDrop(activeTask.taskType);
+        state.addMaterials(materialDrop);
 
         // Generate diary entry
         const robot = state.robots[rid];
