@@ -1,10 +1,13 @@
 // @ts-nocheck
 // ── Neighborhood Panel ────────────────────────────────────────
-// Shows neighbor houses, visiting robots, and interaction status.
+// Shows neighbor houses, visiting robots, activity chooser, and visit progress.
 
+import { useState } from 'react';
 import { useStore } from '../../stores/useStore';
 import { ROBOT_IDS } from '../../types';
 import type { NeighborHouse } from '../../systems/Neighborhood';
+import { VISIT_ACTIVITIES } from '../../systems/Neighborhood';
+import type { VisitActivity } from '../../systems/Neighborhood';
 
 function ResidentBadge({ name, personality, color }: { name: string; personality: string; color: string }) {
   const personalityEmoji: Record<string, string> = {
@@ -23,34 +26,84 @@ function ResidentBadge({ name, personality, color }: { name: string; personality
   );
 }
 
-function VisitingRobotRow({ robotId, houseId, interaction }: { robotId: string; houseId: string; interaction: string }) {
+function VisitingRobotRow({ robotId, houseId, interaction, progress }: { robotId: string; houseId: string; interaction: string; progress: number }) {
   const recallRobot = useStore((s) => s.recallRobot);
   const robotNames: Record<string, string> = { sim: 'Sim', chef: 'Chef', sparkle: 'Sparkle' };
   const robotColors: Record<string, string> = { sim: '#4fc3f7', chef: '#e57373', sparkle: '#81c784' };
 
   return (
-    <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-2 py-1.5">
-      <div className="h-4 w-4 rounded-full" style={{ backgroundColor: robotColors[robotId] ?? '#888' }} />
-      <div className="flex-1">
-        <div className="text-[11px] font-medium text-white/90">{robotNames[robotId] ?? robotId}</div>
-        <div className="text-[9px] italic text-white/50">{interaction}</div>
+    <div className="rounded-lg border border-white/10 bg-white/5 px-2 py-1.5">
+      <div className="flex items-center gap-2">
+        <div className="h-4 w-4 rounded-full" style={{ backgroundColor: robotColors[robotId] ?? '#888' }} />
+        <div className="flex-1">
+          <div className="text-[11px] font-medium text-white/90">{robotNames[robotId] ?? robotId}</div>
+          <div className="text-[9px] italic text-white/50">{interaction}</div>
+        </div>
+        <button
+          type="button"
+          onClick={() => recallRobot(robotId as 'sim' | 'chef' | 'sparkle')}
+          className="rounded border border-orange-400/30 bg-orange-500/10 px-2 py-0.5 text-[9px] text-orange-300 transition-all hover:bg-orange-500/20"
+        >
+          Recall
+        </button>
       </div>
+      {/* Visit progress bar */}
+      <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-white/10">
+        <div
+          className="h-full rounded-full bg-green-400 transition-all"
+          style={{ width: `${Math.round(progress)}%` }}
+        />
+      </div>
+      <div className="mt-0.5 text-right text-[8px] text-white/30">{Math.round(progress)}%</div>
+    </div>
+  );
+}
+
+function ActivityPicker({ houseId, onClose }: { houseId: string; onClose: () => void }) {
+  const sendRobotToVisit = useStore((s) => s.sendRobotToVisit);
+  const activeRobotId = useStore((s) => s.activeRobotId);
+
+  return (
+    <div className="space-y-1.5">
+      <div className="text-[10px] font-medium uppercase tracking-wider text-white/40">Choose an activity</div>
+      {VISIT_ACTIVITIES.map((activity) => (
+        <button
+          key={activity.id}
+          type="button"
+          onClick={() => {
+            sendRobotToVisit(activeRobotId, houseId, activity.id);
+            onClose();
+          }}
+          className="flex w-full items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-left transition-all hover:bg-white/10"
+        >
+          <span className="text-base">{activity.emoji}</span>
+          <div className="flex-1">
+            <div className="text-[11px] font-medium text-white/90">{activity.label}</div>
+            <div className="text-[9px] text-white/40">{activity.description}</div>
+          </div>
+          <div className="text-right">
+            <div className="text-[9px] font-bold text-yellow-300">+{activity.coinReward} 🪙</div>
+            <div className="text-[8px] text-white/30">{activity.duration}m</div>
+          </div>
+        </button>
+      ))}
       <button
         type="button"
-        onClick={() => recallRobot(robotId as 'sim' | 'chef' | 'sparkle')}
-        className="rounded border border-orange-400/30 bg-orange-500/10 px-2 py-0.5 text-[9px] text-orange-300 transition-all hover:bg-orange-500/20"
+        onClick={onClose}
+        className="w-full rounded-lg border border-white/10 bg-white/5 py-1 text-[10px] text-white/40 hover:bg-white/10"
       >
-        Recall
+        Cancel
       </button>
     </div>
   );
 }
 
 function HouseCard({ house }: { house: NeighborHouse }) {
+  const [showActivities, setShowActivities] = useState(false);
   const setVisitingHouseId = useStore((s) => s.setVisitingHouseId);
-  const sendRobotToVisit = useStore((s) => s.sendRobotToVisit);
   const activeVisits = useStore((s) => s.activeVisits);
   const activeRobotId = useStore((s) => s.activeRobotId);
+  const setStreetView = useStore((s) => s.setStreetView);
 
   const isVisiting = activeVisits.some((v) => v.robotId === activeRobotId && v.houseId === house.id);
   const visitingHere = activeVisits.filter((v) => v.houseId === house.id);
@@ -84,38 +137,50 @@ function HouseCard({ house }: { house: NeighborHouse }) {
         </div>
       </div>
 
-      {/* Visiting robots */}
+      {/* Visiting robots with progress */}
       {visitingHere.length > 0 && (
         <div className="mb-2 space-y-1">
           <div className="text-[10px] font-medium uppercase tracking-wider text-white/30">Visiting</div>
           {visitingHere.map((v) => (
-            <VisitingRobotRow key={v.robotId} robotId={v.robotId} houseId={v.houseId} interaction={v.interaction} />
+            <VisitingRobotRow key={v.robotId} robotId={v.robotId} houseId={v.houseId} interaction={v.interaction} progress={v.progress} />
           ))}
         </div>
       )}
 
+      {/* Activity Picker */}
+      {showActivities && (
+        <div className="mb-2">
+          <ActivityPicker houseId={house.id} onClose={() => setShowActivities(false)} />
+        </div>
+      )}
+
       {/* Actions */}
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={() => setVisitingHouseId(house.id)}
-          className="flex-1 rounded-lg border border-cyan-400/30 bg-cyan-500/10 px-2 py-1.5 text-[11px] font-medium text-cyan-200 transition-all hover:bg-cyan-500/20"
-        >
-          View Interior
-        </button>
-        <button
-          type="button"
-          onClick={() => sendRobotToVisit(activeRobotId, house.id)}
-          disabled={!canSend}
-          className={`flex-1 rounded-lg border px-2 py-1.5 text-[11px] font-medium transition-all ${
-            canSend
-              ? 'border-green-400/30 bg-green-500/10 text-green-200 hover:bg-green-500/20'
-              : 'border-white/10 bg-white/5 text-white/30 cursor-not-allowed'
-          }`}
-        >
-          {isVisiting ? 'Already visiting' : canSend ? 'Send Robot' : 'Robot busy'}
-        </button>
-      </div>
+      {!showActivities && (
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setVisitingHouseId(house.id);
+              setStreetView(true);
+            }}
+            className="flex-1 rounded-lg border border-cyan-400/30 bg-cyan-500/10 px-2 py-1.5 text-[11px] font-medium text-cyan-200 transition-all hover:bg-cyan-500/20"
+          >
+            View on Street
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowActivities(true)}
+            disabled={!canSend}
+            className={`flex-1 rounded-lg border px-2 py-1.5 text-[11px] font-medium transition-all ${
+              canSend
+                ? 'border-green-400/30 bg-green-500/10 text-green-200 hover:bg-green-500/20'
+                : 'border-white/10 bg-white/5 text-white/30 cursor-not-allowed'
+            }`}
+          >
+            {isVisiting ? 'Already visiting' : canSend ? 'Visit Neighbor' : 'Robot busy'}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -142,6 +207,7 @@ export function NeighborhoodPanel() {
             <polyline points="9 22 9 12 15 12 15 22" />
           </svg>
           <span className="text-sm font-bold text-white">Neighborhood</span>
+          <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[9px] text-white/50">{neighborHouses.length} houses</span>
         </div>
         <button
           type="button"

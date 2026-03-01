@@ -43,6 +43,7 @@ const TASK_DIFFICULTY: Record<TaskType, number> = {
   watering: 1.3,
   'leaf-blowing': 1.5,
   weeding: 1.8,
+  visiting: 1.5,
 };
 
 /** Enhanced coin reward: base from duration + difficulty multiplier. Returns 3–25. */

@@ -6,6 +6,7 @@
 import { useStore } from '../../stores/useStore';
 
 const HOUSE_POSITIONS = [
+  { streetPos: -2, label: 'FL' },
   { streetPos: -1, label: 'L' },
   { streetPos: 0, label: 'You' },
   { streetPos: 1, label: 'R' },
@@ -23,6 +24,7 @@ export function NeighborhoodMap() {
 
   // Map layout: 4 houses along a street line
   const allHouses = [
+    ...neighborHouses.filter((h) => h.streetPosition === -2).map((h) => ({ ...h, isPlayer: false })),
     ...neighborHouses.filter((h) => h.streetPosition === -1).map((h) => ({ ...h, isPlayer: false })),
     { id: 'player', name: 'Your House', streetPosition: 0, isPlayer: true, style: { wallColor: '#d4c5a9', roofColor: '#5a4a3a' }, visitingRobots: [] as string[] },
     ...neighborHouses.filter((h) => h.streetPosition === 1).map((h) => ({ ...h, isPlayer: false })),

@@ -25,6 +25,7 @@ const TASK_COLORS: Record<TaskType, string> = {
   weeding: '#a3e635',
   'feeding-fish': '#38bdf8',
   'feeding-hamster': '#fca5a5',
+  visiting: '#c084fc',
 };
 
 function formatTaskLabel(t: TaskType): string {

@@ -4,12 +4,115 @@
 // Only shows when streetView is toggled on; the full interior
 // HomeScene is NOT mounted to keep things performant.
 
-import { useRef, useMemo } from 'react';
+import { useRef, useMemo, useState, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { useStore } from '../../stores/useStore';
 import type { NeighborHouse, HouseStyle } from '../../systems/Neighborhood';
+import type { RobotId } from '../../types';
+
+// ── Window with toggling light ──────────────────────────────────
+
+function LitWindow({ position, rotation, lit }: { position: [number, number, number]; rotation?: [number, number, number]; lit: boolean }) {
+  return (
+    <group position={position} rotation={rotation}>
+      <mesh>
+        <boxGeometry args={[2.2, 2.2, 0.15]} />
+        <meshStandardMaterial color="#f5f0e8" roughness={0.5} />
+      </mesh>
+      <mesh position={[0, 0, 0.02]}>
+        <boxGeometry args={[1.8, 1.8, 0.08]} />
+        <meshStandardMaterial
+          color={lit ? '#ffe8a0' : '#a8c8e8'}
+          emissive={lit ? '#ffe8a0' : '#000000'}
+          emissiveIntensity={lit ? 0.6 : 0}
+          roughness={0.2}
+          metalness={0.1}
+          transparent
+          opacity={lit ? 0.9 : 0.7}
+        />
+      </mesh>
+      {lit && (
+        <pointLight position={[0, 0, 1]} intensity={0.3} color="#ffe8a0" distance={6} decay={2} />
+      )}
+      <mesh position={[0, 0, 0.06]}>
+        <boxGeometry args={[0.08, 1.8, 0.05]} />
+        <meshStandardMaterial color="#f5f0e8" />
+      </mesh>
+      <mesh position={[0, 0, 0.06]}>
+        <boxGeometry args={[1.8, 0.08, 0.05]} />
+        <meshStandardMaterial color="#f5f0e8" />
+      </mesh>
+    </group>
+  );
+}
+
+// ── Parked Car ──────────────────────────────────────────────────
+
+function ParkedCar({ position, color }: { position: [number, number, number]; color: string }) {
+  return (
+    <group position={position}>
+      {/* Car body */}
+      <mesh position={[0, 0.5, 0]} castShadow>
+        <boxGeometry args={[2.4, 1, 4.5]} />
+        <meshStandardMaterial color={color} roughness={0.4} metalness={0.3} />
+      </mesh>
+      {/* Cabin */}
+      <mesh position={[0, 1.2, -0.3]} castShadow>
+        <boxGeometry args={[2.1, 0.9, 2.5]} />
+        <meshStandardMaterial color={color} roughness={0.4} metalness={0.3} />
+      </mesh>
+      {/* Windshield */}
+      <mesh position={[0, 1.2, 0.95]}>
+        <boxGeometry args={[1.9, 0.75, 0.08]} />
+        <meshStandardMaterial color="#a8c8e8" transparent opacity={0.6} roughness={0.1} />
+      </mesh>
+      {/* Wheels */}
+      {[[-1, 0.25, 1.5], [1, 0.25, 1.5], [-1, 0.25, -1.5], [1, 0.25, -1.5]].map((p, i) => (
+        <mesh key={i} position={p as [number, number, number]}>
+          <cylinderGeometry args={[0.35, 0.35, 0.3, 8]} />
+          <meshStandardMaterial color="#2a2a2a" roughness={0.9} />
+        </mesh>
+      ))}
+      {/* Headlights */}
+      <mesh position={[-0.7, 0.55, 2.26]}>
+        <boxGeometry args={[0.4, 0.25, 0.05]} />
+        <meshStandardMaterial color="#f0f0e0" emissive="#f0f0e0" emissiveIntensity={0.2} />
+      </mesh>
+      <mesh position={[0.7, 0.55, 2.26]}>
+        <boxGeometry args={[0.4, 0.25, 0.05]} />
+        <meshStandardMaterial color="#f0f0e0" emissive="#f0f0e0" emissiveIntensity={0.2} />
+      </mesh>
+    </group>
+  );
+}
+
+// ── House activity state hook ────────────────────────────────────
+
+function useHouseActivity(houseId: string) {
+  const [lightsOn, setLightsOn] = useState(() => Math.random() > 0.5);
+  const [carHome, setCarHome] = useState(() => Math.random() > 0.4);
+
+  useEffect(() => {
+    // Toggle lights every 15-40 seconds
+    const lightInterval = window.setInterval(() => {
+      setLightsOn((prev) => !prev);
+    }, 15000 + Math.random() * 25000);
+
+    // Car arrives/leaves every 30-90 seconds
+    const carInterval = window.setInterval(() => {
+      setCarHome((prev) => !prev);
+    }, 30000 + Math.random() * 60000);
+
+    return () => {
+      window.clearInterval(lightInterval);
+      window.clearInterval(carInterval);
+    };
+  }, [houseId]);
+
+  return { lightsOn, carHome };
+}
 
 // ── House Exterior ───────────────────────────────────────────────
 
@@ -18,10 +121,14 @@ function HouseExterior({ house, index }: { house: NeighborHouse; index: number }
   const { style } = house;
   const x = house.streetPosition * 28; // spacing between houses
   const groupRef = useRef<THREE.Group>(null);
+  const { lightsOn, carHome } = useHouseActivity(house.id);
 
   const baseW = style.width;
   const baseH = style.stories === 2 ? 10 : 6;
   const baseD = 12;
+
+  const CAR_COLORS = ['#8b0000', '#1a3a5c', '#2d4a2d', '#4a4a4a', '#5c3a1a'];
+  const carColor = useMemo(() => CAR_COLORS[index % CAR_COLORS.length], [index]);
 
   return (
     <group ref={groupRef} position={[x, 0, 0]}>
@@ -55,22 +162,30 @@ function HouseExterior({ house, index }: { house: NeighborHouse; index: number }
         <meshStandardMaterial color="#c0a040" metalness={0.8} roughness={0.3} />
       </mesh>
 
-      {/* Windows - front */}
-      <Window position={[-3.5, baseH * 0.55 + 0.3, baseD / 2 + 0.01]} />
-      <Window position={[3.5, baseH * 0.55 + 0.3, baseD / 2 + 0.01]} />
+      {/* Windows - front (with light activity) */}
+      <LitWindow position={[-3.5, baseH * 0.55 + 0.3, baseD / 2 + 0.01]} lit={lightsOn} />
+      <LitWindow position={[3.5, baseH * 0.55 + 0.3, baseD / 2 + 0.01]} lit={lightsOn} />
 
       {/* Second floor windows */}
       {style.stories === 2 && (
         <>
-          <Window position={[-3.5, baseH * 0.8 + 0.3, baseD / 2 + 0.01]} />
-          <Window position={[3.5, baseH * 0.8 + 0.3, baseD / 2 + 0.01]} />
-          <Window position={[0, baseH * 0.8 + 0.3, baseD / 2 + 0.01]} />
+          <LitWindow position={[-3.5, baseH * 0.8 + 0.3, baseD / 2 + 0.01]} lit={!lightsOn} />
+          <LitWindow position={[3.5, baseH * 0.8 + 0.3, baseD / 2 + 0.01]} lit={!lightsOn} />
+          <LitWindow position={[0, baseH * 0.8 + 0.3, baseD / 2 + 0.01]} lit={lightsOn} />
         </>
       )}
 
       {/* Side windows */}
-      <Window position={[baseW / 2 + 0.01, baseH * 0.55 + 0.3, -1]} rotation={[0, Math.PI / 2, 0]} />
-      <Window position={[-baseW / 2 - 0.01, baseH * 0.55 + 0.3, -1]} rotation={[0, -Math.PI / 2, 0]} />
+      <LitWindow position={[baseW / 2 + 0.01, baseH * 0.55 + 0.3, -1]} rotation={[0, Math.PI / 2, 0]} lit={lightsOn} />
+      <LitWindow position={[-baseW / 2 - 0.01, baseH * 0.55 + 0.3, -1]} rotation={[0, -Math.PI / 2, 0]} lit={lightsOn} />
+
+      {/* Driveway car (arrives/leaves periodically) */}
+      {carHome && (
+        <ParkedCar
+          position={[style.hasGarage ? baseW / 2 + 2.5 : baseW / 2 - 1, 0, baseD / 2 + 5]}
+          color={carColor}
+        />
+      )}
 
       {/* Chimney */}
       {style.hasChimney && (
@@ -285,45 +400,45 @@ function Street() {
   return (
     <group>
       {/* Road surface */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[14, 0.02, 18]} receiveShadow>
-        <planeGeometry args={[120, 8]} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 18]} receiveShadow>
+        <planeGeometry args={[160, 8]} />
         <meshStandardMaterial color="#3a3a3a" roughness={0.9} />
       </mesh>
 
       {/* Road lines */}
-      {Array.from({ length: 15 }, (_, i) => (
-        <mesh key={i} rotation={[-Math.PI / 2, 0, 0]} position={[-32 + i * 8, 0.03, 18]}>
+      {Array.from({ length: 20 }, (_, i) => (
+        <mesh key={i} rotation={[-Math.PI / 2, 0, 0]} position={[-60 + i * 8, 0.03, 18]}>
           <planeGeometry args={[4, 0.2]} />
           <meshStandardMaterial color="#e8e080" roughness={0.8} />
         </mesh>
       ))}
 
       {/* Sidewalk - player side */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[14, 0.05, 13]} receiveShadow>
-        <planeGeometry args={[120, 3]} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 13]} receiveShadow>
+        <planeGeometry args={[160, 3]} />
         <meshStandardMaterial color="#a09888" roughness={0.85} />
       </mesh>
 
       {/* Sidewalk - far side */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[14, 0.05, 23]} receiveShadow>
-        <planeGeometry args={[120, 3]} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 23]} receiveShadow>
+        <planeGeometry args={[160, 3]} />
         <meshStandardMaterial color="#a09888" roughness={0.85} />
       </mesh>
 
       {/* Grass - player lawns */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[14, 0.01, 5]} receiveShadow>
-        <planeGeometry args={[120, 14]} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 5]} receiveShadow>
+        <planeGeometry args={[160, 14]} />
         <meshStandardMaterial color="#4a6a3a" roughness={0.9} />
       </mesh>
 
       {/* Grass - far side */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[14, 0.01, 28]} receiveShadow>
-        <planeGeometry args={[120, 8]} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 28]} receiveShadow>
+        <planeGeometry args={[160, 8]} />
         <meshStandardMaterial color="#4a6a3a" roughness={0.9} />
       </mesh>
 
       {/* Street lights */}
-      {[-20, 10, 40].map((lx) => (
+      {[-48, -20, 10, 40].map((lx) => (
         <group key={lx} position={[lx, 0, 22]}>
           <mesh position={[0, 3, 0]}>
             <cylinderGeometry args={[0.12, 0.15, 6, 8]} />
@@ -338,7 +453,7 @@ function Street() {
       ))}
 
       {/* Trees along the far side */}
-      {[-25, -10, 5, 20, 35, 50].map((tx) => (
+      {[-55, -40, -25, -10, 5, 20, 35, 50].map((tx) => (
         <group key={tx} position={[tx, 0, 30]}>
           <mesh position={[0, 2.5, 0]} castShadow>
             <cylinderGeometry args={[0.3, 0.4, 5, 6]} />
@@ -351,19 +466,69 @@ function Street() {
         </group>
       ))}
 
-      {/* Mailboxes */}
-      {[0, 28, 56].map((mx, i) => (
-        <group key={i} position={[mx - 14, 0, 12]}>
+      {/* Mailboxes at each house */}
+      {[-56, -28, 0, 28, 56].map((mx, i) => (
+        <group key={i} position={[mx, 0, 12]}>
           <mesh position={[0, 0.6, 0]}>
             <cylinderGeometry args={[0.08, 0.08, 1.2, 6]} />
             <meshStandardMaterial color="#4a4a4a" roughness={0.7} />
           </mesh>
           <mesh position={[0, 1.3, 0]}>
             <boxGeometry args={[0.8, 0.5, 0.4]} />
-            <meshStandardMaterial color={i === 0 ? '#3a5a8a' : '#8a3a3a'} roughness={0.6} />
+            <meshStandardMaterial color={mx === 0 ? '#3a5a8a' : '#8a3a3a'} roughness={0.6} />
           </mesh>
         </group>
       ))}
+    </group>
+  );
+}
+
+// ── Walking Robot on Street ──────────────────────────────────────
+
+const ROBOT_COLORS: Record<string, string> = {
+  sim: '#4fc3f7',
+  chef: '#e57373',
+  sparkle: '#81c784',
+};
+
+function WalkingRobot({ robotId, fromX, toX, progress }: { robotId: string; fromX: number; toX: number; progress: number }) {
+  const meshRef = useRef<THREE.Group>(null);
+  const bobPhase = useRef(Math.random() * Math.PI * 2);
+
+  useFrame((_, delta) => {
+    if (!meshRef.current) return;
+    bobPhase.current += delta * 8;
+    const x = fromX + (toX - fromX) * Math.min(1, progress);
+    const bobY = Math.abs(Math.sin(bobPhase.current)) * 0.15;
+    meshRef.current.position.set(x, 1.2 + bobY, 13);
+    // Face walking direction
+    meshRef.current.rotation.y = toX > fromX ? -Math.PI / 2 : Math.PI / 2;
+  });
+
+  const color = ROBOT_COLORS[robotId] ?? '#888888';
+
+  return (
+    <group ref={meshRef}>
+      {/* Body */}
+      <mesh castShadow>
+        <capsuleGeometry args={[0.4, 0.8, 8, 16]} />
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.3} />
+      </mesh>
+      {/* Eyes */}
+      <mesh position={[0, 0.3, 0.35]}>
+        <sphereGeometry args={[0.1, 8, 8]} />
+        <meshStandardMaterial color="#ffffff" emissive="#ffffff" emissiveIntensity={0.5} />
+      </mesh>
+      <mesh position={[0.2, 0.3, 0.3]}>
+        <sphereGeometry args={[0.08, 8, 8]} />
+        <meshStandardMaterial color="#ffffff" emissive="#ffffff" emissiveIntensity={0.5} />
+      </mesh>
+      {/* Label */}
+      <Html position={[0, 1.2, 0]} center distanceFactor={30}>
+        <div className="whitespace-nowrap rounded-full bg-black/60 px-2 py-0.5 text-[8px] font-bold text-white backdrop-blur-sm">
+          {robotId}
+        </div>
+      </Html>
     </group>
   );
 }
@@ -372,6 +537,7 @@ function Street() {
 
 export function StreetView() {
   const neighborHouses = useStore((s) => s.neighborHouses);
+  const walkingRobots = useStore((s) => s.walkingRobots);
 
   return (
     <>
@@ -384,20 +550,20 @@ export function StreetView() {
         castShadow
         shadow-mapSize-width={2048}
         shadow-mapSize-height={2048}
-        shadow-camera-far={80}
-        shadow-camera-left={-50}
-        shadow-camera-right={50}
+        shadow-camera-far={100}
+        shadow-camera-left={-70}
+        shadow-camera-right={70}
         shadow-camera-top={30}
         shadow-camera-bottom={-30}
       />
       <directionalLight position={[-10, 20, -10]} intensity={0.3} />
 
       {/* Sky color via fog */}
-      <fog attach="fog" args={['#c8dce8', 60, 150]} />
+      <fog attach="fog" args={['#c8dce8', 80, 180]} />
 
       {/* Ground plane */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[14, -0.02, 15]} receiveShadow>
-        <planeGeometry args={[200, 200]} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 15]} receiveShadow>
+        <planeGeometry args={[250, 250]} />
         <meshStandardMaterial color="#5a7a4a" roughness={0.95} />
       </mesh>
 
@@ -409,6 +575,17 @@ export function StreetView() {
       {/* Neighbor houses */}
       {neighborHouses.map((house, i) => (
         <HouseExterior key={house.id} house={house} index={i} />
+      ))}
+
+      {/* Walking robots on sidewalk */}
+      {walkingRobots.map((w) => (
+        <WalkingRobot
+          key={w.robotId}
+          robotId={w.robotId}
+          fromX={w.fromX}
+          toX={w.toX}
+          progress={w.progress}
+        />
       ))}
     </>
   );

@@ -9,6 +9,7 @@ import { ShopPanel } from './components/ui/ShopPanel';
 import { BudgetPanel } from './components/ui/BudgetPanel';
 import { CoinAnimationOverlay } from './components/ui/CoinAnimation';
 import { TaskProcessor } from './components/systems/TaskProcessor';
+import { VisitTracker } from './components/systems/VisitTracker';
 import { useStore } from './stores/useStore';
 
 function CameraToggle() {
@@ -113,6 +114,7 @@ function App() {
       </Canvas>
 
       <TaskProcessor />
+      <VisitTracker />
       <RobotTerminal />
       <NeighborhoodPanel />
       <NeighborhoodMap />

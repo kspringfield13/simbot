@@ -44,6 +44,10 @@ export interface VisitEvent {
   houseId: string;
   startedAt: number;     // sim-minutes
   interaction: string;   // what they're doing
+  activityId: string;    // which VisitActivity
+  duration: number;      // how long (sim-minutes)
+  progress: number;      // 0-100
+  completed: boolean;
 }
 
 // ── House name pools ─────────────────────────────────────────────
@@ -305,9 +309,9 @@ export function generateNeighborhood(seed: number = 42): NeighborHouse[] {
   const usedNames = new Set<string>();
   const houses: NeighborHouse[] = [];
 
-  const positions = [-1, 1, 2]; // left, right, far right of player house
+  const positions = [-1, 1, 2, -2]; // left, right, far right, far left of player house
 
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 4; i++) {
     let familyName: string;
     do {
       familyName = pick(FAMILY_NAMES, rng);
@@ -356,3 +360,86 @@ export function getRandomInteraction(rng?: () => number): string {
   if (rng) return pick(VISIT_INTERACTIONS, rng);
   return VISIT_INTERACTIONS[Math.floor(Math.random() * VISIT_INTERACTIONS.length)];
 }
+
+// ── Visit Activities (player-chosen) ────────────────────────────
+
+export interface VisitActivity {
+  id: string;
+  label: string;
+  emoji: string;
+  description: string;
+  duration: number;        // sim-minutes
+  coinReward: number;
+  socialBoost: number;     // added to robot social need
+  happinessBoost: number;
+  outcomeMessage: string;  // shown when visit completes
+}
+
+export const VISIT_ACTIVITIES: VisitActivity[] = [
+  {
+    id: 'bring-cookies',
+    label: 'Bring Cookies',
+    emoji: '🍪',
+    description: 'Bake and deliver fresh cookies',
+    duration: 30,
+    coinReward: 8,
+    socialBoost: 25,
+    happinessBoost: 15,
+    outcomeMessage: 'Neighbors loved the cookies! They shared their secret recipe in return.',
+  },
+  {
+    id: 'borrow-tools',
+    label: 'Borrow Tools',
+    emoji: '🔧',
+    description: 'Ask to borrow some tools for repairs',
+    duration: 20,
+    coinReward: 5,
+    socialBoost: 10,
+    happinessBoost: 8,
+    outcomeMessage: 'Got a great set of tools! Neighbor also showed some repair tricks.',
+  },
+  {
+    id: 'tea-party',
+    label: 'Tea Party',
+    emoji: '🍵',
+    description: 'Have a relaxing tea with the neighbors',
+    duration: 40,
+    coinReward: 6,
+    socialBoost: 30,
+    happinessBoost: 20,
+    outcomeMessage: 'What a lovely tea! Everyone shared stories and had a wonderful time.',
+  },
+  {
+    id: 'board-games',
+    label: 'Board Games',
+    emoji: '🎲',
+    description: 'Play board games together',
+    duration: 45,
+    coinReward: 10,
+    socialBoost: 35,
+    happinessBoost: 25,
+    outcomeMessage: 'Game night was a blast! Won a few rounds and made great memories.',
+  },
+  {
+    id: 'swap-parts',
+    label: 'Swap Parts',
+    emoji: '⚙️',
+    description: 'Trade spare robot parts and upgrades',
+    duration: 25,
+    coinReward: 12,
+    socialBoost: 15,
+    happinessBoost: 10,
+    outcomeMessage: 'Great trade! Got some rare parts that will come in handy.',
+  },
+  {
+    id: 'help-chores',
+    label: 'Help with Chores',
+    emoji: '🧹',
+    description: 'Lend a hand with their housework',
+    duration: 35,
+    coinReward: 15,
+    socialBoost: 20,
+    happinessBoost: 12,
+    outcomeMessage: 'Neighbors are grateful for the help! They tipped generously.',
+  },
+];

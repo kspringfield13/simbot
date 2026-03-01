@@ -172,6 +172,7 @@ const TASK_MATERIAL_WEIGHTS: Partial<Record<TaskType, Partial<Record<MaterialTyp
   seasonal:     { wood: 2, metal: 2 },
   'feeding-fish':    { glass: 2, wood: 1 },
   'feeding-hamster': { wood: 2, fabric: 1 },
+  visiting: { fabric: 1, glass: 1 },
 };
 
 /** Roll material drops for a completed task. Returns 1-3 materials. */

@@ -11,7 +11,7 @@ import { loadFurnitureCraftingData, saveFurnitureCraftingData, getRecipeById, ca
 import type { CameraZoneId, AlarmState, SecurityLogEntry } from '../config/security';
 import type { StoryArc } from '../systems/StoryDirector';
 import type { NeighborHouse, VisitEvent } from '../systems/Neighborhood';
-import { generateNeighborhood, getRandomInteraction } from '../systems/Neighborhood';
+import { generateNeighborhood, VISIT_ACTIVITIES } from '../systems/Neighborhood';
 import { loadSecurityData, saveSecurityData } from '../config/security';
 import { getSkillQualityBonus } from '../config/skills';
 import type { EconomyTransaction, TransactionCategory } from '../systems/Economy';
@@ -818,10 +818,12 @@ interface SimBotStore {
   visitingHouseId: string | null;  // which neighbor house interior is being viewed
   activeVisits: VisitEvent[];
   showNeighborhoodPanel: boolean;
+  walkingRobots: { robotId: RobotId; fromX: number; toX: number; progress: number; houseId: string }[];
   setStreetView: (show: boolean) => void;
   setVisitingHouseId: (id: string | null) => void;
   setShowNeighborhoodPanel: (show: boolean) => void;
-  sendRobotToVisit: (robotId: RobotId, houseId: string) => void;
+  sendRobotToVisit: (robotId: RobotId, houseId: string, activityId: string) => void;
+  tickVisitProgress: () => void;
   recallRobot: (robotId: RobotId) => void;
   returnToPlayerHouse: () => void;
 }
@@ -2032,21 +2034,30 @@ export const useStore = create<SimBotStore>((set) => ({
   visitingHouseId: null,
   activeVisits: [],
   showNeighborhoodPanel: false,
+  walkingRobots: [],
   setStreetView: (show) => set((s) => ({
     streetView: show,
-    // When leaving street view, go back to player house
     visitingHouseId: show ? s.visitingHouseId : null,
   })),
   setVisitingHouseId: (id) => set({ visitingHouseId: id, streetView: false }),
   setShowNeighborhoodPanel: (show) => set({ showNeighborhoodPanel: show }),
-  sendRobotToVisit: (robotId, houseId) => set((s) => {
-    // Don't re-visit if already visiting
+  sendRobotToVisit: (robotId, houseId, activityId) => set((s) => {
     if (s.activeVisits.some((v) => v.robotId === robotId)) return s;
+    const activity = VISIT_ACTIVITIES.find((a) => a.id === activityId);
+    if (!activity) return s;
+
+    const house = s.neighborHouses.find((h) => h.id === houseId);
+    const toX = house ? house.streetPosition * 28 : 28;
+
     const newVisit: VisitEvent = {
       robotId,
       houseId,
       startedAt: s.simMinutes,
-      interaction: getRandomInteraction(),
+      interaction: `${activity.emoji} ${activity.label}`,
+      activityId: activity.id,
+      duration: activity.duration,
+      progress: 0,
+      completed: false,
     };
     const updatedHouses = s.neighborHouses.map((h) =>
       h.id === houseId
@@ -2056,6 +2067,105 @@ export const useStore = create<SimBotStore>((set) => ({
     return {
       activeVisits: [...s.activeVisits, newVisit],
       neighborHouses: updatedHouses,
+      walkingRobots: [...s.walkingRobots, { robotId, fromX: 0, toX, progress: 0, houseId }],
+    };
+  }),
+  tickVisitProgress: () => set((s) => {
+    if (s.simSpeed === 0 || s.activeVisits.length === 0) return s;
+
+    // Progress walking robots
+    const updatedWalking = s.walkingRobots
+      .map((w) => ({ ...w, progress: Math.min(1, w.progress + 0.02 * s.simSpeed) }))
+      .filter((w) => w.progress < 1);
+
+    // Progress active visits
+    const completedVisits: VisitEvent[] = [];
+    const updatedVisits = s.activeVisits.map((v) => {
+      if (v.completed) return v;
+      const step = (100 / v.duration) * (1 / 60) * s.simSpeed; // ~1 sim-minute per real second at speed 1
+      const newProgress = Math.min(100, v.progress + step);
+      const nowComplete = newProgress >= 100;
+      if (nowComplete) completedVisits.push({ ...v, progress: 100, completed: true });
+      return { ...v, progress: newProgress, completed: nowComplete };
+    });
+
+    // Handle completions: award coins, social, happiness
+    let coins = s.coins;
+    let robots = s.robots;
+    const transactions = [...s.economyTransactions];
+    const notifications = [...s.notifications];
+
+    for (const visit of completedVisits) {
+      const activity = VISIT_ACTIVITIES.find((a) => a.id === visit.activityId);
+      if (!activity) continue;
+
+      coins += activity.coinReward;
+      transactions.push({
+        id: crypto.randomUUID(),
+        type: 'income',
+        category: 'task-reward',
+        amount: activity.coinReward,
+        label: `Visit: ${activity.label}`,
+        timestamp: Date.now(),
+        simMinutes: s.simMinutes,
+      });
+
+      const rid = visit.robotId;
+      const needs = robots[rid].needs;
+      robots = {
+        ...robots,
+        [rid]: {
+          ...robots[rid],
+          needs: {
+            ...needs,
+            social: Math.min(100, needs.social + activity.socialBoost),
+            happiness: Math.min(100, needs.happiness + activity.happinessBoost),
+            boredom: Math.max(0, needs.boredom - 15),
+          },
+          mood: 'happy' as RobotMood,
+          thought: activity.outcomeMessage,
+        },
+      };
+
+      notifications.push({
+        id: crypto.randomUUID(),
+        type: 'info',
+        title: 'Visit Complete',
+        message: `${rid} returned from visiting! ${activity.outcomeMessage}`,
+        createdAt: Date.now(),
+      });
+    }
+
+    // Auto-remove completed visits after marking
+    const houseUpdates = new Map<string, RobotId[]>();
+    for (const v of completedVisits) {
+      if (!houseUpdates.has(v.houseId)) {
+        const house = s.neighborHouses.find((h) => h.id === v.houseId);
+        houseUpdates.set(v.houseId, house ? [...house.visitingRobots] : []);
+      }
+      const arr = houseUpdates.get(v.houseId)!;
+      const idx = arr.indexOf(v.robotId);
+      if (idx !== -1) arr.splice(idx, 1);
+    }
+
+    const updatedHouses = houseUpdates.size > 0
+      ? s.neighborHouses.map((h) =>
+          houseUpdates.has(h.id)
+            ? { ...h, visitingRobots: houseUpdates.get(h.id)! }
+            : h,
+        )
+      : s.neighborHouses;
+
+    const finalVisits = updatedVisits.filter((v) => !v.completed);
+
+    return {
+      activeVisits: finalVisits,
+      neighborHouses: updatedHouses,
+      walkingRobots: updatedWalking,
+      coins,
+      robots,
+      economyTransactions: transactions.slice(-200),
+      notifications: notifications.slice(-50),
     };
   }),
   recallRobot: (robotId) => set((s) => {
@@ -2069,6 +2179,7 @@ export const useStore = create<SimBotStore>((set) => ({
     return {
       activeVisits: s.activeVisits.filter((v) => v.robotId !== robotId),
       neighborHouses: updatedHouses,
+      walkingRobots: s.walkingRobots.filter((w) => w.robotId !== robotId),
     };
   }),
   returnToPlayerHouse: () => set({ visitingHouseId: null, streetView: false }),
