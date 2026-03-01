@@ -2,12 +2,14 @@ import { useCallback, useEffect, useRef } from 'react';
 import { useStore } from '../stores/useStore';
 import { findTaskTarget } from '../utils/homeLayout';
 import { getNavigationPath } from '../utils/pathfinding';
+import { getFloorPlan } from '../config/floorPlans';
 import { demoCommands } from '../utils/demoTasks';
 import { getShopSpeedMultiplier } from '../config/shop';
 import { getEnhancedCoinReward } from '../systems/Economy';
 import { getDeployedRobotBonuses } from '../config/crafting';
 import { SEASON_MODIFIERS } from '../config/seasons';
 import { rollMaterialDrop } from '../config/furnitureCrafting';
+import type { FloorLevel } from '../types';
 import { getSkillSpeedBonus } from '../config/skills';
 import { generateDiaryEntry } from '../config/diary';
 import type { Task, TaskSource, TaskType } from '../types';
@@ -196,7 +198,11 @@ export const useTaskRunner = () => {
       if (!nextTask) continue;
 
       const robotPos = state.robots[rid].position;
-      const path = getNavigationPath(robotPos, nextTask.targetPosition);
+      const robotFloor = state.robots[rid].currentFloor;
+      const plan = getFloorPlan(state.floorPlanId);
+      const targetRoom = plan.rooms.find(r => r.id === nextTask.targetRoom);
+      const targetFloor = (targetRoom?.floor ?? 0) as FloorLevel;
+      const path = getNavigationPath(robotPos, nextTask.targetPosition, robotFloor, targetFloor);
       if (path.length === 0) continue;
 
       setRobotPath(rid, path);

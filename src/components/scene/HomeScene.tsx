@@ -24,6 +24,7 @@ import { SmartDevices } from './SmartDevices';
 import { YardDecorations } from './YardDecorations';
 import { OutsideNPCs } from './OutsideNPCs';
 import { RobotPetsScene } from './RobotPets';
+import { StairsAndElevators } from './Stairs';
 
 function DynamicSceneLighting() {
   const ambientRef = useRef<THREE.AmbientLight>(null);
@@ -66,17 +67,26 @@ function DynamicSceneLighting() {
   );
 }
 
-function DynamicCeilingLights({ lights }: { lights: { position: [number, number, number]; intensity: number; color: string; distance: number }[] }) {
+function DynamicCeilingLights({ lights }: { lights: { position: [number, number, number]; intensity: number; color: string; distance: number; floor?: number }[] }) {
+  const currentViewFloor = useStore((s) => s.currentViewFloor);
+  const floorPlanId = useStore((s) => s.floorPlanId);
+  const plan = useMemo(() => getFloorPlan(floorPlanId), [floorPlanId]);
+  const hasMultiFloor = (plan.floors?.length ?? 0) > 1;
+
+  const visibleLights = hasMultiFloor
+    ? lights.filter(l => (l.floor ?? 0) === currentViewFloor)
+    : lights;
+
   const lightsRef = useRef<(THREE.PointLight | null)[]>([]);
 
   useFrame(() => {
     const period = useStore.getState().simPeriod;
     const nightMult = period === 'night' ? 0.15 : period === 'evening' ? 0.6 : 1.0;
 
-    for (let i = 0; i < lights.length; i++) {
+    for (let i = 0; i < visibleLights.length; i++) {
       const light = lightsRef.current[i];
       if (light) {
-        const target = lights[i].intensity * nightMult;
+        const target = visibleLights[i].intensity * nightMult;
         light.intensity = THREE.MathUtils.lerp(light.intensity, target, 0.04);
       }
     }
@@ -84,9 +94,9 @@ function DynamicCeilingLights({ lights }: { lights: { position: [number, number,
 
   return (
     <>
-      {lights.map((light, i) => (
+      {visibleLights.map((light, i) => (
         <pointLight
-          key={`light-${i}`}
+          key={`light-${i}-${currentViewFloor}`}
           ref={(el) => { lightsRef.current[i] = el; }}
           position={light.position}
           intensity={light.intensity}
@@ -200,12 +210,22 @@ export function HomeScene() {
   const editMode = useStore((s) => s.editMode);
   const floorPlanId = useStore((s) => s.floorPlanId);
   const visitingHouseId = useStore((s) => s.visitingHouseId);
+  const currentViewFloor = useStore((s) => s.currentViewFloor);
 
   const plan = useMemo(() => getFloorPlan(floorPlanId), [floorPlanId]);
+  const hasMultiFloor = (plan.floors?.length ?? 0) > 1;
 
   const effectiveRooms = useMemo(
     () => getEffectiveRooms(roomLayout.overrides, roomLayout.addedRooms, roomLayout.deletedRoomIds, floorPlanId),
     [roomLayout, floorPlanId],
+  );
+
+  // Filter rooms by current view floor (only for multi-floor plans)
+  const visibleRooms = useMemo(
+    () => hasMultiFloor
+      ? effectiveRooms.filter(r => (r.floor ?? 0) === currentViewFloor)
+      : effectiveRooms,
+    [effectiveRooms, currentViewFloor, hasMultiFloor],
   );
 
   // When visiting a neighbor house, show their interior instead
@@ -234,12 +254,13 @@ export function HomeScene() {
         <meshStandardMaterial color="#3d3a36" roughness={0.8} />
       </mesh>
 
-      {effectiveRooms.map((room) => (
+      {visibleRooms.map((room) => (
         <Room key={room.id} room={room} />
       ))}
 
       <Walls />
       <AllFurniture />
+      <StairsAndElevators />
 
       <ChargingStation />
       <SmartDevices />
@@ -248,10 +269,10 @@ export function HomeScene() {
       <VisitorNPC />
       <VisitorSystem />
       <SeasonalDecorations />
-      <YardDecorations />
-      <OutsideNPCs />
+      {currentViewFloor === 0 && <YardDecorations />}
+      {currentViewFloor === 0 && <OutsideNPCs />}
       <RobotPetsScene />
-      <RoomThemeEffects rooms={effectiveRooms} />
+      <RoomThemeEffects rooms={visibleRooms} />
       <WeatherEffects />
       <DisasterEffects />
     </>

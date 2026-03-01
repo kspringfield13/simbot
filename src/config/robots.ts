@@ -59,6 +59,7 @@ export function createInitialRobotState(config: RobotConfig): RobotInstanceState
     needs: { energy: 85, happiness: 70, social: 50, boredom: 10 },
     battery: 100,
     isCharging: false,
+    currentFloor: 0,
   };
 }
 

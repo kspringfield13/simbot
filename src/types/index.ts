@@ -4,6 +4,8 @@ export type RobotId = 'sim' | 'chef' | 'sparkle';
 
 export const ROBOT_IDS: RobotId[] = ['sim', 'chef', 'sparkle'];
 
+export type FloorLevel = 0 | 1;
+
 export interface Room {
   id: RoomId;
   name: string;
@@ -11,6 +13,7 @@ export interface Room {
   size: [number, number];
   color: string;
   furniture: Furniture[];
+  floor?: FloorLevel;
 }
 
 export interface Furniture {
@@ -27,6 +30,7 @@ export interface Wall {
   end: [number, number];
   height: number;
   thickness: number;
+  floor?: FloorLevel;
 }
 
 export type TaskType =
@@ -134,6 +138,7 @@ export interface RobotInstanceState {
   needs: RobotNeeds;
   battery: number; // 0-100: drains while working/moving, recharges at charging station
   isCharging: boolean;
+  currentFloor: FloorLevel;
 }
 
 export interface RobotConfig {
@@ -164,6 +169,9 @@ export interface NavigationPoint {
   id: string;
   position: [number, number, number];
   pauseAtDoorway?: boolean;
+  floor?: FloorLevel;
+  isStairs?: boolean;
+  isElevator?: boolean;
 }
 
 export interface DiaryEntry {

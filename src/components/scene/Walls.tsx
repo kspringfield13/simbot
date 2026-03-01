@@ -3,15 +3,31 @@ import * as THREE from 'three';
 import { getFloorPlan } from '../../config/floorPlans';
 import { useStore } from '../../stores/useStore';
 
+
 const S = 2;
+const FLOOR_HEIGHT = 2.8 * S;
 
 export function Walls() {
   const floorPlanId = useStore((s) => s.floorPlanId);
+  const currentViewFloor = useStore((s) => s.currentViewFloor);
   const plan = useMemo(() => getFloorPlan(floorPlanId), [floorPlanId]);
+  const hasMultiFloor = (plan.floors?.length ?? 0) > 1;
+
+  const yOffset = hasMultiFloor ? currentViewFloor * FLOOR_HEIGHT : 0;
+
+  // Filter walls by current floor (walls without floor property default to floor 0)
+  const visibleWalls = hasMultiFloor
+    ? plan.walls.filter(w => (w.floor ?? 0) === currentViewFloor)
+    : plan.walls;
+
+  // Filter ceilings by current floor
+  const visibleCeilings = hasMultiFloor
+    ? plan.ceilings.filter(c => (c.floor ?? 0) === currentViewFloor)
+    : plan.ceilings;
 
   return (
     <group>
-      {plan.walls.map((wall, i) => {
+      {visibleWalls.map((wall, i) => {
         const dx = wall.end[0] - wall.start[0];
         const dz = wall.end[1] - wall.start[1];
         const length = Math.sqrt(dx * dx + dz * dz);
@@ -21,15 +37,15 @@ export function Walls() {
 
         return (
           <group key={i}>
-            <mesh position={[cx, wall.height / 2, cz]} rotation={[0, angle, 0]} castShadow receiveShadow>
+            <mesh position={[cx, yOffset + wall.height / 2, cz]} rotation={[0, angle, 0]} castShadow receiveShadow>
               <boxGeometry args={[wall.thickness, wall.height, length]} />
               <meshPhysicalMaterial color="#e8e2d6" roughness={0.85} metalness={0.02} transparent opacity={0.55} side={THREE.DoubleSide} />
             </mesh>
-            <mesh position={[cx, wall.height - 0.02 * S, cz]} rotation={[0, angle, 0]}>
+            <mesh position={[cx, yOffset + wall.height - 0.02 * S, cz]} rotation={[0, angle, 0]}>
               <boxGeometry args={[wall.thickness + 0.03 * S, 0.04 * S, length]} />
               <meshStandardMaterial color="#d5cfc3" roughness={0.5} metalness={0.05} />
             </mesh>
-            <mesh position={[cx, 0.04 * S, cz]} rotation={[0, angle, 0]}>
+            <mesh position={[cx, yOffset + 0.04 * S, cz]} rotation={[0, angle, 0]}>
               <boxGeometry args={[wall.thickness + 0.02 * S, 0.08 * S, length]} />
               <meshStandardMaterial color="#3a3530" roughness={0.6} metalness={0.05} />
             </mesh>
@@ -47,15 +63,15 @@ export function Walls() {
         if (frame.alongZ) {
           return (
             <group key={`frame-${i}`}>
-              <mesh position={[frame.cx, frame.h / 2, frame.cz - halfGap]} castShadow>
+              <mesh position={[frame.cx, yOffset + frame.h / 2, frame.cz - halfGap]} castShadow>
                 <boxGeometry args={[jambD, frame.h, jambW]} />
                 <meshStandardMaterial color={fc} roughness={0.5} metalness={0.08} />
               </mesh>
-              <mesh position={[frame.cx, frame.h / 2, frame.cz + halfGap]} castShadow>
+              <mesh position={[frame.cx, yOffset + frame.h / 2, frame.cz + halfGap]} castShadow>
                 <boxGeometry args={[jambD, frame.h, jambW]} />
                 <meshStandardMaterial color={fc} roughness={0.5} metalness={0.08} />
               </mesh>
-              <mesh position={[frame.cx, frame.h, frame.cz]} castShadow>
+              <mesh position={[frame.cx, yOffset + frame.h, frame.cz]} castShadow>
                 <boxGeometry args={[jambD, 0.08 * S, frame.gapWidth + jambW * 2]} />
                 <meshStandardMaterial color={fc} roughness={0.5} metalness={0.08} />
               </mesh>
@@ -64,15 +80,15 @@ export function Walls() {
         }
         return (
           <group key={`frame-${i}`}>
-            <mesh position={[frame.cx - halfGap, frame.h / 2, frame.cz]} castShadow>
+            <mesh position={[frame.cx - halfGap, yOffset + frame.h / 2, frame.cz]} castShadow>
               <boxGeometry args={[jambW, frame.h, jambD]} />
               <meshStandardMaterial color={fc} roughness={0.5} metalness={0.08} />
             </mesh>
-            <mesh position={[frame.cx + halfGap, frame.h / 2, frame.cz]} castShadow>
+            <mesh position={[frame.cx + halfGap, yOffset + frame.h / 2, frame.cz]} castShadow>
               <boxGeometry args={[jambW, frame.h, jambD]} />
               <meshStandardMaterial color={fc} roughness={0.5} metalness={0.08} />
             </mesh>
-            <mesh position={[frame.cx, frame.h, frame.cz]} castShadow>
+            <mesh position={[frame.cx, yOffset + frame.h, frame.cz]} castShadow>
               <boxGeometry args={[frame.gapWidth + jambW * 2, 0.08 * S, jambD]} />
               <meshStandardMaterial color={fc} roughness={0.5} metalness={0.08} />
             </mesh>
@@ -81,7 +97,7 @@ export function Walls() {
       })}
 
       {/* Ceiling planes */}
-      {plan.ceilings.map((ceil, i) => (
+      {visibleCeilings.map((ceil, i) => (
         <mesh key={`ceil-${i}`} rotation={[-Math.PI / 2, 0, 0]} position={ceil.pos}>
           <planeGeometry args={ceil.size} />
           <meshStandardMaterial color="#d8d0c4" transparent opacity={0.05} roughness={1} side={THREE.DoubleSide} />

@@ -1,4 +1,4 @@
-import type { Room, Wall } from '../types';
+import type { Room, Wall, FloorLevel } from '../types';
 import type { FurniturePiece } from '../utils/furnitureRegistry';
 import { loadCustomFloorPlans } from '../utils/proceduralFloorPlan';
 
@@ -17,9 +17,12 @@ export interface FloorPlanPreset {
   waypoints: WaypointDef[];
   chargingStation: [number, number, number];
   windowSpots: [number, number, number][];
-  ceilings: { pos: [number, number, number]; size: [number, number] }[];
+  ceilings: { pos: [number, number, number]; size: [number, number]; floor?: FloorLevel }[];
   doorFrames: DoorFrame[];
-  lights: { position: [number, number, number]; intensity: number; color: string; distance: number }[];
+  lights: { position: [number, number, number]; intensity: number; color: string; distance: number; floor?: FloorLevel }[];
+  floors?: FloorLevel[];
+  stairs?: StairsDef[];
+  elevators?: ElevatorDef[];
 }
 
 export interface WaypointDef {
@@ -27,6 +30,20 @@ export interface WaypointDef {
   pos: [number, number];
   connections: string[];
   pauseAtDoorway?: boolean;
+  floor?: FloorLevel;
+  isStairs?: boolean;
+  isElevator?: boolean;
+}
+
+export interface StairsDef {
+  position: [number, number, number];
+  rotation: number;
+  connectsFloors: [FloorLevel, FloorLevel];
+}
+
+export interface ElevatorDef {
+  position: [number, number, number];
+  connectsFloors: FloorLevel[];
 }
 
 export interface DoorFrame {
@@ -143,19 +160,117 @@ const houseLights = [
   { position: [0, 6, 24] as [number, number, number], intensity: 0.3, color: '#fffbe0', distance: 28 },
 ];
 
+// ── HOUSE second floor ──────────────────────────────────────────
+const FLOOR_HEIGHT = 2.8 * S;
+
+const house2fRooms: Room[] = [
+  { id: 'f2-study', name: 'Study', position: [-4 * S, FLOOR_HEIGHT, -6 * S], size: [8 * S, 8 * S], color: '#464444', furniture: [], floor: 1 },
+  { id: 'f2-guest', name: 'Guest Room', position: [4 * S, FLOOR_HEIGHT, -6 * S], size: [8 * S, 8 * S], color: '#444648', furniture: [], floor: 1 },
+  { id: 'f2-hallway', name: 'Upstairs Hall', position: [-2 * S, FLOOR_HEIGHT, -1 * S], size: [12 * S, 2 * S], color: '#454443', furniture: [], floor: 1 },
+  { id: 'f2-nursery', name: 'Nursery', position: [-4 * S, FLOOR_HEIGHT, 4 * S], size: [8 * S, 8 * S], color: '#484650', furniture: [], floor: 1 },
+  { id: 'f2-bathroom', name: 'Upstairs Bath', position: [4 * S, FLOOR_HEIGHT, 4 * S], size: [8 * S, 8 * S], color: '#464848', furniture: [], floor: 1 },
+];
+
+const house2fWalls: Wall[] = [
+  { start: [-8 * S, -10 * S], end: [8 * S, -10 * S], height: FLOOR_HEIGHT, thickness: 0.15 * S },
+  { start: [-8 * S, -10 * S], end: [-8 * S, 8 * S], height: FLOOR_HEIGHT, thickness: 0.15 * S },
+  { start: [8 * S, -10 * S], end: [8 * S, 8 * S], height: FLOOR_HEIGHT, thickness: 0.15 * S },
+  { start: [-8 * S, 8 * S], end: [8 * S, 8 * S], height: FLOOR_HEIGHT, thickness: 0.15 * S },
+  { start: [-8 * S, -2 * S], end: [-3 * S, -2 * S], height: FLOOR_HEIGHT, thickness: 0.12 * S },
+  { start: [3 * S, -2 * S], end: [8 * S, -2 * S], height: FLOOR_HEIGHT, thickness: 0.12 * S },
+  { start: [-8 * S, 0], end: [-2 * S, 0], height: FLOOR_HEIGHT, thickness: 0.12 * S },
+  { start: [-0.5 * S, 0], end: [0, 0], height: FLOOR_HEIGHT, thickness: 0.12 * S },
+  { start: [0, 0], end: [1.5 * S, 0], height: FLOOR_HEIGHT, thickness: 0.12 * S },
+  { start: [3 * S, 0], end: [8 * S, 0], height: FLOOR_HEIGHT, thickness: 0.12 * S },
+  { start: [0, 0], end: [0, 6.5 * S], height: FLOOR_HEIGHT, thickness: 0.12 * S },
+];
+
+const house2fFurniture: FurniturePiece[] = [
+  furn('f2-desk', 'Writing Desk', 'f2-study', [-14.5, FLOOR_HEIGHT, -12], [{ url: '/models/desk.glb', offset: [0, 0, 0], rotation: [0, PI / 2, 0], scale: 2.0 * S }, { url: '/models/desk-chair.glb', offset: [2, 0, 0], rotation: [0, -PI / 2, 0], scale: 1.8 * S }], 1.5),
+  furn('f2-bookshelf', 'Bookshelf', 'f2-study', [-8, FLOOR_HEIGHT, -19], [{ url: '/models/nightstand.glb', offset: [0, 0, 0], rotation: [0, 0, 0], scale: 2.5 * S }], 1.5),
+  furn('f2-guest-bed', 'Guest Bed', 'f2-guest', [8, FLOOR_HEIGHT, -8], [{ url: '/models/bed.glb', offset: [0, 0, 0], rotation: [0, -PI / 2, 0], scale: 1.8 * S }], 3),
+  furn('f2-guest-nightstand', 'Guest Nightstand', 'f2-guest', [3, FLOOR_HEIGHT, -8], [{ url: '/models/nightstand.glb', offset: [0, 0, 0], rotation: [0, 0, 0], scale: 1.8 * S }], 1),
+  furn('f2-crib', 'Crib', 'f2-nursery', [-8, FLOOR_HEIGHT, 8], [{ url: '/models/bed.glb', offset: [0, 0, 0], rotation: [0, PI, 0], scale: 1.2 * S }], 2),
+  furn('f2-toybox', 'Toy Box', 'f2-nursery', [-14.5, FLOOR_HEIGHT, 3], [{ url: '/models/coffee-table.glb', offset: [0, 0, 0], rotation: [0, 0, 0], scale: 1.8 * S }], 1.5),
+  furn('f2-bath-sink', 'Upstairs Sink', 'f2-bathroom', [6, FLOOR_HEIGHT, 1.2], [{ url: '/models/bathroom-sink.glb', offset: [0, 0, 0], rotation: [0, PI, 0], scale: 1.8 * S }], 1),
+  furn('f2-bath-shower', 'Upstairs Shower', 'f2-bathroom', [14, FLOOR_HEIGHT, 14], [{ url: '/models/shower-round.glb', offset: [0, 0, 0], rotation: [0, 0, 0], scale: 1.9 * S }], 2),
+  furn('f2-bath-toilet', 'Upstairs Toilet', 'f2-bathroom', [1.5, FLOOR_HEIGHT, 8], [{ url: '/models/toilet.glb', offset: [0, 0, 0], rotation: [0, PI / 2, 0], scale: 1.2 * S }], 1),
+];
+
+const house2fWaypoints: WaypointDef[] = [
+  { id: 'f2-study-center', pos: [-3.5 * S, -6 * S], connections: ['f2-study-south'], floor: 1 },
+  { id: 'f2-study-south', pos: [-3.5 * S, -3.5 * S], connections: ['f2-study-center', 'f2-hall-entry'], floor: 1 },
+  { id: 'f2-guest-center', pos: [3.5 * S, -6 * S], connections: ['f2-guest-south'], floor: 1 },
+  { id: 'f2-guest-south', pos: [3.5 * S, -3.5 * S], connections: ['f2-guest-center', 'f2-hall-east'], floor: 1 },
+  { id: 'f2-hall-entry', pos: [-2 * S, -1 * S], connections: ['f2-study-south', 'f2-hall-center'], pauseAtDoorway: true, floor: 1 },
+  { id: 'f2-hall-center', pos: [0, -1 * S], connections: ['f2-hall-entry', 'f2-hall-east', 'f2-nursery-door', 'f2-bathroom-door', 'f2-stairs-top'], floor: 1 },
+  { id: 'f2-hall-east', pos: [2 * S, -1 * S], connections: ['f2-hall-center', 'f2-guest-south'], floor: 1 },
+  { id: 'f2-nursery-door', pos: [-1.2 * S, 0.5 * S], connections: ['f2-hall-center', 'f2-nursery-center'], pauseAtDoorway: true, floor: 1 },
+  { id: 'f2-nursery-center', pos: [-4 * S, 4 * S], connections: ['f2-nursery-door'], floor: 1 },
+  { id: 'f2-bathroom-door', pos: [2 * S, 0.5 * S], connections: ['f2-hall-center', 'f2-bathroom-center'], pauseAtDoorway: true, floor: 1 },
+  { id: 'f2-bathroom-center', pos: [4 * S, 4 * S], connections: ['f2-bathroom-door'], floor: 1 },
+  // Stairs top landing (floor 1)
+  { id: 'f2-stairs-top', pos: [5 * S, -1 * S], connections: ['f2-hall-center', 'stairs-bottom'], floor: 1, isStairs: true },
+];
+
+// Add stairs-bottom waypoint to ground floor and connect it
+const houseStairsWaypoint: WaypointDef = { id: 'stairs-bottom', pos: [5 * S, -1 * S], connections: ['hall-east', 'f2-stairs-top'], floor: 0, isStairs: true };
+
+// Merge all waypoints and rooms for house
+const houseAllWaypoints: WaypointDef[] = [
+  ...houseWaypoints.map(wp => ({ ...wp, floor: 0 as FloorLevel })),
+  houseStairsWaypoint,
+  ...house2fWaypoints,
+];
+// Connect hall-east to stairs-bottom
+houseAllWaypoints.find(w => w.id === 'hall-east')!.connections.push('stairs-bottom');
+
+const houseAllRooms: Room[] = [
+  ...houseRooms.map(r => ({ ...r, floor: 0 as FloorLevel })),
+  ...house2fRooms,
+];
+
+const house2fCeilings = [
+  { pos: [-4 * S, FLOOR_HEIGHT * 2, -6 * S] as [number, number, number], size: [8 * S, 8 * S] as [number, number], floor: 1 as FloorLevel },
+  { pos: [4 * S, FLOOR_HEIGHT * 2, -6 * S] as [number, number, number], size: [8 * S, 8 * S] as [number, number], floor: 1 as FloorLevel },
+  { pos: [-2 * S, FLOOR_HEIGHT * 2, -1 * S] as [number, number, number], size: [12 * S, 2 * S] as [number, number], floor: 1 as FloorLevel },
+  { pos: [-4 * S, FLOOR_HEIGHT * 2, 4 * S] as [number, number, number], size: [8 * S, 8 * S] as [number, number], floor: 1 as FloorLevel },
+  { pos: [4 * S, FLOOR_HEIGHT * 2, 4 * S] as [number, number, number], size: [8 * S, 8 * S] as [number, number], floor: 1 as FloorLevel },
+];
+
+const house2fLights = [
+  { position: [-8, FLOOR_HEIGHT + 4.5, -12] as [number, number, number], intensity: 0.5, color: '#ffe8c0', distance: 18, floor: 1 as FloorLevel },
+  { position: [8, FLOOR_HEIGHT + 4.5, -12] as [number, number, number], intensity: 0.5, color: '#fff5e0', distance: 18, floor: 1 as FloorLevel },
+  { position: [-8, FLOOR_HEIGHT + 4.5, 8] as [number, number, number], intensity: 0.4, color: '#e8e0ff', distance: 18, floor: 1 as FloorLevel },
+  { position: [8, FLOOR_HEIGHT + 4.5, 8] as [number, number, number], intensity: 0.5, color: '#f0f5ff', distance: 18, floor: 1 as FloorLevel },
+  { position: [0, FLOOR_HEIGHT + 4.5, -2] as [number, number, number], intensity: 0.3, color: '#ffe0b0', distance: 12, floor: 1 as FloorLevel },
+];
+
+const house2fDoorFrames: DoorFrame[] = [
+  { cx: 0.25 * S, cz: -2 * S, alongZ: false, gapWidth: 6.0 * S, h: 2.4 * S },
+  { cx: -1.25 * S, cz: 0, alongZ: false, gapWidth: 1.2 * S, h: 2.3 * S },
+  { cx: 2.25 * S, cz: 0, alongZ: false, gapWidth: 1.2 * S, h: 2.3 * S },
+];
+
+const houseStairs: StairsDef[] = [
+  { position: [5 * S, 0, -1 * S], rotation: 0, connectsFloors: [0, 1] },
+];
+
 const housePreset: FloorPlanPreset = {
   id: 'house',
   name: 'House',
-  description: '6 rooms with hallway',
-  rooms: houseRooms,
-  walls: houseWalls,
-  furniture: houseFurniture,
-  waypoints: houseWaypoints,
+  description: '2 floors, 11 rooms',
+  rooms: houseAllRooms,
+  walls: [...houseWalls.map(w => ({ ...w, floor: 0 as FloorLevel })), ...house2fWalls.map(w => ({ ...w, floor: 1 as FloorLevel }))],
+  furniture: [...houseFurniture, ...house2fFurniture],
+  waypoints: houseAllWaypoints,
   chargingStation: [-6, 0, -2],
   windowSpots: [[-7.4 * S, 0, -8.5 * S], [7.4 * S, 0, -8.5 * S], [-7.4 * S, 0, 6.8 * S], [7.4 * S, 0, 6.8 * S]],
-  ceilings: houseCeilings,
-  doorFrames: houseDoorFrames,
-  lights: houseLights,
+  ceilings: [...houseCeilings.map(c => ({ ...c, floor: 0 as FloorLevel })), ...house2fCeilings],
+  doorFrames: [...houseDoorFrames, ...house2fDoorFrames],
+  lights: [...houseLights.map(l => ({ ...l, floor: 0 as FloorLevel })), ...house2fLights],
+  floors: [0, 1],
+  stairs: houseStairs,
 };
 
 // ── APARTMENT (Studio → 3 rooms) ──────────────────────────────
@@ -382,23 +497,106 @@ const manLights = [
   { position: [8, 4.5, 26] as [number, number, number], intensity: 0.4, color: '#ffe8c0', distance: 22 },
 ];
 
+// ── MANSION second floor ──────────────────────────────────────────
+const man2fRooms: Room[] = [
+  { id: 'f2-gallery', name: 'Art Gallery', position: [-9 * S, FLOOR_HEIGHT, -8 * S], size: [10 * S, 8 * S], color: '#46443e', furniture: [], floor: 1 },
+  { id: 'f2-lounge', name: 'Lounge', position: [0, FLOOR_HEIGHT, -8 * S], size: [8 * S, 8 * S], color: '#4a4644', furniture: [], floor: 1 },
+  { id: 'f2-guest-suite', name: 'Guest Suite', position: [8 * S, FLOOR_HEIGHT, -8 * S], size: [6 * S, 8 * S], color: '#444446', furniture: [], floor: 1 },
+  { id: 'f2-man-hallway', name: 'Upper Hallway', position: [0, FLOOR_HEIGHT, -1.5 * S], size: [22 * S, 3 * S], color: '#454443', furniture: [], floor: 1 },
+  { id: 'f2-office', name: 'Home Office', position: [-9 * S, FLOOR_HEIGHT, 5.5 * S], size: [10 * S, 8 * S], color: '#464444', furniture: [], floor: 1 },
+  { id: 'f2-game-room', name: 'Game Room', position: [4 * S, FLOOR_HEIGHT, 5.5 * S], size: [14 * S, 8 * S], color: '#434547', furniture: [], floor: 1 },
+];
+
+const man2fFurniture: FurniturePiece[] = [
+  furn('f2-sofa2', 'Gallery Sofa', 'f2-gallery', [-22, FLOOR_HEIGHT, -16], [{ url: '/models/sofa-long.glb', offset: [0, 0, 0], rotation: [0, PI / 2, 0], scale: 2.0 * S }], 2.5),
+  furn('f2-lounge-table', 'Lounge Table', 'f2-lounge', [0, FLOOR_HEIGHT, -16], [{ url: '/models/coffee-table.glb', offset: [0, 0, 0], rotation: [0, 0, 0], scale: 2.0 * S }], 1.5),
+  furn('f2-guest-bed2', 'Guest Bed', 'f2-guest-suite', [16, FLOOR_HEIGHT, -12], [{ url: '/models/bed.glb', offset: [0, 0, 0], rotation: [0, -PI / 2, 0], scale: 1.8 * S }], 3),
+  furn('f2-office-desk', 'Office Desk', 'f2-office', [-18, FLOOR_HEIGHT, 4], [{ url: '/models/desk.glb', offset: [0, 0, 0], rotation: [0, PI / 2, 0], scale: 2.0 * S }, { url: '/models/desk-chair.glb', offset: [2, 0, 0], rotation: [0, -PI / 2, 0], scale: 1.8 * S }], 1.5),
+  furn('f2-game-tv', 'Game TV', 'f2-game-room', [8, FLOOR_HEIGHT, 2], [{ url: '/models/tv-stand.glb', offset: [0, 0, 0], rotation: [0, 0, 0], scale: 2.0 * S }, { url: '/models/tv.glb', offset: [0, 1.3, 0], rotation: [0, 0, 0], scale: 2.0 * S }], 2),
+  furn('f2-game-sofa', 'Game Sofa', 'f2-game-room', [8, FLOOR_HEIGHT, 10], [{ url: '/models/sofa-long.glb', offset: [0, 0, 0], rotation: [0, PI / 2, 0], scale: 2.0 * S }], 2.5),
+];
+
+const man2fWaypoints: WaypointDef[] = [
+  { id: 'f2-gallery-center', pos: [-9 * S, -8 * S], connections: ['f2-gallery-door'], floor: 1 },
+  { id: 'f2-gallery-door', pos: [-4.5 * S, -4.5 * S], connections: ['f2-gallery-center', 'f2-man-hall-west'], pauseAtDoorway: true, floor: 1 },
+  { id: 'f2-lounge-center', pos: [0, -8 * S], connections: ['f2-lounge-door'], floor: 1 },
+  { id: 'f2-lounge-door', pos: [0, -4.5 * S], connections: ['f2-lounge-center', 'f2-man-hall-center'], pauseAtDoorway: true, floor: 1 },
+  { id: 'f2-guest-suite-center', pos: [8 * S, -8 * S], connections: ['f2-guest-suite-door'], floor: 1 },
+  { id: 'f2-guest-suite-door', pos: [7 * S, -4.5 * S], connections: ['f2-guest-suite-center', 'f2-man-hall-east'], pauseAtDoorway: true, floor: 1 },
+  { id: 'f2-man-hall-west', pos: [-7 * S, -1.5 * S], connections: ['f2-gallery-door', 'f2-man-hall-center', 'f2-office-door'], floor: 1 },
+  { id: 'f2-man-hall-center', pos: [0, -1.5 * S], connections: ['f2-lounge-door', 'f2-man-hall-west', 'f2-man-hall-east', 'f2-man-stairs-top'], floor: 1 },
+  { id: 'f2-man-hall-east', pos: [7 * S, -1.5 * S], connections: ['f2-guest-suite-door', 'f2-man-hall-center', 'f2-game-door', 'f2-man-elevator-top'], floor: 1 },
+  { id: 'f2-office-door', pos: [-4.5 * S, 0.5 * S], connections: ['f2-man-hall-west', 'f2-office-center'], pauseAtDoorway: true, floor: 1 },
+  { id: 'f2-office-center', pos: [-9 * S, 5.5 * S], connections: ['f2-office-door'], floor: 1 },
+  { id: 'f2-game-door', pos: [5 * S, 0.5 * S], connections: ['f2-man-hall-east', 'f2-game-center'], pauseAtDoorway: true, floor: 1 },
+  { id: 'f2-game-center', pos: [4 * S, 5.5 * S], connections: ['f2-game-door'], floor: 1 },
+  { id: 'f2-man-stairs-top', pos: [-10 * S, -1.5 * S], connections: ['f2-man-hall-center', 'man-stairs-bottom'], floor: 1, isStairs: true },
+  { id: 'f2-man-elevator-top', pos: [10 * S, -1.5 * S], connections: ['f2-man-hall-east', 'man-elevator-bottom'], floor: 1, isElevator: true },
+];
+
+const manStairsWaypoint: WaypointDef = { id: 'man-stairs-bottom', pos: [-10 * S, -1.5 * S], connections: ['hall-west', 'f2-man-stairs-top'], floor: 0, isStairs: true };
+const manElevatorWaypoint: WaypointDef = { id: 'man-elevator-bottom', pos: [10 * S, -1.5 * S], connections: ['hall-east', 'f2-man-elevator-top'], floor: 0, isElevator: true };
+
+const manAllWaypoints: WaypointDef[] = [
+  ...manWaypoints.map(wp => ({ ...wp, floor: 0 as FloorLevel })),
+  manStairsWaypoint,
+  manElevatorWaypoint,
+  ...man2fWaypoints,
+];
+manAllWaypoints.find(w => w.id === 'hall-west')!.connections.push('man-stairs-bottom');
+manAllWaypoints.find(w => w.id === 'hall-east')!.connections.push('man-elevator-bottom');
+
+const manAllRooms: Room[] = [
+  ...manRooms.map(r => ({ ...r, floor: 0 as FloorLevel })),
+  ...man2fRooms,
+];
+
+const man2fCeilings = [
+  { pos: [-9 * S, FLOOR_HEIGHT * 2, -8 * S] as [number, number, number], size: [10 * S, 8 * S] as [number, number], floor: 1 as FloorLevel },
+  { pos: [0, FLOOR_HEIGHT * 2, -8 * S] as [number, number, number], size: [8 * S, 8 * S] as [number, number], floor: 1 as FloorLevel },
+  { pos: [8 * S, FLOOR_HEIGHT * 2, -8 * S] as [number, number, number], size: [6 * S, 8 * S] as [number, number], floor: 1 as FloorLevel },
+  { pos: [0, FLOOR_HEIGHT * 2, -1.5 * S] as [number, number, number], size: [22 * S, 3 * S] as [number, number], floor: 1 as FloorLevel },
+  { pos: [-9 * S, FLOOR_HEIGHT * 2, 5.5 * S] as [number, number, number], size: [10 * S, 8 * S] as [number, number], floor: 1 as FloorLevel },
+  { pos: [4 * S, FLOOR_HEIGHT * 2, 5.5 * S] as [number, number, number], size: [14 * S, 8 * S] as [number, number], floor: 1 as FloorLevel },
+];
+
+const man2fLights = [
+  { position: [-18, FLOOR_HEIGHT + 4.5, -16] as [number, number, number], intensity: 0.5, color: '#ffe8c0', distance: 22, floor: 1 as FloorLevel },
+  { position: [0, FLOOR_HEIGHT + 4.5, -16] as [number, number, number], intensity: 0.5, color: '#fff5e0', distance: 18, floor: 1 as FloorLevel },
+  { position: [16, FLOOR_HEIGHT + 4.5, -16] as [number, number, number], intensity: 0.4, color: '#ffe8c0', distance: 14, floor: 1 as FloorLevel },
+  { position: [0, FLOOR_HEIGHT + 4.5, -3] as [number, number, number], intensity: 0.3, color: '#ffe0b0', distance: 18, floor: 1 as FloorLevel },
+  { position: [-18, FLOOR_HEIGHT + 4.5, 11] as [number, number, number], intensity: 0.4, color: '#e8e0ff', distance: 22, floor: 1 as FloorLevel },
+  { position: [8, FLOOR_HEIGHT + 4.5, 11] as [number, number, number], intensity: 0.4, color: '#ffe8c0', distance: 22, floor: 1 as FloorLevel },
+];
+
+const manStairs: StairsDef[] = [
+  { position: [-10 * S, 0, -1.5 * S], rotation: PI, connectsFloors: [0, 1] },
+];
+
+const manElevators: ElevatorDef[] = [
+  { position: [10 * S, 0, -1.5 * S], connectsFloors: [0, 1] },
+];
+
 const mansionPreset: FloorPlanPreset = {
   id: 'mansion',
   name: 'Mansion',
-  description: '10 rooms, grand layout',
-  rooms: manRooms,
-  walls: manWalls,
-  furniture: manFurniture,
-  waypoints: manWaypoints,
+  description: '2 floors, 16 rooms',
+  rooms: manAllRooms,
+  walls: [...manWalls.map(w => ({ ...w, floor: 0 as FloorLevel })), ...manWalls.slice(0, 10).map(w => ({ ...w, floor: 1 as FloorLevel }))],
+  furniture: [...manFurniture, ...man2fFurniture],
+  waypoints: manAllWaypoints,
   chargingStation: [-10, 0, -3],
   windowSpots: [
     [-13.4 * S, 0, -8 * S], [10.4 * S, 0, -8 * S],
     [-13.4 * S, 0, 5 * S], [10.4 * S, 0, 5 * S],
     [-13.4 * S, 0, 13 * S], [10.4 * S, 0, 13 * S],
   ],
-  ceilings: manCeilings,
+  ceilings: [...manCeilings.map(c => ({ ...c, floor: 0 as FloorLevel })), ...man2fCeilings],
   doorFrames: manDoorFrames,
-  lights: manLights,
+  lights: [...manLights.map(l => ({ ...l, floor: 0 as FloorLevel })), ...man2fLights],
+  floors: [0, 1],
+  stairs: manStairs,
+  elevators: manElevators,
 };
 
 // ── STUDIO (compact: 1 main room + kitchen + bathroom) ──────────

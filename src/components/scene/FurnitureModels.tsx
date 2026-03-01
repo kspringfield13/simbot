@@ -5,6 +5,7 @@ import { Html } from '@react-three/drei';
 import { GLBModel } from './GLBModel';
 import { getActiveFurniture } from '../../utils/furnitureRegistry';
 import type { FurniturePiece } from '../../utils/furnitureRegistry';
+import { getFloorPlan } from '../../config/floorPlans';
 import { useStore } from '../../stores/useStore';
 import { getRoomFromPoint } from '../../utils/homeLayout';
 import { ROBOT_IDS } from '../../types';
@@ -404,11 +405,28 @@ function FloorClickHandler() {
 // ── Main export: renders all furniture + floor click handler ───
 export function AllFurniture() {
   const floorPlanId = useStore((s) => s.floorPlanId);
+  const currentViewFloor = useStore((s) => s.currentViewFloor);
   const furniture = getActiveFurniture();
+
+  const plan = useMemo(() => getFloorPlan(floorPlanId), [floorPlanId]);
+  const hasMultiFloor = (plan.floors?.length ?? 0) > 1;
+
+  // Build room→floor lookup
+  const roomFloorMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const room of plan.rooms) {
+      map[room.id] = room.floor ?? 0;
+    }
+    return map;
+  }, [plan.rooms]);
+
+  const visibleFurniture = hasMultiFloor
+    ? furniture.filter(p => (roomFloorMap[p.roomId] ?? 0) === currentViewFloor)
+    : furniture;
 
   return (
     <Suspense fallback={null}>
-      {furniture.map((piece) => (
+      {visibleFurniture.map((piece) => (
         <FurnitureGroup key={`${floorPlanId}-${piece.id}`} piece={piece} />
       ))}
       <FloorClickHandler />

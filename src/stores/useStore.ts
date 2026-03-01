@@ -48,6 +48,7 @@ import type {
   Disaster,
   DisasterHistoryEntry,
   DiaryEntry,
+  FloorLevel,
   FriendshipPair,
   HomeEvent,
   HomeEventHistoryEntry,
@@ -659,6 +660,11 @@ interface SimBotStore {
   showFloorPlanSelector: boolean;
   setShowFloorPlanSelector: (show: boolean) => void;
   setFloorPlan: (id: string) => void;
+
+  // Multi-floor viewing
+  currentViewFloor: FloorLevel;
+  setCurrentViewFloor: (floor: FloorLevel) => void;
+  setRobotFloor: (robotId: RobotId, floor: FloorLevel) => void;
 
   // Leaderboard
   showLeaderboard: boolean;
@@ -1552,11 +1558,22 @@ export const useStore = create<SimBotStore>((set) => ({
       decorateMode: false,
       decorateSelectedRoomId: null,
       roomDecorations: {},
+      currentViewFloor: 0,
       // Reset all robots to idle
       tasks: [],
       robots: createAllRobotStates(),
     });
   },
+
+  // Multi-floor viewing
+  currentViewFloor: 0,
+  setCurrentViewFloor: (floor) => set({ currentViewFloor: floor }),
+  setRobotFloor: (robotId, floor) => set((state) => ({
+    robots: {
+      ...state.robots,
+      [robotId]: { ...state.robots[robotId], currentFloor: floor },
+    },
+  })),
 
   // Leaderboard
   showLeaderboard: false,
