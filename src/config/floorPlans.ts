@@ -164,51 +164,56 @@ const houseLights = [
 const FLOOR_HEIGHT = 2.8 * S;
 
 const house2fRooms: Room[] = [
-  { id: 'f2-study', name: 'Study', position: [-4 * S, FLOOR_HEIGHT, -6 * S], size: [8 * S, 8 * S], color: '#464444', furniture: [], floor: 1 },
-  { id: 'f2-guest', name: 'Guest Room', position: [4 * S, FLOOR_HEIGHT, -6 * S], size: [8 * S, 8 * S], color: '#444648', furniture: [], floor: 1 },
-  { id: 'f2-hallway', name: 'Upstairs Hall', position: [-2 * S, FLOOR_HEIGHT, -1 * S], size: [12 * S, 2 * S], color: '#454443', furniture: [], floor: 1 },
-  { id: 'f2-nursery', name: 'Nursery', position: [-4 * S, FLOOR_HEIGHT, 4 * S], size: [8 * S, 8 * S], color: '#484650', furniture: [], floor: 1 },
-  { id: 'f2-bathroom', name: 'Upstairs Bath', position: [4 * S, FLOOR_HEIGHT, 4 * S], size: [8 * S, 8 * S], color: '#464848', furniture: [], floor: 1 },
+  { id: 'f2-bedroom', name: 'Upstairs Bedroom', position: [-4 * S, FLOOR_HEIGHT, -6 * S], size: [8 * S, 8 * S], color: '#444450', furniture: [], floor: 1 },
+  { id: 'f2-office', name: 'Home Office', position: [4 * S, FLOOR_HEIGHT, -6 * S], size: [8 * S, 8 * S], color: '#464444', furniture: [], floor: 1 },
+  { id: 'f2-hallway', name: 'Upper Hallway', position: [-2 * S, FLOOR_HEIGHT, -1 * S], size: [12 * S, 2 * S], color: '#454443', furniture: [], floor: 1 },
+  { id: 'f2-balcony', name: 'Balcony', position: [0, FLOOR_HEIGHT, 5 * S], size: [16 * S, 6 * S], color: '#3a5848', furniture: [], floor: 1 },
 ];
 
 const house2fWalls: Wall[] = [
+  // Outer perimeter
   { start: [-8 * S, -10 * S], end: [8 * S, -10 * S], height: FLOOR_HEIGHT, thickness: 0.15 * S },
   { start: [-8 * S, -10 * S], end: [-8 * S, 8 * S], height: FLOOR_HEIGHT, thickness: 0.15 * S },
   { start: [8 * S, -10 * S], end: [8 * S, 8 * S], height: FLOOR_HEIGHT, thickness: 0.15 * S },
-  { start: [-8 * S, 8 * S], end: [8 * S, 8 * S], height: FLOOR_HEIGHT, thickness: 0.15 * S },
+  { start: [-8 * S, 8 * S], end: [8 * S, 8 * S], height: FLOOR_HEIGHT * 0.6, thickness: 0.12 * S }, // Balcony railing (lower)
+  // Bedroom/office to hallway divider
   { start: [-8 * S, -2 * S], end: [-3 * S, -2 * S], height: FLOOR_HEIGHT, thickness: 0.12 * S },
   { start: [3 * S, -2 * S], end: [8 * S, -2 * S], height: FLOOR_HEIGHT, thickness: 0.12 * S },
-  { start: [-8 * S, 0], end: [-2 * S, 0], height: FLOOR_HEIGHT, thickness: 0.12 * S },
-  { start: [-0.5 * S, 0], end: [0, 0], height: FLOOR_HEIGHT, thickness: 0.12 * S },
-  { start: [0, 0], end: [1.5 * S, 0], height: FLOOR_HEIGHT, thickness: 0.12 * S },
-  { start: [3 * S, 0], end: [8 * S, 0], height: FLOOR_HEIGHT, thickness: 0.12 * S },
-  { start: [0, 0], end: [0, 6.5 * S], height: FLOOR_HEIGHT, thickness: 0.12 * S },
+  // Hallway to balcony divider (with wide opening)
+  { start: [-8 * S, 2 * S], end: [-3 * S, 2 * S], height: FLOOR_HEIGHT, thickness: 0.12 * S },
+  { start: [3 * S, 2 * S], end: [8 * S, 2 * S], height: FLOOR_HEIGHT, thickness: 0.12 * S },
+  // Bedroom/office divider (vertical)
+  { start: [0, -10 * S], end: [0, -2 * S], height: FLOOR_HEIGHT, thickness: 0.12 * S },
 ];
 
 const house2fFurniture: FurniturePiece[] = [
-  furn('f2-desk', 'Writing Desk', 'f2-study', [-14.5, FLOOR_HEIGHT, -12], [{ url: '/models/desk.glb', offset: [0, 0, 0], rotation: [0, PI / 2, 0], scale: 2.0 * S }, { url: '/models/desk-chair.glb', offset: [2, 0, 0], rotation: [0, -PI / 2, 0], scale: 1.8 * S }], 1.5),
-  furn('f2-bookshelf', 'Bookshelf', 'f2-study', [-8, FLOOR_HEIGHT, -19], [{ url: '/models/nightstand.glb', offset: [0, 0, 0], rotation: [0, 0, 0], scale: 2.5 * S }], 1.5),
-  furn('f2-guest-bed', 'Guest Bed', 'f2-guest', [8, FLOOR_HEIGHT, -8], [{ url: '/models/bed.glb', offset: [0, 0, 0], rotation: [0, -PI / 2, 0], scale: 1.8 * S }], 3),
-  furn('f2-guest-nightstand', 'Guest Nightstand', 'f2-guest', [3, FLOOR_HEIGHT, -8], [{ url: '/models/nightstand.glb', offset: [0, 0, 0], rotation: [0, 0, 0], scale: 1.8 * S }], 1),
-  furn('f2-crib', 'Crib', 'f2-nursery', [-8, FLOOR_HEIGHT, 8], [{ url: '/models/bed.glb', offset: [0, 0, 0], rotation: [0, PI, 0], scale: 1.2 * S }], 2),
-  furn('f2-toybox', 'Toy Box', 'f2-nursery', [-14.5, FLOOR_HEIGHT, 3], [{ url: '/models/coffee-table.glb', offset: [0, 0, 0], rotation: [0, 0, 0], scale: 1.8 * S }], 1.5),
-  furn('f2-bath-sink', 'Upstairs Sink', 'f2-bathroom', [6, FLOOR_HEIGHT, 1.2], [{ url: '/models/bathroom-sink.glb', offset: [0, 0, 0], rotation: [0, PI, 0], scale: 1.8 * S }], 1),
-  furn('f2-bath-shower', 'Upstairs Shower', 'f2-bathroom', [14, FLOOR_HEIGHT, 14], [{ url: '/models/shower-round.glb', offset: [0, 0, 0], rotation: [0, 0, 0], scale: 1.9 * S }], 2),
-  furn('f2-bath-toilet', 'Upstairs Toilet', 'f2-bathroom', [1.5, FLOOR_HEIGHT, 8], [{ url: '/models/toilet.glb', offset: [0, 0, 0], rotation: [0, PI / 2, 0], scale: 1.2 * S }], 1),
+  // Upstairs Bedroom
+  furn('f2-bed', 'Upstairs Bed', 'f2-bedroom', [-8, FLOOR_HEIGHT, -14.5], [{ url: '/models/bed.glb', offset: [0, 0, 0], rotation: [0, PI, 0], scale: 1.8 * S }], 3),
+  furn('f2-nightstand', 'Nightstand', 'f2-bedroom', [-12.5, FLOOR_HEIGHT, -14.5], [{ url: '/models/nightstand.glb', offset: [0, 0, 0], rotation: [0, 0, 0], scale: 1.8 * S }], 1),
+  // Home Office
+  furn('f2-desk', 'Office Desk', 'f2-office', [14.5, FLOOR_HEIGHT, -12], [{ url: '/models/desk.glb', offset: [0, 0, 0], rotation: [0, -PI / 2, 0], scale: 2.0 * S }, { url: '/models/desk-chair.glb', offset: [-2, 0, 0], rotation: [0, PI / 2, 0], scale: 1.8 * S }], 1.5),
+  furn('f2-bookshelf', 'Bookshelf', 'f2-office', [8, FLOOR_HEIGHT, -19], [{ url: '/models/nightstand.glb', offset: [0, 0, 0], rotation: [0, 0, 0], scale: 2.5 * S }], 1.5),
+  // Balcony
+  furn('f2-lounge-chair', 'Lounge Chair', 'f2-balcony', [-6, FLOOR_HEIGHT, 10], [{ url: '/models/sofa-long.glb', offset: [0, 0, 0], rotation: [0, 0, 0], scale: 1.4 * S }], 2),
+  furn('f2-balcony-table', 'Patio Table', 'f2-balcony', [0, FLOOR_HEIGHT, 10], [{ url: '/models/coffee-table.glb', offset: [0, 0, 0], rotation: [0, 0, 0], scale: 2.0 * S }], 1.5),
 ];
 
 const house2fWaypoints: WaypointDef[] = [
-  { id: 'f2-study-center', pos: [-3.5 * S, -6 * S], connections: ['f2-study-south'], floor: 1 },
-  { id: 'f2-study-south', pos: [-3.5 * S, -3.5 * S], connections: ['f2-study-center', 'f2-hall-entry'], floor: 1 },
-  { id: 'f2-guest-center', pos: [3.5 * S, -6 * S], connections: ['f2-guest-south'], floor: 1 },
-  { id: 'f2-guest-south', pos: [3.5 * S, -3.5 * S], connections: ['f2-guest-center', 'f2-hall-east'], floor: 1 },
-  { id: 'f2-hall-entry', pos: [-2 * S, -1 * S], connections: ['f2-study-south', 'f2-hall-center'], pauseAtDoorway: true, floor: 1 },
-  { id: 'f2-hall-center', pos: [0, -1 * S], connections: ['f2-hall-entry', 'f2-hall-east', 'f2-nursery-door', 'f2-bathroom-door', 'f2-stairs-top'], floor: 1 },
-  { id: 'f2-hall-east', pos: [2 * S, -1 * S], connections: ['f2-hall-center', 'f2-guest-south'], floor: 1 },
-  { id: 'f2-nursery-door', pos: [-1.2 * S, 0.5 * S], connections: ['f2-hall-center', 'f2-nursery-center'], pauseAtDoorway: true, floor: 1 },
-  { id: 'f2-nursery-center', pos: [-4 * S, 4 * S], connections: ['f2-nursery-door'], floor: 1 },
-  { id: 'f2-bathroom-door', pos: [2 * S, 0.5 * S], connections: ['f2-hall-center', 'f2-bathroom-center'], pauseAtDoorway: true, floor: 1 },
-  { id: 'f2-bathroom-center', pos: [4 * S, 4 * S], connections: ['f2-bathroom-door'], floor: 1 },
+  // Bedroom
+  { id: 'f2-bedroom-center', pos: [-3.5 * S, -6 * S], connections: ['f2-bedroom-door'], floor: 1 },
+  { id: 'f2-bedroom-door', pos: [-1.5 * S, -2.5 * S], connections: ['f2-bedroom-center', 'f2-hall-entry'], pauseAtDoorway: true, floor: 1 },
+  // Office
+  { id: 'f2-office-center', pos: [3.5 * S, -6 * S], connections: ['f2-office-door'], floor: 1 },
+  { id: 'f2-office-door', pos: [1.5 * S, -2.5 * S], connections: ['f2-office-center', 'f2-hall-east'], pauseAtDoorway: true, floor: 1 },
+  // Hallway
+  { id: 'f2-hall-entry', pos: [-2 * S, -1 * S], connections: ['f2-bedroom-door', 'f2-hall-center'], floor: 1 },
+  { id: 'f2-hall-center', pos: [0, -1 * S], connections: ['f2-hall-entry', 'f2-hall-east', 'f2-balcony-door', 'f2-stairs-top'], floor: 1 },
+  { id: 'f2-hall-east', pos: [2 * S, -1 * S], connections: ['f2-hall-center', 'f2-office-door'], floor: 1 },
+  // Balcony
+  { id: 'f2-balcony-door', pos: [0, 2.5 * S], connections: ['f2-hall-center', 'f2-balcony-center'], pauseAtDoorway: true, floor: 1 },
+  { id: 'f2-balcony-center', pos: [0, 5 * S], connections: ['f2-balcony-door', 'f2-balcony-west', 'f2-balcony-east'], floor: 1 },
+  { id: 'f2-balcony-west', pos: [-4 * S, 5 * S], connections: ['f2-balcony-center'], floor: 1 },
+  { id: 'f2-balcony-east', pos: [4 * S, 5 * S], connections: ['f2-balcony-center'], floor: 1 },
   // Stairs top landing (floor 1)
   { id: 'f2-stairs-top', pos: [5 * S, -1 * S], connections: ['f2-hall-center', 'stairs-bottom'], floor: 1, isStairs: true },
 ];
@@ -234,22 +239,20 @@ const house2fCeilings = [
   { pos: [-4 * S, FLOOR_HEIGHT * 2, -6 * S] as [number, number, number], size: [8 * S, 8 * S] as [number, number], floor: 1 as FloorLevel },
   { pos: [4 * S, FLOOR_HEIGHT * 2, -6 * S] as [number, number, number], size: [8 * S, 8 * S] as [number, number], floor: 1 as FloorLevel },
   { pos: [-2 * S, FLOOR_HEIGHT * 2, -1 * S] as [number, number, number], size: [12 * S, 2 * S] as [number, number], floor: 1 as FloorLevel },
-  { pos: [-4 * S, FLOOR_HEIGHT * 2, 4 * S] as [number, number, number], size: [8 * S, 8 * S] as [number, number], floor: 1 as FloorLevel },
-  { pos: [4 * S, FLOOR_HEIGHT * 2, 4 * S] as [number, number, number], size: [8 * S, 8 * S] as [number, number], floor: 1 as FloorLevel },
+  // Balcony has no ceiling (open air)
 ];
 
 const house2fLights = [
-  { position: [-8, FLOOR_HEIGHT + 4.5, -12] as [number, number, number], intensity: 0.5, color: '#ffe8c0', distance: 18, floor: 1 as FloorLevel },
+  { position: [-8, FLOOR_HEIGHT + 4.5, -12] as [number, number, number], intensity: 0.5, color: '#e8e0ff', distance: 18, floor: 1 as FloorLevel },
   { position: [8, FLOOR_HEIGHT + 4.5, -12] as [number, number, number], intensity: 0.5, color: '#fff5e0', distance: 18, floor: 1 as FloorLevel },
-  { position: [-8, FLOOR_HEIGHT + 4.5, 8] as [number, number, number], intensity: 0.4, color: '#e8e0ff', distance: 18, floor: 1 as FloorLevel },
-  { position: [8, FLOOR_HEIGHT + 4.5, 8] as [number, number, number], intensity: 0.5, color: '#f0f5ff', distance: 18, floor: 1 as FloorLevel },
   { position: [0, FLOOR_HEIGHT + 4.5, -2] as [number, number, number], intensity: 0.3, color: '#ffe0b0', distance: 12, floor: 1 as FloorLevel },
+  { position: [0, FLOOR_HEIGHT + 6, 10] as [number, number, number], intensity: 0.3, color: '#fffbe0', distance: 22, floor: 1 as FloorLevel },
 ];
 
 const house2fDoorFrames: DoorFrame[] = [
-  { cx: 0.25 * S, cz: -2 * S, alongZ: false, gapWidth: 6.0 * S, h: 2.4 * S },
-  { cx: -1.25 * S, cz: 0, alongZ: false, gapWidth: 1.2 * S, h: 2.3 * S },
-  { cx: 2.25 * S, cz: 0, alongZ: false, gapWidth: 1.2 * S, h: 2.3 * S },
+  { cx: -1.5 * S, cz: -2 * S, alongZ: false, gapWidth: 1.2 * S, h: 2.3 * S },
+  { cx: 1.5 * S, cz: -2 * S, alongZ: false, gapWidth: 1.2 * S, h: 2.3 * S },
+  { cx: 0, cz: 2 * S, alongZ: false, gapWidth: 4.0 * S, h: 2.4 * S },
 ];
 
 const houseStairs: StairsDef[] = [
@@ -259,7 +262,7 @@ const houseStairs: StairsDef[] = [
 const housePreset: FloorPlanPreset = {
   id: 'house',
   name: 'House',
-  description: '2 floors, 11 rooms',
+  description: '2 floors, 11 rooms — bedroom, office & balcony upstairs',
   rooms: houseAllRooms,
   walls: [...houseWalls.map(w => ({ ...w, floor: 0 as FloorLevel })), ...house2fWalls.map(w => ({ ...w, floor: 1 as FloorLevel }))],
   furniture: [...houseFurniture, ...house2fFurniture],

@@ -60,13 +60,13 @@ export function getRoomTaskAnchors(): Record<RoomId, [number, number, number][]>
   const activeRooms = getActiveRooms();
   const anchors: Record<RoomId, [number, number, number][]> = {};
   for (const room of activeRooms) {
-    const [cx, , cz] = room.position;
+    const [cx, cy, cz] = room.position;
     const hw = room.size[0] / 4;
     const hd = room.size[1] / 4;
     anchors[room.id] = [
-      [cx, 0, cz],
-      [cx - hw, 0, cz - hd],
-      [cx + hw, 0, cz + hd],
+      [cx, cy, cz],
+      [cx - hw, cy, cz - hd],
+      [cx + hw, cy, cz + hd],
     ];
   }
   return anchors;
@@ -123,7 +123,7 @@ export const DEFAULT_ACTIVE_WALLS: string[] = [
 export function getRoomCenter(roomId: RoomId): [number, number, number] {
   const activeRooms = getActiveRooms();
   const room = activeRooms.find((entry) => entry.id === roomId);
-  return room ? [room.position[0], 0, room.position[2]] : [0, 0, -1 * S];
+  return room ? [room.position[0], room.position[1], room.position[2]] : [0, 0, -1 * S];
 }
 
 export function getRoomFromPoint(x: number, z: number): RoomId | null {
@@ -155,8 +155,8 @@ function toTarget(
 
 /** Get a task position inside the given room, offset from center. */
 function roomPos(roomId: RoomId, dx = 0, dz = 0): [number, number, number] {
-  const [cx, , cz] = getRoomCenter(roomId);
-  return [cx + dx, 0, cz + dz];
+  const [cx, cy, cz] = getRoomCenter(roomId);
+  return [cx + dx, cy, cz + dz];
 }
 
 export function findTaskTarget(command: string): TaskTarget | null {
@@ -202,6 +202,14 @@ export function findTaskTarget(command: string): TaskTarget | null {
     return hasRoom('yard') ? toTarget('yard', roomPos('yard', -1, -2), 'Pulling weeds.', 'weeding', 30, 'Weeding the garden.', 'Weeds are sprouting.') : null;
   if (cmd.includes('yard') || cmd.includes('garden') || cmd.includes('outside') || cmd.includes('outdoor') || cmd.includes('porch'))
     return hasRoom('yard') ? toTarget('yard', roomPos('yard'), 'Tidying the yard.', 'cleaning', 26, 'Heading to the yard.', 'Yard needs attention.') : null;
+
+  // ── Second floor tasks ──────────────────────────────────
+  if (cmd.includes('upstairs') && cmd.includes('bed'))
+    return hasRoom('f2-bedroom') ? toTarget('f2-bedroom', roomPos('f2-bedroom', -1, 1.5), 'Making the upstairs bed.', 'bed-making', 18, 'Heading upstairs.', 'Upstairs bed needs attention.') : null;
+  if (cmd.includes('office') || cmd.includes('paperwork') || cmd.includes('filing'))
+    return hasRoom('f2-office') ? toTarget('f2-office', roomPos('f2-office', 2, -1), 'Organizing the office.', 'organizing', 24, 'Heading to office.', 'Office needs tidying.') : null;
+  if (cmd.includes('balcony') || cmd.includes('terrace') || cmd.includes('patio'))
+    return hasRoom('f2-balcony') ? toTarget('f2-balcony', roomPos('f2-balcony'), 'Sweeping the balcony.', 'sweeping', 22, 'Going to balcony.', 'Balcony needs a sweep.') : null;
 
   if (cmd.includes('clean') || cmd.includes('tidy'))
     return hasRoom('living-room') ? toTarget('living-room', roomPos('living-room'), 'General cleanup.', 'cleaning', 20, 'Starting cleanup.', 'Quick sweep.') : null;

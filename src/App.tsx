@@ -10,6 +10,7 @@ import { BudgetPanel } from './components/ui/BudgetPanel';
 import { CoinAnimationOverlay } from './components/ui/CoinAnimation';
 import { CommunityGallery } from './components/ui/CommunityGallery';
 import { EvolutionPanel } from './components/ui/EvolutionPanel';
+import { FloorSelector } from './components/ui/FloorSelector';
 import { TaskProcessor } from './components/systems/TaskProcessor';
 import { VisitTracker } from './components/systems/VisitTracker';
 import { TimeBar } from './components/game/TimeBar';
@@ -233,6 +234,10 @@ function App() {
         <CommunityButton />
         <NeighborhoodToggle />
         <CameraToggle />
+      </div>
+      {/* Floor selector - left side, vertically centered */}
+      <div className="pointer-events-none fixed left-4 top-1/2 z-30 -translate-y-1/2">
+        <FloorSelector />
       </div>
     </div>
   );
