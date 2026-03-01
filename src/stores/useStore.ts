@@ -27,6 +27,7 @@ import {
 import type {
   ActiveChat,
   CameraMode,
+  CameraPreset,
   ChatMessage,
   DeviceState,
   DiaryEntry,
@@ -58,6 +59,32 @@ import { getSeasonForDay } from '../config/seasons';
 import { DEVICES } from '../config/devices';
 
 export type SimSpeed = 0 | 1 | 10 | 60;
+
+// ── Built-in camera presets ──────────────────────────
+export const BUILTIN_CAMERA_PRESETS: CameraPreset[] = [
+  { id: 'builtin-overview', name: 'Overview', position: [26, 29, 26], target: [0, 0, -2], builtIn: true },
+  { id: 'builtin-closeup', name: 'Close-Up', position: [3, 4, 3], target: [0, 0, 0], builtIn: true },
+  { id: 'builtin-room-level', name: 'Room Level', position: [12, 6, 0], target: [0, 0, 0], builtIn: true },
+  { id: 'builtin-dramatic', name: 'Dramatic Angle', position: [-18, 32, -20], target: [0, 0, 2], builtIn: true },
+];
+
+// ── Camera presets localStorage persistence ──────────────────────────
+const CAMERA_PRESETS_KEY = 'simbot-camera-presets';
+
+function loadCameraPresets(): CameraPreset[] {
+  try {
+    const stored = localStorage.getItem(CAMERA_PRESETS_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveCameraPresets(presets: CameraPreset[]) {
+  try {
+    localStorage.setItem(CAMERA_PRESETS_KEY, JSON.stringify(presets));
+  } catch { /* ignore quota errors */ }
+}
 
 // ── Furniture localStorage persistence ──────────────────────────
 const FURNITURE_STORAGE_KEY = 'simbot-furniture-positions';
@@ -310,6 +337,19 @@ interface SimBotStore {
   cycleCameraMode: () => void;
   requestCameraSnap: (target: [number, number, number]) => void;
   clearCameraSnap: () => void;
+
+  // Camera presets
+  cameraPresets: CameraPreset[];
+  showCameraPresets: boolean;
+  autoTourActive: boolean;
+  activeCameraPresetId: string | null;
+  cameraPresetTarget: { position: [number, number, number]; target: [number, number, number] } | null;
+  setShowCameraPresets: (show: boolean) => void;
+  saveCameraPreset: (name: string, position: [number, number, number], target: [number, number, number]) => void;
+  deleteCameraPreset: (id: string) => void;
+  loadCameraPreset: (id: string) => void;
+  setAutoTour: (active: boolean) => void;
+  clearCameraPresetTarget: () => void;
 
   // Sim time
   simMinutes: number;
@@ -641,6 +681,37 @@ export const useStore = create<SimBotStore>((set) => ({
   }),
   requestCameraSnap: (target) => set({ cameraSnapTarget: target }),
   clearCameraSnap: () => set({ cameraSnapTarget: null }),
+
+  // Camera presets
+  cameraPresets: loadCameraPresets(),
+  showCameraPresets: false,
+  autoTourActive: false,
+  activeCameraPresetId: null,
+  cameraPresetTarget: null,
+  setShowCameraPresets: (show) => set({ showCameraPresets: show }),
+  saveCameraPreset: (name, position, target) => set((s) => {
+    const preset: CameraPreset = { id: crypto.randomUUID(), name, position, target };
+    const next = [...s.cameraPresets, preset];
+    saveCameraPresets(next);
+    return { cameraPresets: next };
+  }),
+  deleteCameraPreset: (id) => set((s) => {
+    const next = s.cameraPresets.filter((p) => p.id !== id);
+    saveCameraPresets(next);
+    return { cameraPresets: next, activeCameraPresetId: s.activeCameraPresetId === id ? null : s.activeCameraPresetId };
+  }),
+  loadCameraPreset: (id) => set((s) => {
+    const allPresets = [...BUILTIN_CAMERA_PRESETS, ...s.cameraPresets];
+    const preset = allPresets.find((p) => p.id === id);
+    if (!preset) return {};
+    return {
+      cameraMode: 'overview',
+      activeCameraPresetId: id,
+      cameraPresetTarget: { position: preset.position, target: preset.target },
+    };
+  }),
+  setAutoTour: (active) => set({ autoTourActive: active, activeCameraPresetId: null }),
+  clearCameraPresetTarget: () => set({ cameraPresetTarget: null }),
 
   simMinutes: initialSimMinutes,
   simSpeed: 1,

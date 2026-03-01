@@ -41,6 +41,7 @@ import { TaskTimelinePanel, TimelineButton } from './components/ui/TaskTimelineP
 import { NotificationSystem } from './components/ui/NotificationSystem';
 import { NotificationTracker } from './components/systems/NotificationTracker';
 import { StatsPanel } from './components/ui/StatsPanel';
+import { CameraPresetsPanel } from './components/ui/CameraPresetsPanel';
 import { useStore } from './stores/useStore';
 import { useAccessibility } from './stores/useAccessibility';
 import { musicEngine } from './systems/MusicEngine';
@@ -129,6 +130,30 @@ function CameraToggle() {
       title={isFollowing ? 'Free camera' : 'Follow robot'}
     >
       {isFollowing ? '🔒' : '🔓'}
+    </button>
+  );
+}
+
+function CameraPresetsButton() {
+  const setShow = useStore((s) => s.setShowCameraPresets);
+  const autoTourActive = useStore((s) => s.autoTourActive);
+
+  return (
+    <button
+      type="button"
+      onClick={() => setShow(true)}
+      className={`pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full border text-lg backdrop-blur-md transition-all ${
+        autoTourActive
+          ? 'border-amber-400/50 bg-amber-500/30 hover:bg-amber-500/50'
+          : 'border-white/10 bg-black/50 hover:bg-black/70'
+      }`}
+      title="Camera presets"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={`h-5 w-5 ${autoTourActive ? 'text-amber-300' : 'text-white'}`}>
+        <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+        <polyline points="10 17 15 12 10 7" />
+        <line x1="15" y1="12" x2="3" y2="12" />
+      </svg>
     </button>
   );
 }
@@ -626,6 +651,7 @@ function App() {
             <RearrangeButton />
             <PhotoModeButton />
             <ScreenshotButton />
+            <CameraPresetsButton />
             <CameraToggle />
             <AccessibilityButton onClick={() => setShowA11y(true)} />
             <HelpButton onClick={() => setShowTutorial(true)} />
@@ -652,6 +678,7 @@ function App() {
       <FloorPlanSelector />
       <DecoratePanel />
       <TaskTimelinePanel />
+      <CameraPresetsPanel />
       <AccessibilityPanel open={showA11y} onClose={() => setShowA11y(false)} />
       {!isSpectating && (
         <TutorialOverlay forceOpen={showTutorial} onClose={() => setShowTutorial(false)} />

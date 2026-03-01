@@ -99,6 +99,15 @@ export interface VisitorEvent {
 }
 
 export type CameraMode = 'overview' | 'follow' | 'pov';
+
+export interface CameraPreset {
+  id: string;
+  name: string;
+  position: [number, number, number];
+  target: [number, number, number];
+  builtIn?: boolean;
+}
+
 export type SimPeriod = 'morning' | 'afternoon' | 'evening' | 'night';
 export type WeatherType = 'sunny' | 'rainy' | 'snowy';
 
