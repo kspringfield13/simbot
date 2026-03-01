@@ -220,15 +220,24 @@ const house2fWaypoints: WaypointDef[] = [
 
 // Add stairs-bottom waypoint to ground floor and connect it
 const houseStairsWaypoint: WaypointDef = { id: 'stairs-bottom', pos: [5 * S, -1 * S], connections: ['hall-east', 'f2-stairs-top'], floor: 0, isStairs: true };
+// Add elevator waypoints on both floors
+const houseElevatorBottom: WaypointDef = { id: 'elevator-bottom', pos: [-6 * S, -1 * S], connections: ['hall-entry', 'f2-elevator-top'], floor: 0, isElevator: true };
+const houseElevatorTop: WaypointDef = { id: 'f2-elevator-top', pos: [-6 * S, -1 * S], connections: ['f2-hall-entry', 'elevator-bottom'], floor: 1, isElevator: true };
 
 // Merge all waypoints and rooms for house
 const houseAllWaypoints: WaypointDef[] = [
   ...houseWaypoints.map(wp => ({ ...wp, floor: 0 as FloorLevel })),
   houseStairsWaypoint,
+  houseElevatorBottom,
   ...house2fWaypoints,
+  houseElevatorTop,
 ];
 // Connect hall-east to stairs-bottom
 houseAllWaypoints.find(w => w.id === 'hall-east')!.connections.push('stairs-bottom');
+// Connect hall-entry to elevator-bottom
+houseAllWaypoints.find(w => w.id === 'hall-entry')!.connections.push('elevator-bottom');
+// Connect f2-hall-entry to elevator-top
+houseAllWaypoints.find(w => w.id === 'f2-hall-entry')!.connections.push('f2-elevator-top');
 
 const houseAllRooms: Room[] = [
   ...houseRooms.map(r => ({ ...r, floor: 0 as FloorLevel })),
@@ -259,6 +268,10 @@ const houseStairs: StairsDef[] = [
   { position: [5 * S, 0, -1 * S], rotation: 0, connectsFloors: [0, 1] },
 ];
 
+const houseElevators: ElevatorDef[] = [
+  { position: [-6 * S, 0, -1 * S], connectsFloors: [0, 1] },
+];
+
 const housePreset: FloorPlanPreset = {
   id: 'house',
   name: 'House',
@@ -274,6 +287,7 @@ const housePreset: FloorPlanPreset = {
   lights: [...houseLights.map(l => ({ ...l, floor: 0 as FloorLevel })), ...house2fLights],
   floors: [0, 1],
   stairs: houseStairs,
+  elevators: houseElevators,
 };
 
 // ── APARTMENT (Studio → 3 rooms) ──────────────────────────────
