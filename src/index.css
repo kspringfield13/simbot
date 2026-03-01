@@ -56,3 +56,86 @@ input, button { font: inherit; }
   from { transform: translate(-50%, 100%); opacity: 0; }
   to { transform: translate(-50%, 0); opacity: 1; }
 }
+
+/* ── Accessibility: Skip link ─────────────────────────── */
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  padding: 0.75rem 1.5rem;
+  background: #000;
+  color: #0ff;
+  border: 2px solid #0ff;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.skip-link:focus {
+  top: 1rem;
+  outline: none;
+}
+
+/* ── Accessibility: Focus rings ───────────────────────── */
+*:focus-visible {
+  outline: 2px solid #22d3ee;
+  outline-offset: 2px;
+}
+
+/* ── Accessibility: Screen-reader only ────────────────── */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* ── Accessibility: Colorblind SVG filters ────────────── */
+.colorblind-protanopia {
+  filter: url(#cb-protanopia);
+}
+.colorblind-deuteranopia {
+  filter: url(#cb-deuteranopia);
+}
+.colorblind-tritanopia {
+  filter: url(#cb-tritanopia);
+}
+
+/* ── Accessibility: High contrast ─────────────────────── */
+.a11y-high-contrast {
+  --hc-outline: 2px solid rgba(255,255,255,0.8);
+}
+.a11y-high-contrast button,
+.a11y-high-contrast [role="button"] {
+  outline: var(--hc-outline);
+  outline-offset: 1px;
+  font-weight: 700 !important;
+}
+.a11y-high-contrast .text-white\/50,
+.a11y-high-contrast .text-white\/40,
+.a11y-high-contrast .text-white\/60 {
+  color: rgba(255,255,255,0.85) !important;
+}
+.a11y-high-contrast .border-white\/10,
+.a11y-high-contrast .border-white\/5 {
+  border-color: rgba(255,255,255,0.5) !important;
+}
+.a11y-high-contrast .bg-black\/50 {
+  background-color: rgba(0,0,0,0.85) !important;
+}
+
+/* ── Accessibility: Reduced motion ────────────────────── */
+.a11y-reduced-motion,
+.a11y-reduced-motion * {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}

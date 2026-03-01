@@ -1,6 +1,7 @@
 import { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useStore } from '../../stores/useStore';
+import { useAccessibility } from '../../stores/useAccessibility';
 import * as THREE from 'three';
 
 const S = 2;
@@ -44,6 +45,10 @@ export function DustMotes() {
   const pointsRef = useRef<THREE.Points>(null);
   const simMinutes = useStore((s) => s.simMinutes);
   const simSpeed = useStore((s) => s.simSpeed);
+  const reducedMotion = useAccessibility((s) => s.reducedMotion);
+
+  // Hide particles entirely in reduced motion mode
+  if (reducedMotion) return null;
 
   // Generate random positions within sunbeam zones
   const { positions, velocities } = useMemo(() => {

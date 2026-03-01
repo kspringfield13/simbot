@@ -34,9 +34,49 @@ import { SocialPanel, SocialButton } from './components/ui/SocialPanel';
 import { TimelapsePanel, TimelapseButton } from './components/ui/TimelapsePanel';
 import { TimelapseRecorder } from './components/systems/TimelapseRecorder';
 import { InstallPrompt } from './components/ui/InstallPrompt';
+import { AccessibilityPanel } from './components/ui/AccessibilityPanel';
+import { ScreenReaderAnnouncer } from './components/ui/ScreenReaderAnnouncer';
 import { useStore } from './stores/useStore';
+import { useAccessibility } from './stores/useAccessibility';
 import { musicEngine } from './systems/MusicEngine';
 import { useSpectatorHost, useSpectatorViewer } from './hooks/useSpectator';
+
+function ColorblindFilters() {
+  return (
+    <svg className="sr-only" aria-hidden="true">
+      <defs>
+        <filter id="cb-protanopia">
+          <feColorMatrix type="matrix" values="0.567,0.433,0,0,0 0.558,0.442,0,0,0 0,0.242,0.758,0,0 0,0,0,1,0" />
+        </filter>
+        <filter id="cb-deuteranopia">
+          <feColorMatrix type="matrix" values="0.625,0.375,0,0,0 0.7,0.3,0,0,0 0,0.3,0.7,0,0 0,0,0,1,0" />
+        </filter>
+        <filter id="cb-tritanopia">
+          <feColorMatrix type="matrix" values="0.95,0.05,0,0,0 0,0.433,0.567,0,0 0,0.475,0.525,0,0 0,0,0,1,0" />
+        </filter>
+      </defs>
+    </svg>
+  );
+}
+
+function AccessibilityButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-black/50 text-lg backdrop-blur-md transition-all hover:bg-black/70"
+      title="Accessibility settings"
+      aria-label="Accessibility settings"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-white">
+        <circle cx="12" cy="4.5" r="2.5" />
+        <path d="M12 7v6" />
+        <path d="M8 21l4-8 4 8" />
+        <path d="M6 12h12" />
+      </svg>
+    </button>
+  );
+}
 
 function MusicToggle() {
   const musicEnabled = useStore((s) => s.musicEnabled);
@@ -449,27 +489,44 @@ function App() {
   const photoMode = useStore((s) => s.photoMode);
   const isSpectating = useStore((s) => s.isSpectating);
   const [showTutorial, setShowTutorial] = useState(false);
+  const [showA11y, setShowA11y] = useState(false);
+
+  const colorblindMode = useAccessibility((s) => s.colorblindMode);
+  const reducedMotion = useAccessibility((s) => s.reducedMotion);
+  const highContrast = useAccessibility((s) => s.highContrast);
 
   // Host broadcasts state to same-origin spectator tabs; viewer receives it
   // Both hooks self-guard based on isSpectatorMode()
   useSpectatorHost();
   useSpectatorViewer();
 
+  const a11yClasses = [
+    'relative h-screen w-screen overflow-hidden bg-black',
+    colorblindMode !== 'none' ? `colorblind-${colorblindMode}` : '',
+    reducedMotion ? 'a11y-reduced-motion' : '',
+    highContrast ? 'a11y-high-contrast' : '',
+  ].filter(Boolean).join(' ');
+
   return (
-    <div className="relative h-screen w-screen overflow-hidden bg-black">
-      <Canvas
-        shadows
-        camera={{ position: [0, 20, 20], fov: 50, near: 0.1, far: 500 }}
-        gl={{ antialias: true, preserveDrawingBuffer: true }}
-        dpr={[1, 1.5]}
-      >
-        <Suspense fallback={null}>
-          <HomeScene />
-        </Suspense>
-        <MusicSystem />
-        <RobotScreenTracker />
-        <PhotoModeEffects />
-      </Canvas>
+    <div className={a11yClasses} role="application" aria-label="SimBot robot home simulation">
+      <ColorblindFilters />
+      <a href="#main-canvas" className="skip-link">Skip to simulation</a>
+
+      <main id="main-canvas" role="main" aria-label="3D simulation canvas">
+        <Canvas
+          shadows
+          camera={{ position: [0, 20, 20], fov: 50, near: 0.1, far: 500 }}
+          gl={{ antialias: true, preserveDrawingBuffer: true }}
+          dpr={[1, 1.5]}
+        >
+          <Suspense fallback={null}>
+            <HomeScene />
+          </Suspense>
+          <MusicSystem />
+          <RobotScreenTracker />
+          <PhotoModeEffects />
+        </Canvas>
+      </main>
 
       {/* Systems — disabled for spectators */}
       {!isSpectating && (
@@ -485,6 +542,9 @@ function App() {
         </>
       )}
 
+      {/* Screen reader announcements */}
+      <ScreenReaderAnnouncer />
+
       {/* Spectator badge */}
       <SpectatorBadge />
 
@@ -493,8 +553,9 @@ function App() {
         <>
           <RobotTerminal />
           <EmojiReaction />
-          <div
-            className="pointer-events-none fixed right-4 top-4 z-30 flex gap-2"
+          <nav
+            aria-label="Robot controls"
+            className="pointer-events-none fixed right-4 top-4 z-30 flex flex-wrap gap-2"
             style={{ marginTop: 'env(safe-area-inset-top, 0px)' }}
           >
             <CoinDisplay />
@@ -516,8 +577,9 @@ function App() {
             <PhotoModeButton />
             <ScreenshotButton />
             <CameraToggle />
+            <AccessibilityButton onClick={() => setShowA11y(true)} />
             <HelpButton onClick={() => setShowTutorial(true)} />
-          </div>
+          </nav>
         </>
       )}
 
@@ -538,6 +600,7 @@ function App() {
       <SocialPanel />
       <TimelapsePanel />
       <FloorPlanSelector />
+      <AccessibilityPanel open={showA11y} onClose={() => setShowA11y(false)} />
       {!isSpectating && (
         <TutorialOverlay forceOpen={showTutorial} onClose={() => setShowTutorial(false)} />
       )}

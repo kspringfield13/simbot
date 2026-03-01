@@ -2,6 +2,7 @@ import { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useStore } from '../../stores/useStore';
+import { useAccessibility } from '../../stores/useAccessibility';
 
 const S = 2;
 
@@ -142,8 +143,9 @@ function SnowOnWindow({ position, rotation }: { position: [number, number, numbe
 
 export function WeatherEffects() {
   const weather = useStore((s) => s.weather);
+  const reducedMotion = useAccessibility((s) => s.reducedMotion);
 
-  if (weather === 'sunny') return null;
+  if (weather === 'sunny' || reducedMotion) return null;
 
   return (
     <group>
