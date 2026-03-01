@@ -4,6 +4,7 @@ import { achievements, getUnlockedAchievements } from '../../systems/Achievement
 import { getEventConfig, getEventRoomName } from '../../systems/HomeEvents';
 import { SaveLoadButtons } from './SaveLoadSystem';
 import { StatsGraphs } from './StatsGraphs';
+import { StoryPanel } from './StoryPanel';
 import { PET_CONFIGS, PET_IDS } from '../../config/pets';
 
 const taskTypeLabels: Record<string, string> = {
@@ -131,9 +132,14 @@ export function StatsPanel() {
         <button style={tabStyle(statsTab === 'graphs')} onClick={() => setStatsTab('graphs')}>
           Graphs
         </button>
+        <button style={tabStyle(statsTab === 'story')} onClick={() => setStatsTab('story')}>
+          Story
+        </button>
       </div>
 
-      {statsTab === 'graphs' ? (
+      {statsTab === 'story' ? (
+        <StoryPanel />
+      ) : statsTab === 'graphs' ? (
         <StatsGraphs />
       ) : (
         <>

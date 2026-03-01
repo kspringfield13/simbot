@@ -9,6 +9,7 @@ import { getDeployedRobotBonuses } from '../config/crafting';
 import type { MaterialInventory, CraftedFurnitureItem, ActiveCraft } from '../config/furnitureCrafting';
 import { loadFurnitureCraftingData, saveFurnitureCraftingData, getRecipeById, canAffordRecipe } from '../config/furnitureCrafting';
 import type { CameraZoneId, AlarmState, SecurityLogEntry } from '../config/security';
+import type { StoryArc } from '../systems/StoryDirector';
 import { loadSecurityData, saveSecurityData } from '../config/security';
 import { getSkillQualityBonus } from '../config/skills';
 import { loadFloorPlanId, saveFloorPlanId } from '../config/floorPlans';
@@ -496,8 +497,8 @@ interface SimBotStore {
   tasksByType: Partial<Record<TaskType, number>>;
   tasksByRoom: Partial<Record<RoomId, number>>;
   recordStats: (taskType: TaskType, roomId: RoomId, robotId?: RobotId) => void;
-  statsTab: 'overview' | 'graphs';
-  setStatsTab: (tab: 'overview' | 'graphs') => void;
+  statsTab: 'overview' | 'graphs' | 'story';
+  setStatsTab: (tab: 'overview' | 'graphs' | 'story') => void;
 
   // Graph history (sampled every 5 sim-minutes)
   cleanlinessHistory: { simMinutes: number; rooms: Record<string, number>; average: number }[];
@@ -784,6 +785,12 @@ interface SimBotStore {
   updateIntruder: (updates: Partial<IntruderEvent>) => void;
   resolveIntruder: () => void;
   addSecurityLog: (entry: Omit<SecurityLogEntry, 'id'>) => void;
+
+  // Story Director
+  storyArcs: StoryArc[];
+  setStoryArcs: (arcs: StoryArc[]) => void;
+  expandedStoryArcId: string | null;
+  setExpandedStoryArcId: (id: string | null) => void;
 }
 
 const initialSimMinutes = (7 * 60) + 20;
@@ -1896,6 +1903,12 @@ export const useStore = create<SimBotStore>((set) => ({
     const log: SecurityLogEntry = { ...entry, id: `slog-${Date.now()}-${Math.random().toString(36).slice(2, 6)}` };
     return { securityLog: [...state.securityLog.slice(-49), log] }; // keep last 50
   }),
+
+  // ── Story Director ──────────────────────────────────
+  storyArcs: [],
+  setStoryArcs: (arcs) => set({ storyArcs: arcs.slice(-20) }), // keep last 20 arcs
+  expandedStoryArcId: null,
+  setExpandedStoryArcId: (id) => set({ expandedStoryArcId: id }),
 }));
 
 // Each completion reduces duration by ~5%, capping at 30% faster

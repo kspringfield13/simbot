@@ -52,6 +52,7 @@ import { ChallengeSystem } from './components/systems/ChallengeSystem';
 import { FurnitureCraftingSystem } from './components/systems/FurnitureCraftingSystem';
 import { FurnitureCraftingPanel } from './components/ui/FurnitureCraftingPanel';
 import { SecurityTracker } from './components/systems/SecurityTracker';
+import { StoryDirectorTracker } from './components/systems/StoryDirectorTracker';
 import { SecurityPanel } from './components/ui/SecurityPanel';
 import { INTRUDER_CONFIGS, type IntruderType } from './config/security';
 import { useStore } from './stores/useStore';
@@ -932,6 +933,7 @@ function App() {
           <ChallengeSystem />
           <FurnitureCraftingSystem />
           <SecurityTracker />
+          <StoryDirectorTracker />
         </>
       )}
 
