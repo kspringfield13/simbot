@@ -273,6 +273,16 @@ const initialCraftingData = loadCraftingData();
 
 const initialRoomLayout = loadRoomLayout();
 
+export type NotificationType = 'info' | 'warning' | 'success' | 'achievement';
+
+export interface AppNotification {
+  id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  createdAt: number;
+}
+
 interface SimBotStore {
   // Multi-robot state
   robots: Record<RobotId, RobotInstanceState>;
@@ -535,6 +545,11 @@ interface SimBotStore {
   setDecorateSelectedRoomId: (id: string | null) => void;
   setRoomDecoration: (roomId: string, decoration: Partial<RoomDecoration>) => void;
   resetRoomDecorations: () => void;
+
+  // Notifications
+  notifications: AppNotification[];
+  addNotification: (n: Omit<AppNotification, 'id' | 'createdAt'>) => void;
+  dismissNotification: (id: string) => void;
 }
 
 const initialSimMinutes = (7 * 60) + 20;
@@ -1237,6 +1252,18 @@ export const useStore = create<SimBotStore>((set) => ({
     saveRoomDecorations({});
     set({ roomDecorations: {}, decorateSelectedRoomId: null });
   },
+
+  // Notifications
+  notifications: [],
+  addNotification: (n) => set((state) => ({
+    notifications: [
+      ...state.notifications,
+      { ...n, id: crypto.randomUUID(), createdAt: Date.now() },
+    ].slice(-10), // keep max 10 in buffer
+  })),
+  dismissNotification: (id) => set((state) => ({
+    notifications: state.notifications.filter((n) => n.id !== id),
+  })),
 }));
 
 // Each completion reduces duration by ~5%, capping at 30% faster

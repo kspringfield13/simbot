@@ -38,6 +38,8 @@ import { AccessibilityPanel } from './components/ui/AccessibilityPanel';
 import { ScreenReaderAnnouncer } from './components/ui/ScreenReaderAnnouncer';
 import { DecoratePanel } from './components/ui/DecoratePanel';
 import { TaskTimelinePanel, TimelineButton } from './components/ui/TaskTimelinePanel';
+import { NotificationSystem } from './components/ui/NotificationSystem';
+import { NotificationTracker } from './components/systems/NotificationTracker';
 import { useStore } from './stores/useStore';
 import { useAccessibility } from './stores/useAccessibility';
 import { musicEngine } from './systems/MusicEngine';
@@ -582,6 +584,7 @@ function App() {
           <HomeEventTracker />
           <SocialTracker />
           <TimelapseRecorder />
+          <NotificationTracker />
         </>
       )}
 
@@ -652,6 +655,7 @@ function App() {
       {!isSpectating && (
         <TutorialOverlay forceOpen={showTutorial} onClose={() => setShowTutorial(false)} />
       )}
+      <NotificationSystem />
       <InstallPrompt />
     </div>
   );
