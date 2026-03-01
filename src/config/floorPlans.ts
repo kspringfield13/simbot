@@ -1,5 +1,6 @@
 import type { Room, Wall } from '../types';
 import type { FurniturePiece } from '../utils/furnitureRegistry';
+import { loadCustomFloorPlans } from '../utils/proceduralFloorPlan';
 
 const PI = Math.PI;
 const S = 2;
@@ -574,8 +575,12 @@ export const FLOOR_PLAN_PRESETS: FloorPlanPreset[] = [
   mansionPreset,
 ];
 
+export function getAllFloorPlans(): FloorPlanPreset[] {
+  return [...FLOOR_PLAN_PRESETS, ...loadCustomFloorPlans()];
+}
+
 export function getFloorPlan(id: string): FloorPlanPreset {
-  return FLOOR_PLAN_PRESETS.find((p) => p.id === id) ?? housePreset;
+  return getAllFloorPlans().find((p) => p.id === id) ?? housePreset;
 }
 
 export const DEFAULT_FLOOR_PLAN_ID = 'house';
