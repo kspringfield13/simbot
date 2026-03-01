@@ -4,6 +4,7 @@ import { findTaskTarget } from '../utils/homeLayout';
 import { getNavigationPath } from '../utils/pathfinding';
 import { demoCommands } from '../utils/demoTasks';
 import { getTaskCoinReward, getShopSpeedMultiplier } from '../config/shop';
+import { generateDiaryEntry } from '../config/diary';
 import type { Task, TaskSource, TaskType } from '../types';
 import { ROBOT_IDS } from '../types';
 
@@ -277,6 +278,22 @@ export const useTaskRunner = () => {
         // Award coins for completing the task
         const coinReward = getTaskCoinReward(activeTask.workDuration);
         state.addCoins(coinReward);
+
+        // Generate diary entry
+        const robot = state.robots[rid];
+        const diaryEntry = generateDiaryEntry({
+          robotId: rid,
+          simMinutes: state.simMinutes,
+          mood: robot.mood,
+          battery: robot.battery,
+          energy: robot.needs.energy,
+          happiness: robot.needs.happiness,
+          weather: state.weather,
+          season: state.currentSeason,
+          taskType: activeTask.taskType,
+          roomId: activeTask.targetRoom,
+        });
+        state.addDiaryEntry(diaryEntry);
 
         setCurrentAnimation(rid, 'general');
         setRobotState(rid, 'idle');

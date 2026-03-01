@@ -9,6 +9,7 @@ import { ROBOT_IDS } from '../types';
 import { ROBOT_CONFIGS } from '../config/robots';
 import { getComfortMultiplier } from '../config/devices';
 import { SEASONAL_TASKS, SEASON_THOUGHTS } from '../config/seasons';
+import { generateDiaryEntry } from '../config/diary';
 
 const ACTIVE_STATUSES = new Set(['queued', 'walking', 'working']);
 
@@ -317,6 +318,7 @@ export function AIBrain({ robotId }: { robotId: RobotId }) {
   const lastTempThoughtRef = useRef(0);
   const lastTVWatchRef = useRef(0);
   const lastSeasonalTaskRef = useRef(0);
+  const lastDiaryObsRef = useRef(0);
 
   useFrame(() => {
     const s = useStore.getState();
@@ -333,6 +335,22 @@ export function AIBrain({ robotId }: { robotId: RobotId }) {
     if (weather === 'snowy' && (autoMood === 'content' || autoMood === 'routine')) autoMood = 'happy'; // snow = excited
     if (robot.mood !== autoMood && robot.state === 'idle') {
       s.setRobotMood(robotId, autoMood);
+    }
+
+    // ── PERIODIC DIARY OBSERVATION ~every 60 sim-minutes when idle ──
+    if (robot.state === 'idle' && now - lastDiaryObsRef.current > 60 && Math.random() < 0.008) {
+      lastDiaryObsRef.current = now;
+      const entry = generateDiaryEntry({
+        robotId,
+        simMinutes: now,
+        mood: autoMood,
+        battery: robot.battery,
+        energy: needs.energy,
+        happiness: needs.happiness,
+        weather,
+        season: s.currentSeason,
+      });
+      s.addDiaryEntry(entry);
     }
 
     // ── DEVICE INTERACTIONS ──

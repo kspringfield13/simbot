@@ -20,6 +20,7 @@ import { ShareButton } from './components/ui/ShareButton';
 import { SpectatorBadge } from './components/ui/SpectatorBadge';
 import { ShopPanel } from './components/ui/ShopPanel';
 import { DevicePanel } from './components/ui/DevicePanel';
+import { DiaryPanel } from './components/ui/DiaryPanel';
 import { useStore } from './stores/useStore';
 import { musicEngine } from './systems/MusicEngine';
 import { useSpectatorHost, useSpectatorViewer } from './hooks/useSpectator';
@@ -283,6 +284,35 @@ function SmartHomeButton() {
   );
 }
 
+function DiaryButton() {
+  const setShowDiary = useStore((s) => s.setShowDiary);
+  const entryCount = useStore((s) => {
+    const rid = s.activeRobotId;
+    return s.diaryEntries[rid]?.length ?? 0;
+  });
+
+  return (
+    <button
+      type="button"
+      onClick={() => setShowDiary(true)}
+      className="pointer-events-auto relative flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-black/50 text-lg backdrop-blur-md transition-all hover:bg-black/70"
+      title="Robot diary"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-white">
+        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+        <line x1="8" y1="7" x2="16" y2="7" />
+        <line x1="8" y1="11" x2="14" y2="11" />
+      </svg>
+      {entryCount > 0 && (
+        <span className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-amber-500 px-1 text-[9px] font-bold text-black">
+          {entryCount}
+        </span>
+      )}
+    </button>
+  );
+}
+
 function HelpButton({ onClick }: { onClick: () => void }) {
   return (
     <button
@@ -347,6 +377,7 @@ function App() {
             <CoinDisplay />
             <ShopButton />
             <SmartHomeButton />
+            <DiaryButton />
             <ShareButton />
             <MusicToggle />
             <RoomEditorButtons />
@@ -370,6 +401,7 @@ function App() {
       <PhotoModeOverlay />
       <ShopPanel />
       <DevicePanel />
+      <DiaryPanel />
       {!isSpectating && (
         <TutorialOverlay forceOpen={showTutorial} onClose={() => setShowTutorial(false)} />
       )}

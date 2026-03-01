@@ -150,6 +150,17 @@ export interface NavigationPoint {
   pauseAtDoorway?: boolean;
 }
 
+export interface DiaryEntry {
+  id: string;
+  robotId: RobotId;
+  simMinutes: number;      // sim time when entry was created
+  text: string;             // personality-driven journal text
+  mood: RobotMood;
+  battery: number;
+  taskType?: TaskType;      // if related to a task completion
+  roomId?: RoomId;
+}
+
 export interface TaskTarget {
   roomId: RoomId;
   position: [number, number, number];

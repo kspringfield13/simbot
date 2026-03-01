@@ -9,6 +9,7 @@ import type {
   CameraMode,
   ChatMessage,
   DeviceState,
+  DiaryEntry,
   NavigationPoint,
   Room,
   RobotId,
@@ -354,6 +355,14 @@ interface SimBotStore {
   seasonToast: string | null;
   setCurrentSeason: (season: Season) => void;
   setSeasonToast: (toast: string | null) => void;
+
+  // Diary
+  diaryEntries: Record<RobotId, DiaryEntry[]>;
+  diaryDay: number; // sim day when diary was last active (for reset)
+  showDiary: boolean;
+  setShowDiary: (show: boolean) => void;
+  addDiaryEntry: (entry: DiaryEntry) => void;
+  resetDiary: (day: number) => void;
 }
 
 const initialSimMinutes = (7 * 60) + 20;
@@ -812,6 +821,19 @@ export const useStore = create<SimBotStore>((set) => ({
   seasonToast: null,
   setCurrentSeason: (season) => set({ currentSeason: season }),
   setSeasonToast: (toast) => set({ seasonToast: toast }),
+
+  // Diary
+  diaryEntries: { sim: [], chef: [], sparkle: [] },
+  diaryDay: initialDay,
+  showDiary: false,
+  setShowDiary: (show) => set({ showDiary: show }),
+  addDiaryEntry: (entry) => set((state) => ({
+    diaryEntries: {
+      ...state.diaryEntries,
+      [entry.robotId]: [...(state.diaryEntries[entry.robotId] ?? []), entry],
+    },
+  })),
+  resetDiary: (day) => set({ diaryEntries: { sim: [], chef: [], sparkle: [] }, diaryDay: day }),
 }));
 
 // Each completion reduces duration by ~5%, capping at 30% faster

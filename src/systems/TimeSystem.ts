@@ -159,6 +159,7 @@ export function TimeSystem() {
   const advanceTime = useStore((state) => state.advanceTime);
   const lastWeatherIdxRef = useRef(-1);
   const lastSeasonRef = useRef(useStore.getState().currentSeason);
+  const lastDiaryDayRef = useRef(useStore.getState().diaryDay);
 
   useFrame((_, delta) => {
     advanceTime(delta);
@@ -177,6 +178,12 @@ export function TimeSystem() {
       lastSeasonRef.current = season;
       s.setCurrentSeason(season);
       s.setSeasonToast(`${SEASON_ICONS[season]} ${SEASON_LABELS[season]} has arrived!`);
+    }
+
+    // Diary day reset
+    if (day !== lastDiaryDayRef.current) {
+      lastDiaryDayRef.current = day;
+      s.resetDiary(day);
     }
   });
 
