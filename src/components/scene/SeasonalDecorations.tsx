@@ -30,7 +30,7 @@ const particleZones: { center: [number, number, number]; size: [number, number, 
 
 const PARTICLE_COUNT = 200;
 
-// ─── Winter: snowflakes falling + icicles ───────────────────────────────────
+// ─── Winter: snowflakes + icicles + ground snow + frost on windows ────────
 
 function Snowflakes() {
   const pointsRef = useRef<THREE.Points>(null);
@@ -67,7 +67,6 @@ function Snowflakes() {
       arr[i3 + 1] += velocities[i3 + 1] * dt;
       arr[i3 + 2] += (velocities[i3 + 2] + wobble * 0.5) * dt;
 
-      // Reset snowflake when it falls below ground
       if (arr[i3 + 1] < 0) {
         arr[i3] = zone.center[0] + (Math.random() - 0.5) * zone.size[0];
         arr[i3 + 1] = zone.center[1] + zone.size[1] * 0.5;
@@ -138,16 +137,63 @@ function Icicles() {
   );
 }
 
+/** Thin white plane on the ground to simulate snow accumulation */
+function GroundSnow() {
+  return (
+    <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      <planeGeometry args={[18 * S, 18 * S]} />
+      <meshStandardMaterial
+        color="#e8f4ff"
+        transparent
+        opacity={0.35}
+        roughness={0.9}
+        metalness={0}
+      />
+    </mesh>
+  );
+}
+
+/** Frost overlay on window panes */
+function WindowFrost() {
+  return (
+    <group>
+      {windowFrames.map((frame, i) => (
+        <mesh
+          key={i}
+          position={[
+            frame.position[0] + (frame.rotation === Math.PI / 2 ? (frame.position[0] > 0 ? -0.05 : 0.05) : 0),
+            frame.position[1],
+            frame.position[2] + (frame.rotation === 0 ? (frame.position[2] > 0 ? -0.05 : 0.05) : 0),
+          ]}
+          rotation={[0, frame.rotation, 0]}
+        >
+          <planeGeometry args={[1.2 * S, 1.4 * S]} />
+          <meshStandardMaterial
+            color="#d0e8ff"
+            transparent
+            opacity={0.25}
+            roughness={0.05}
+            metalness={0.5}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
 function WinterDecorations() {
   return (
     <group>
       <Snowflakes />
       <Icicles />
+      <GroundSnow />
+      <WindowFrost />
     </group>
   );
 }
 
-// ─── Spring: flower petals + green leaf particles ───────────────────────────
+// ─── Spring: flower petals + green grass ────────────────────────────────────
 
 function SpringParticles() {
   const pointsRef = useRef<THREE.Points>(null);
@@ -170,7 +216,6 @@ function SpringParticles() {
       pos[i3 + 1] = zone.center[1] + Math.random() * zone.size[1];
       pos[i3 + 2] = zone.center[2] + (Math.random() - 0.5) * zone.size[2];
 
-      // Gentle drifting
       vel[i3] = (Math.random() - 0.5) * 0.4;
       vel[i3 + 1] = -(0.15 + Math.random() * 0.3);
       vel[i3 + 2] = (Math.random() - 0.5) * 0.4;
@@ -226,14 +271,38 @@ function SpringParticles() {
   );
 }
 
-// ─── Summer: sun rays / light beams through windows ─────────────────────────
+/** Green grass tint on the ground for spring */
+function SpringGrass() {
+  return (
+    <mesh position={[0, 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      <planeGeometry args={[18 * S, 18 * S]} />
+      <meshStandardMaterial
+        color="#4a8c3f"
+        transparent
+        opacity={0.15}
+        roughness={0.95}
+        metalness={0}
+      />
+    </mesh>
+  );
+}
+
+function SpringDecorations() {
+  return (
+    <group>
+      <SpringParticles />
+      <SpringGrass />
+    </group>
+  );
+}
+
+// ─── Summer: sun rays + heat shimmer + dry grass ─────────────────────────
 
 function SunBeams() {
   const groupRef = useRef<THREE.Group>(null);
   const simMinutes = useStore((s) => s.simMinutes);
 
   const hour = (simMinutes % 1440) / 60;
-  // Sun beams strongest during daytime hours
   const intensity = hour >= 8 && hour < 17
     ? 0.3 + Math.sin(((hour - 8) / 9) * Math.PI) * 0.4
     : 0;
@@ -242,7 +311,6 @@ function SunBeams() {
     <group ref={groupRef}>
       {intensity > 0 && windowFrames.map((frame, i) => {
         const beamLength = 4 * S;
-        // Beams angle inward based on window orientation
         const inwardX = frame.rotation === Math.PI / 2
           ? (frame.position[0] > 0 ? -1 : 1) * 1.5 * S
           : 0;
@@ -280,7 +348,74 @@ function SunBeams() {
   );
 }
 
-// ─── Fall: falling leaves in warm colors ────────────────────────────────────
+/** Heat shimmer effect — wavy distortion planes above the floor */
+function HeatShimmer() {
+  const groupRef = useRef<THREE.Group>(null);
+  const simMinutes = useStore((s) => s.simMinutes);
+
+  const hour = (simMinutes % 1440) / 60;
+  const active = hour >= 10 && hour < 16;
+
+  useFrame(({ clock }) => {
+    if (!groupRef.current || !active) return;
+    const t = clock.getElapsedTime();
+    groupRef.current.position.y = 0.3 * S + Math.sin(t * 0.8) * 0.05 * S;
+    groupRef.current.children.forEach((child, i) => {
+      if (child instanceof THREE.Mesh) {
+        const material = child.material as THREE.MeshBasicMaterial;
+        material.opacity = 0.03 + Math.sin(t * 1.2 + i * 2) * 0.015;
+      }
+    });
+  });
+
+  if (!active) return null;
+
+  return (
+    <group ref={groupRef}>
+      {[0, 0.15, 0.3].map((yOff, i) => (
+        <mesh key={i} position={[0, yOff * S, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[14 * S, 14 * S]} />
+          <meshBasicMaterial
+            color="#fffbe6"
+            transparent
+            opacity={0.03}
+            side={THREE.DoubleSide}
+            depthWrite={false}
+            blending={THREE.AdditiveBlending}
+          />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+/** Dry yellowish grass tint for summer */
+function DryGrass() {
+  return (
+    <mesh position={[0, 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      <planeGeometry args={[18 * S, 18 * S]} />
+      <meshStandardMaterial
+        color="#c4a43a"
+        transparent
+        opacity={0.12}
+        roughness={0.95}
+        metalness={0}
+      />
+    </mesh>
+  );
+}
+
+function SummerDecorations() {
+  return (
+    <group>
+      <SunBeams />
+      <HeatShimmer />
+      <DryGrass />
+    </group>
+  );
+}
+
+// ─── Fall: falling leaves + wind particles ──────────────────────────────────
 
 function FallLeaves() {
   const pointsRef = useRef<THREE.Points>(null);
@@ -303,7 +438,6 @@ function FallLeaves() {
       pos[i3 + 1] = zone.center[1] + Math.random() * zone.size[1];
       pos[i3 + 2] = zone.center[2] + (Math.random() - 0.5) * zone.size[2];
 
-      // Tumbling fall with horizontal drift
       vel[i3] = (Math.random() - 0.5) * 0.6;
       vel[i3 + 1] = -(0.3 + Math.random() * 0.5);
       vel[i3 + 2] = (Math.random() - 0.5) * 0.6;
@@ -326,7 +460,6 @@ function FallLeaves() {
       const i3 = i * 3;
       const zone = particleZones[i % particleZones.length];
       const t = Date.now() * 0.001 + i * 1.1;
-      // Tumbling motion
       const sway = Math.sin(t) * 0.8;
       const flutter = Math.cos(t * 2.3) * 0.3;
 
@@ -361,6 +494,71 @@ function FallLeaves() {
   );
 }
 
+/** Wind particle streaks — small fast-moving specs in the air */
+function WindParticles() {
+  const pointsRef = useRef<THREE.Points>(null);
+  const simSpeed = useStore((s) => s.simSpeed);
+  const WIND_COUNT = 80;
+
+  const { positions, velocities } = useMemo(() => {
+    const pos = new Float32Array(WIND_COUNT * 3);
+    const vel = new Float32Array(WIND_COUNT * 3);
+    for (let i = 0; i < WIND_COUNT; i++) {
+      const i3 = i * 3;
+      pos[i3] = (Math.random() - 0.5) * 16 * S;
+      pos[i3 + 1] = 0.5 * S + Math.random() * 3 * S;
+      pos[i3 + 2] = (Math.random() - 0.5) * 16 * S;
+      vel[i3] = 1.5 + Math.random() * 1.5;
+      vel[i3 + 1] = (Math.random() - 0.5) * 0.3;
+      vel[i3 + 2] = 0.8 + Math.random() * 0.8;
+    }
+    return { positions: pos, velocities: vel };
+  }, []);
+
+  useFrame((_, delta) => {
+    if (!pointsRef.current || simSpeed === 0) return;
+    const dt = Math.min(delta, 0.05);
+    const posAttr = pointsRef.current.geometry.attributes.position as THREE.BufferAttribute;
+    const arr = posAttr.array as Float32Array;
+
+    for (let i = 0; i < WIND_COUNT; i++) {
+      const i3 = i * 3;
+      arr[i3] += velocities[i3] * dt;
+      arr[i3 + 1] += velocities[i3 + 1] * dt;
+      arr[i3 + 2] += velocities[i3 + 2] * dt;
+
+      if (arr[i3] > 8 * S) arr[i3] = -8 * S;
+      if (arr[i3 + 2] > 8 * S) arr[i3 + 2] = -8 * S;
+    }
+    posAttr.needsUpdate = true;
+  });
+
+  return (
+    <points ref={pointsRef}>
+      <bufferGeometry>
+        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+      </bufferGeometry>
+      <pointsMaterial
+        size={0.06}
+        transparent
+        opacity={0.3}
+        color="#d4c9b0"
+        depthWrite={false}
+        sizeAttenuation
+      />
+    </points>
+  );
+}
+
+function FallDecorations() {
+  return (
+    <group>
+      <FallLeaves />
+      <WindParticles />
+    </group>
+  );
+}
+
 // ─── Main component ─────────────────────────────────────────────────────────
 
 export function SeasonalDecorations() {
@@ -373,10 +571,10 @@ export function SeasonalDecorations() {
     case 'winter':
       return <WinterDecorations />;
     case 'spring':
-      return <SpringParticles />;
+      return <SpringDecorations />;
     case 'summer':
-      return <SunBeams />;
+      return <SummerDecorations />;
     case 'fall':
-      return <FallLeaves />;
+      return <FallDecorations />;
   }
 }

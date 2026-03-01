@@ -32,8 +32,8 @@ function DynamicSceneLighting() {
   const fillRef = useRef<THREE.DirectionalLight>(null);
 
   useFrame(() => {
-    const simMinutes = useStore.getState().simMinutes;
-    const lighting = getTimeLighting(simMinutes);
+    const { simMinutes, currentSeason } = useStore.getState();
+    const lighting = getTimeLighting(simMinutes, currentSeason);
 
     if (ambientRef.current) {
       ambientRef.current.intensity = THREE.MathUtils.lerp(ambientRef.current.intensity, lighting.ambientIntensity * 2.2, 0.03);

@@ -1,7 +1,7 @@
 import { useFrame } from '@react-three/fiber';
 import { useRef } from 'react';
 import { useStore } from '../stores/useStore';
-import { getSeasonForDay, SEASON_LABELS, SEASON_ICONS } from '../config/seasons';
+import { getSeasonForDay, SEASON_LABELS, SEASON_ICONS, SEASON_DAYLIGHT, pickSeasonWeather } from '../config/seasons';
 import type { SimPeriod, WeatherType } from '../types';
 
 export const MINUTES_PER_DAY = 24 * 60;
@@ -72,36 +72,47 @@ function mixHex(a: string, b: string, t: number): string {
   );
 }
 
-// Sun arcs east→overhead→west from 6am-6pm, below horizon at night
-function getSunPosition(hour: number): [number, number, number] {
+// Sun arcs east→overhead→west based on seasonal daylight hours
+function getSunPosition(hour: number, season?: import('../types').Season): [number, number, number] {
   const S = 2; // match environment scale
-  // Sun rises at 6, peaks at 12, sets at 18
-  const sunProgress = Math.max(0, Math.min(1, (hour - 6) / 12)); // 0 at 6am, 1 at 6pm
-  const angle = sunProgress * Math.PI; // 0→π (east to west)
-  const x = Math.cos(angle) * 16 * S;  // east (+) to west (-)
-  const elevation = Math.sin(angle);     // peaks at noon
-  const y = (hour >= 6 && hour < 18) ? elevation * 20 * S : 2 * S; // low at night
-  const z = 6 * S; // slightly south
+  const daylight = season ? SEASON_DAYLIGHT[season] : { sunrise: 6, sunset: 18 };
+  const sunProgress = Math.max(0, Math.min(1, (hour - daylight.sunrise) / (daylight.sunset - daylight.sunrise)));
+  const angle = sunProgress * Math.PI;
+  const x = Math.cos(angle) * 16 * S;
+  const elevation = Math.sin(angle);
+  const isDaytime = hour >= daylight.sunrise && hour < daylight.sunset;
+  const y = isDaytime ? elevation * 20 * S : 2 * S;
+  const z = 6 * S;
   return [x, y, z];
 }
 
-export function getTimeLighting(simMinutes: number): TimeLighting {
+export function getTimeLighting(simMinutes: number, season?: import('../types').Season): TimeLighting {
   const wrapped = wrapMinutes(simMinutes);
   const hour = wrapped / 60;
+  const daylight = season ? SEASON_DAYLIGHT[season] : { sunrise: 6, sunset: 18 };
 
-  const dawn = { hour: 7, color: '#ffd5a8', ambient: 0.24, sun: 0.9 };
-  const midday = { hour: 13, color: '#d9ebff', ambient: 0.32, sun: 1.25 };
-  const dusk = { hour: 19, color: '#ffc9a2', ambient: 0.26, sun: 0.95 };
-  const night = { hour: 23, color: '#1a2040', ambient: 0.03, sun: 0.05 };
+  // Shift dawn/dusk based on seasonal daylight
+  const dawn = { hour: daylight.sunrise + 1, color: '#ffd5a8', ambient: 0.24, sun: 0.9 };
+  const midday = { hour: (daylight.sunrise + daylight.sunset) / 2, color: '#d9ebff', ambient: 0.32, sun: 1.25 };
+  const dusk = { hour: daylight.sunset, color: '#ffc9a2', ambient: 0.26, sun: 0.95 };
+  const night = { hour: daylight.sunset + 2, color: '#1a2040', ambient: 0.03, sun: 0.05 };
 
-  const sunPosition = getSunPosition(hour);
+  // Season-tinted sun colors
+  const seasonTint = season === 'summer' ? '#fff4d6' : season === 'winter' ? '#cce0ff' : undefined;
+
+  const sunPosition = getSunPosition(hour, season);
+
+  const applyTint = (color: string) => {
+    if (!seasonTint) return color;
+    return mixHex(color, seasonTint, 0.15);
+  };
 
   if (hour >= dawn.hour && hour < midday.hour) {
     const t = (hour - dawn.hour) / (midday.hour - dawn.hour);
     return {
       ambientIntensity: dawn.ambient + (midday.ambient - dawn.ambient) * t,
       sunIntensity: dawn.sun + (midday.sun - dawn.sun) * t,
-      sunColor: mixHex(dawn.color, midday.color, t),
+      sunColor: applyTint(mixHex(dawn.color, midday.color, t)),
       hemisphereColor: mixHex('#f7d8b4', '#dcecff', t),
       sunPosition,
     };
@@ -112,7 +123,7 @@ export function getTimeLighting(simMinutes: number): TimeLighting {
     return {
       ambientIntensity: midday.ambient + (dusk.ambient - midday.ambient) * t,
       sunIntensity: midday.sun + (dusk.sun - midday.sun) * t,
-      sunColor: mixHex(midday.color, dusk.color, t),
+      sunColor: applyTint(mixHex(midday.color, dusk.color, t)),
       hemisphereColor: mixHex('#dcecff', '#f6d1b0', t),
       sunPosition,
     };
@@ -132,7 +143,7 @@ export function getTimeLighting(simMinutes: number): TimeLighting {
   const startHour = night.hour;
   const endHour = dawn.hour + 24;
   const adjustedHour = hour < dawn.hour ? hour + 24 : hour;
-  const t = (adjustedHour - startHour) / (endHour - startHour);
+  const t = Math.max(0, Math.min(1, (adjustedHour - startHour) / (endHour - startHour)));
 
   return {
     ambientIntensity: night.ambient + (dawn.ambient - night.ambient) * t,
@@ -143,12 +154,15 @@ export function getTimeLighting(simMinutes: number): TimeLighting {
   };
 }
 
-const WEATHER_CYCLE: WeatherType[] = ['sunny', 'sunny', 'rainy', 'sunny', 'snowy', 'rainy', 'sunny', 'sunny'];
 const WEATHER_INTERVAL = 3 * 60; // change every 3 sim-hours
 
-export function getWeatherForTime(simMinutes: number): WeatherType {
-  const idx = Math.floor(simMinutes / WEATHER_INTERVAL) % WEATHER_CYCLE.length;
-  return WEATHER_CYCLE[idx];
+export function getWeatherForTime(simMinutes: number, season?: import('../types').Season): WeatherType {
+  if (!season) return 'sunny';
+  // Use sim-minute block as a seed for deterministic-ish weather
+  const block = Math.floor(simMinutes / WEATHER_INTERVAL);
+  // Simple hash to get a 0-1 value from block index
+  const rand = ((block * 2654435761) >>> 0) / 4294967296;
+  return pickSeasonWeather(season, rand);
 }
 
 export function getSimDay(simMinutes: number): number {
@@ -157,7 +171,7 @@ export function getSimDay(simMinutes: number): number {
 
 export function TimeSystem() {
   const advanceTime = useStore((state) => state.advanceTime);
-  const lastWeatherIdxRef = useRef(-1);
+  const lastWeatherBlockRef = useRef(-1);
   const lastSeasonRef = useRef(useStore.getState().currentSeason);
   const lastDiaryDayRef = useRef(useStore.getState().diaryDay);
 
@@ -166,11 +180,6 @@ export function TimeSystem() {
 
     const s = useStore.getState();
     s.sampleGraphData();
-    const idx = Math.floor(s.simMinutes / WEATHER_INTERVAL) % WEATHER_CYCLE.length;
-    if (idx !== lastWeatherIdxRef.current) {
-      lastWeatherIdxRef.current = idx;
-      s.setWeather(WEATHER_CYCLE[idx]);
-    }
 
     // Season tracking
     const day = getSimDay(s.simMinutes);
@@ -179,6 +188,14 @@ export function TimeSystem() {
       lastSeasonRef.current = season;
       s.setCurrentSeason(season);
       s.setSeasonToast(`${SEASON_ICONS[season]} ${SEASON_LABELS[season]} has arrived!`);
+    }
+
+    // Season-aware weather
+    const weatherBlock = Math.floor(s.simMinutes / WEATHER_INTERVAL);
+    if (weatherBlock !== lastWeatherBlockRef.current) {
+      lastWeatherBlockRef.current = weatherBlock;
+      const newWeather = getWeatherForTime(s.simMinutes, season);
+      s.setWeather(newWeather);
     }
 
     // Diary day reset

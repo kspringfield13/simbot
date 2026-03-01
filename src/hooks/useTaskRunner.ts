@@ -6,6 +6,7 @@ import { demoCommands } from '../utils/demoTasks';
 import { getShopSpeedMultiplier } from '../config/shop';
 import { getEnhancedCoinReward } from '../systems/Economy';
 import { getDeployedRobotBonuses } from '../config/crafting';
+import { SEASON_MODIFIERS } from '../config/seasons';
 import { rollMaterialDrop } from '../config/furnitureCrafting';
 import { getSkillSpeedBonus } from '../config/skills';
 import { generateDiaryEntry } from '../config/diary';
@@ -283,7 +284,9 @@ export const useTaskRunner = () => {
         const shopSpeedMult = getShopSpeedMultiplier(state.purchasedUpgrades, craftingBonuses.speedBonus);
         // Skill tree speed bonus: e.g. 0.25 = 25% faster → multiply step by 1.25
         const skillBonus = getSkillSpeedBonus(state.robotSkills[rid].unlockedSkills, activeTask.taskType);
-        const step = (100 / activeTask.workDuration) * 0.1 * state.simSpeed / shopSpeedMult * (1 + skillBonus);
+        // Seasonal task speed modifier (e.g. summer heat slows robots, spring is pleasant)
+        const seasonSpeedMult = SEASON_MODIFIERS[state.currentSeason].taskSpeedMult;
+        const step = (100 / activeTask.workDuration) * 0.1 * state.simSpeed / shopSpeedMult * (1 + skillBonus) * seasonSpeedMult;
         const nextProgress = Math.min(100, activeTask.progress + step);
 
         updateTask(activeTask.id, { progress: nextProgress });

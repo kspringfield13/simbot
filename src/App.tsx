@@ -10,6 +10,8 @@ import { BudgetPanel } from './components/ui/BudgetPanel';
 import { CoinAnimationOverlay } from './components/ui/CoinAnimation';
 import { TaskProcessor } from './components/systems/TaskProcessor';
 import { VisitTracker } from './components/systems/VisitTracker';
+import { TimeBar } from './components/game/TimeBar';
+import { SeasonToast } from './components/ui/SeasonToast';
 import { useStore } from './stores/useStore';
 
 function CameraToggle() {
@@ -115,6 +117,8 @@ function App() {
 
       <TaskProcessor />
       <VisitTracker />
+      <TimeBar />
+      <SeasonToast />
       <RobotTerminal />
       <NeighborhoodPanel />
       <NeighborhoodMap />

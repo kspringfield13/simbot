@@ -73,7 +73,7 @@ import type {
   WeatherType,
 } from '../types';
 import { ROBOT_IDS } from '../types';
-import { getSeasonForDay } from '../config/seasons';
+import { getSeasonForDay, SEASON_MODIFIERS } from '../config/seasons';
 import { DEVICES } from '../config/devices';
 
 export type SimSpeed = 0 | 1 | 10 | 60;
@@ -964,15 +964,18 @@ export const useStore = create<SimBotStore>((set) => ({
       // Weather happiness bonus: rain = cozy (+0.01/min), snow = excited (+0.02/min)
       const weatherHappinessBonus = state.weather === 'rainy' ? 0.01 : state.weather === 'snowy' ? 0.02 : 0;
 
-      // Battery drain/charge rates (per sim-minute), modified by shop upgrades + crafting
-      const battDrainMult = getBatteryDrainMultiplier(state.purchasedUpgrades, craftBonuses.batteryBonus);
+      // Seasonal modifiers affect battery drain, energy usage, and happiness
+      const seasonMod = SEASON_MODIFIERS[state.currentSeason];
+
+      // Battery drain/charge rates (per sim-minute), modified by shop upgrades + crafting + season
+      const battDrainMult = getBatteryDrainMultiplier(state.purchasedUpgrades, craftBonuses.batteryBonus) * seasonMod.batteryDrainMult;
       const batteryDelta = r.isCharging
         ? deltaSimMinutes * 0.5
         : isWorking ? -deltaSimMinutes * 0.12 * battDrainMult
         : isIdle ? -deltaSimMinutes * 0.01 * battDrainMult
         : -deltaSimMinutes * 0.06 * battDrainMult;
 
-      const energyMult = getEnergyMultiplier(state.purchasedUpgrades, craftBonuses.efficiencyBonus);
+      const energyMult = getEnergyMultiplier(state.purchasedUpgrades, craftBonuses.efficiencyBonus) * seasonMod.efficiencyMult;
 
       // Thermostat comfort affects happiness
       const thermoDevice = state.deviceStates['thermostat'];
@@ -980,12 +983,15 @@ export const useStore = create<SimBotStore>((set) => ({
       const comfortMult = getComfortMultiplier(thermoTemp);
       const comfortPenalty = comfortMult < 1 ? -deltaSimMinutes * 0.005 * (1 - comfortMult) : 0;
 
+      // Seasonal happiness modifier
+      const seasonHappiness = deltaSimMinutes * seasonMod.happinessDelta;
+
       updatedRobots[id] = {
         ...r,
         battery: clamp(r.battery + batteryDelta),
         needs: {
           energy: clamp(n.energy + (isIdle ? deltaSimMinutes * 0.15 : isWorking ? -deltaSimMinutes * 0.08 * energyMult : -deltaSimMinutes * 0.03)),
-          happiness: clamp(n.happiness + (isWorking ? deltaSimMinutes * 0.02 : -deltaSimMinutes * 0.01) + deltaSimMinutes * weatherHappinessBonus + comfortPenalty),
+          happiness: clamp(n.happiness + (isWorking ? deltaSimMinutes * 0.02 : -deltaSimMinutes * 0.01) + deltaSimMinutes * weatherHappinessBonus + comfortPenalty + seasonHappiness),
           social: clamp(n.social - deltaSimMinutes * 0.02),
           boredom: clamp(n.boredom + (isIdle ? deltaSimMinutes * 0.06 : isWorking ? -deltaSimMinutes * 0.05 : -deltaSimMinutes * 0.02)),
         },
