@@ -77,6 +77,75 @@ function RobotBatteryBar({ robotId }: { robotId: RobotId }) {
   );
 }
 
+function RobotFlashlight({ groupRef }: { groupRef: React.RefObject<THREE.Group | null> }) {
+  const spotRef = useRef<THREE.SpotLight>(null);
+  const coneRef = useRef<THREE.Mesh>(null);
+  const targetRef = useRef<THREE.Object3D>(null);
+  const intensityRef = useRef(0);
+
+  useFrame(() => {
+    const period = useStore.getState().simPeriod;
+    const isNight = period === 'night';
+    const targetIntensity = isNight ? 8 : 0;
+    intensityRef.current = THREE.MathUtils.lerp(intensityRef.current, targetIntensity, 0.06);
+
+    if (spotRef.current && groupRef.current) {
+      spotRef.current.intensity = intensityRef.current;
+      // Point the spotlight forward from the robot's position
+      const forward = new THREE.Vector3(0, 0, 1);
+      forward.applyQuaternion(groupRef.current.quaternion);
+      const pos = groupRef.current.position;
+      if (targetRef.current) {
+        targetRef.current.position.set(
+          pos.x + forward.x * 10,
+          0.3,
+          pos.z + forward.z * 10,
+        );
+      }
+    }
+
+    if (coneRef.current) {
+      const mat = coneRef.current.material as THREE.MeshBasicMaterial;
+      mat.opacity = THREE.MathUtils.lerp(mat.opacity, isNight ? 0.12 : 0, 0.06);
+    }
+  });
+
+  return (
+    <>
+      <spotLight
+        ref={spotRef}
+        color="#ffe8a0"
+        intensity={0}
+        angle={Math.PI / 6}
+        penumbra={0.5}
+        distance={18}
+        decay={1.5}
+        position={[0, 1.6, 0.4]}
+        castShadow={false}
+      >
+        <primitive object={(() => {
+          const target = new THREE.Object3D();
+          targetRef.current = target;
+          return target;
+        })()} attach="target" />
+      </spotLight>
+
+      {/* Visible flashlight cone beam */}
+      <mesh ref={coneRef} position={[0, 1.2, 3.5]} rotation={[Math.PI / 2 + 0.15, 0, 0]}>
+        <coneGeometry args={[2.2, 6, 16, 1, true]} />
+        <meshBasicMaterial
+          color="#fff5c0"
+          transparent
+          opacity={0}
+          side={THREE.DoubleSide}
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+        />
+      </mesh>
+    </>
+  );
+}
+
 function RobotModel({ robotId }: { robotId: RobotId }) {
   const config = ROBOT_CONFIGS[robotId];
   const customColor = useStore((s) => s.robotColors[robotId]);
@@ -245,6 +314,9 @@ function RobotModel({ robotId }: { robotId: RobotId }) {
       <group ref={modelRef} scale={[ROBOT_SCALE, ROBOT_SCALE, ROBOT_SCALE]}>
         <primitive object={clonedScene} />
       </group>
+
+      {/* Night mode flashlight */}
+      <RobotFlashlight groupRef={groupRef} />
 
       {/* Name label + battery bar above robot */}
       <Html center distanceFactor={12} position={[0, 2.8, 0]} transform>

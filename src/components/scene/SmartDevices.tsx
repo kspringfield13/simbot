@@ -14,13 +14,17 @@ function SmartLight({ deviceId, position }: { deviceId: string; position: [numbe
   const glowRef = useRef<THREE.PointLight>(null);
 
   useFrame(() => {
+    const period = useStore.getState().simPeriod;
+    // Dim lights at night to ~25% brightness, making flashlights meaningful
+    const nightDim = period === 'night' ? 0.25 : 1.0;
+
     if (coneRef.current) {
-      const target = on ? 0.18 : 0;
+      const target = on ? 0.18 * nightDim : 0;
       const mat = coneRef.current.material as THREE.MeshBasicMaterial;
       mat.opacity += (target - mat.opacity) * 0.08;
     }
     if (glowRef.current) {
-      const target = on ? 0.8 : 0;
+      const target = on ? 0.8 * nightDim : 0;
       glowRef.current.intensity += (target - glowRef.current.intensity) * 0.08;
     }
   });

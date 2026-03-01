@@ -92,7 +92,7 @@ export function getTimeLighting(simMinutes: number): TimeLighting {
   const dawn = { hour: 7, color: '#ffd5a8', ambient: 0.24, sun: 0.9 };
   const midday = { hour: 13, color: '#d9ebff', ambient: 0.32, sun: 1.25 };
   const dusk = { hour: 19, color: '#ffc9a2', ambient: 0.26, sun: 0.95 };
-  const night = { hour: 23, color: '#9ab2d1', ambient: 0.16, sun: 0.55 };
+  const night = { hour: 23, color: '#1a2040', ambient: 0.03, sun: 0.05 };
 
   const sunPosition = getSunPosition(hour);
 
@@ -124,7 +124,7 @@ export function getTimeLighting(simMinutes: number): TimeLighting {
       ambientIntensity: dusk.ambient + (night.ambient - dusk.ambient) * t,
       sunIntensity: dusk.sun + (night.sun - dusk.sun) * t,
       sunColor: mixHex(dusk.color, night.color, t),
-      hemisphereColor: mixHex('#f1c29c', '#93acd1', t),
+      hemisphereColor: mixHex('#f1c29c', '#0a1025', t),
       sunPosition,
     };
   }
@@ -138,7 +138,7 @@ export function getTimeLighting(simMinutes: number): TimeLighting {
     ambientIntensity: night.ambient + (dawn.ambient - night.ambient) * t,
     sunIntensity: night.sun + (dawn.sun - night.sun) * t,
     sunColor: mixHex(night.color, dawn.color, t),
-    hemisphereColor: mixHex('#93acd1', '#f7d8b4', t),
+    hemisphereColor: mixHex('#0a1025', '#f7d8b4', t),
     sunPosition,
   };
 }

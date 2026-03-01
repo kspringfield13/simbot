@@ -1,10 +1,12 @@
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
+import { useFrame } from '@react-three/fiber';
+import * as THREE from 'three';
 import { getEffectiveRooms } from '../../utils/homeLayout';
 import { getFloorPlan } from '../../config/floorPlans';
 import { useStore } from '../../stores/useStore';
 import { AIBrain } from '../../systems/AIBrain';
 import { ROBOT_IDS } from '../../types';
-import { TimeSystem } from '../../systems/TimeSystem';
+import { TimeSystem, getTimeLighting } from '../../systems/TimeSystem';
 import { CameraController } from '../camera/CameraController';
 import { Room } from './Room';
 import { Walls } from './Walls';
@@ -17,6 +19,80 @@ import { PetCat } from './PetCat';
 import { WeatherEffects } from './WeatherEffects';
 import { ChargingStation } from './ChargingStation';
 import { SmartDevices } from './SmartDevices';
+
+function DynamicSceneLighting() {
+  const ambientRef = useRef<THREE.AmbientLight>(null);
+  const hemiRef = useRef<THREE.HemisphereLight>(null);
+  const sunRef = useRef<THREE.DirectionalLight>(null);
+  const fillRef = useRef<THREE.DirectionalLight>(null);
+
+  useFrame(() => {
+    const simMinutes = useStore.getState().simMinutes;
+    const lighting = getTimeLighting(simMinutes);
+
+    if (ambientRef.current) {
+      ambientRef.current.intensity = THREE.MathUtils.lerp(ambientRef.current.intensity, lighting.ambientIntensity * 2.2, 0.03);
+    }
+    if (hemiRef.current) {
+      hemiRef.current.intensity = THREE.MathUtils.lerp(hemiRef.current.intensity, lighting.ambientIntensity * 1.4, 0.03);
+      hemiRef.current.color.lerp(new THREE.Color(lighting.hemisphereColor), 0.03);
+    }
+    if (sunRef.current) {
+      sunRef.current.intensity = THREE.MathUtils.lerp(sunRef.current.intensity, lighting.sunIntensity, 0.03);
+      sunRef.current.color.lerp(new THREE.Color(lighting.sunColor), 0.03);
+      sunRef.current.position.set(lighting.sunPosition[0], lighting.sunPosition[1], lighting.sunPosition[2]);
+    }
+    if (fillRef.current) {
+      fillRef.current.intensity = THREE.MathUtils.lerp(fillRef.current.intensity, lighting.sunIntensity * 0.25, 0.03);
+    }
+  });
+
+  return (
+    <>
+      <ambientLight ref={ambientRef} intensity={0.7} />
+      <hemisphereLight ref={hemiRef} color="#ffffff" groundColor="#8888aa" intensity={0.4} />
+      <directionalLight ref={sunRef} position={[10, 25, 10]} intensity={1.0} castShadow
+        shadow-mapSize-width={2048} shadow-mapSize-height={2048}
+        shadow-camera-far={60} shadow-camera-left={-25} shadow-camera-right={25}
+        shadow-camera-top={25} shadow-camera-bottom={-25}
+      />
+      <directionalLight ref={fillRef} position={[-8, 15, -5]} intensity={0.3} />
+    </>
+  );
+}
+
+function DynamicCeilingLights({ lights }: { lights: { position: [number, number, number]; intensity: number; color: string; distance: number }[] }) {
+  const lightsRef = useRef<(THREE.PointLight | null)[]>([]);
+
+  useFrame(() => {
+    const period = useStore.getState().simPeriod;
+    const nightMult = period === 'night' ? 0.15 : period === 'evening' ? 0.6 : 1.0;
+
+    for (let i = 0; i < lights.length; i++) {
+      const light = lightsRef.current[i];
+      if (light) {
+        const target = lights[i].intensity * nightMult;
+        light.intensity = THREE.MathUtils.lerp(light.intensity, target, 0.04);
+      }
+    }
+  });
+
+  return (
+    <>
+      {lights.map((light, i) => (
+        <pointLight
+          key={`light-${i}`}
+          ref={(el) => { lightsRef.current[i] = el; }}
+          position={light.position}
+          intensity={light.intensity}
+          color={light.color}
+          distance={light.distance}
+          decay={2}
+        />
+      ))}
+    </>
+  );
+}
 
 export function HomeScene() {
   const roomLayout = useStore((s) => s.roomLayout);
@@ -38,26 +114,8 @@ export function HomeScene() {
       ))}
       <CameraController />
 
-      <ambientLight intensity={0.7} />
-      <hemisphereLight color="#ffffff" groundColor="#8888aa" intensity={0.4} />
-      <directionalLight position={[10, 25, 10]} intensity={1.0} castShadow
-        shadow-mapSize-width={2048} shadow-mapSize-height={2048}
-        shadow-camera-far={60} shadow-camera-left={-25} shadow-camera-right={25}
-        shadow-camera-top={25} shadow-camera-bottom={-25}
-      />
-      <directionalLight position={[-8, 15, -5]} intensity={0.3} />
-
-      {/* Room ceiling lights — warm per-room ambiance (dynamic per floor plan) */}
-      {plan.lights.map((light, i) => (
-        <pointLight
-          key={`light-${i}`}
-          position={light.position}
-          intensity={light.intensity}
-          color={light.color}
-          distance={light.distance}
-          decay={2}
-        />
-      ))}
+      <DynamicSceneLighting />
+      <DynamicCeilingLights lights={plan.lights} />
 
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}

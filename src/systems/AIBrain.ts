@@ -189,6 +189,29 @@ const INNER_VOICE = {
     'Goodnight, house. See you in the morning.',
   ],
 
+  nightPatrol: [
+    'Security sweep... flashlight on. Let\'s check the perimeter.',
+    'Checking all the doors and windows. Can\'t be too careful at night.',
+    'Night patrol. Every shadow gets investigated.',
+    'The house is quiet. My flashlight cuts through the darkness.',
+    'All entry points secure. Moving to the next room.',
+  ],
+
+  nightCleaning: [
+    'Quiet night cleaning. Just me and my flashlight.',
+    'Might as well tidy up while everyone sleeps.',
+    'Night shift deep clean. The house will be spotless by morning.',
+    'Working by flashlight has a certain charm to it.',
+  ],
+
+  catCheck: [
+    'Let me check on the cat. Where did that little furball go?',
+    'Cat check! Making sure our feline friend is cozy.',
+    'Time to find the cat. They always hide in the best spots.',
+    'Is the cat sleeping? I should peek in quietly.',
+    'Night rounds: cat status check. Very important duty.',
+  ],
+
   morning: [
     'Rise and shine! Well, I was already risen. And I always shine.',
     'Morning checklist: exist, care, clean. In that order.',
@@ -288,6 +311,9 @@ type Behavior =
   | { type: 'watch-tv' }
   | { type: 'idle-look' }
   | { type: 'seasonal-task'; taskIndex: number }
+  | { type: 'night-patrol' }
+  | { type: 'night-cleaning'; roomId: RoomId }
+  | { type: 'cat-check' }
   | { type: 'none' };
 
 function getMoodFromNeeds(energy: number, happiness: number, social: number, boredom: number): RobotMood {
@@ -582,6 +608,105 @@ export function AIBrain({ robotId }: { robotId: RobotId }) {
         break;
       }
 
+      case 'night-patrol': {
+        // Security patrol: visit doors/windows around the house
+        const doorSpots: [number, number, number][] = [
+          ...windowSpots,
+          [0.5, 0, -4],   // Doorway living/kitchen
+          [-2.5, 0, 0],   // Doorway hallway/bedroom
+          [4.5, 0, 0],    // Doorway hallway/bathroom
+        ];
+        const patrolSpot = doorSpots[Math.floor(Math.random() * doorSpots.length)];
+        const [npx, npz] = findClearPosition(patrolSpot[0], patrolSpot[2], 0.8);
+
+        s.addTask({
+          id: crypto.randomUUID(),
+          command: 'Security patrol',
+          source: 'ai',
+          targetRoom: 'hallway',
+          targetPosition: [npx, 0, npz],
+          status: 'queued',
+          progress: 0,
+          description: 'Checking doors and windows.',
+          taskType: 'general',
+          workDuration: 8,
+          createdAt: Date.now(),
+          assignedTo: robotId,
+        });
+        s.setRobotThought(robotId, pick(INNER_VOICE.nightPatrol));
+        s.setRobotMood(robotId, 'focused');
+        consecutiveRef.current = 0;
+        nextDecisionRef.current = now + rand(12, 20);
+        break;
+      }
+
+      case 'night-cleaning': {
+        const autoTask = buildAutonomousTask(behavior.roomId, s.simPeriod);
+        const roomName = rooms.find((r) => r.id === behavior.roomId)?.name ?? behavior.roomId;
+
+        s.addTask({
+          id: crypto.randomUUID(),
+          command: `Night cleaning: ${roomName}`,
+          source: 'ai',
+          targetRoom: behavior.roomId,
+          targetPosition: autoTask.position,
+          status: 'queued',
+          progress: 0,
+          description: autoTask.description,
+          taskType: autoTask.taskType,
+          workDuration: Math.round(autoTask.workDuration * getTaskSpeedMultiplier(autoTask.taskType)),
+          createdAt: Date.now(),
+          assignedTo: robotId,
+        });
+
+        s.setRobotThought(robotId, pick(INNER_VOICE.nightCleaning));
+        s.setRobotMood(robotId, 'focused');
+        s.updateRobotNeeds(robotId, {
+          happiness: Math.min(100, needs.happiness + 2),
+          boredom: Math.max(0, needs.boredom - 10),
+        });
+        lastCleanedRef.current = behavior.roomId;
+        consecutiveRef.current += 1;
+        nextDecisionRef.current = now + rand(12, 20);
+        break;
+      }
+
+      case 'cat-check': {
+        // Walk to a known cat hang-out spot
+        const catSpots: [number, number, number][] = [
+          [-13, 0, -12],  // Near sofa
+          [-9, 0, 14],    // Near bed
+          [-10, 0, -12],  // Near coffee table
+          [8, 0, 6],      // Bathroom
+        ];
+        const catSpot = pick(catSpots);
+        const [ccx, ccz] = findClearPosition(catSpot[0], catSpot[2], 0.8);
+
+        s.addTask({
+          id: crypto.randomUUID(),
+          command: 'Checking on the cat',
+          source: 'ai',
+          targetRoom: 'living-room',
+          targetPosition: [ccx, 0, ccz],
+          status: 'queued',
+          progress: 0,
+          description: 'Making sure the cat is okay.',
+          taskType: 'general',
+          workDuration: 6,
+          createdAt: Date.now(),
+          assignedTo: robotId,
+        });
+        s.setRobotThought(robotId, pick(INNER_VOICE.catCheck));
+        s.setRobotMood(robotId, 'curious');
+        s.updateRobotNeeds(robotId, {
+          happiness: Math.min(100, needs.happiness + 3),
+          social: Math.min(100, needs.social + 5),
+        });
+        consecutiveRef.current = 0;
+        nextDecisionRef.current = now + rand(15, 25);
+        break;
+      }
+
       case 'wander': {
         // Prefer wandering in preferred rooms
         const wanderRooms = Math.random() < 0.7
@@ -733,6 +858,54 @@ export function AIBrain({ robotId }: { robotId: RobotId }) {
     if (robot.battery < 20) return { type: 'rest' };
 
     if (needs.energy < 15) return { type: 'rest' };
+
+    // ── NIGHT MODE (10pm–6am): special night behaviors ──
+    if (s.simPeriod === 'night') {
+      if (consecutiveRef.current >= 3) {
+        consecutiveRef.current = 0;
+        if (needs.energy < 40) return { type: 'rest' };
+        return { type: 'night-patrol' };
+      }
+
+      const roll = Math.random();
+
+      // 40% chance: security patrol
+      if (roll < 0.40) {
+        return { type: 'night-patrol' };
+      }
+      // 25% chance: night cleaning (if a room needs it)
+      if (roll < 0.65 && needs.energy >= 25) {
+        const roomScores: { id: RoomId; score: number }[] = [];
+        for (const room of rooms) {
+          const rn = s.roomNeeds[room.id];
+          if (!rn) continue;
+          let score = scoreRoomAttention(room.id, rn, s.simPeriod, robot.position);
+          if (room.id === lastCleanedRef.current) score -= 10;
+          if (room.id === config.favoriteRoom) score += 8;
+          if (config.preferredRooms.includes(room.id)) score += 5;
+          if (!config.preferredRooms.includes(room.id)) score -= 8;
+          roomScores.push({ id: room.id, score });
+        }
+        roomScores.sort((a, b) => b.score - a.score);
+        const top = roomScores[0];
+        if (top && top.score >= 10) {
+          return { type: 'night-cleaning', roomId: top.id };
+        }
+      }
+      // 15% chance: check on the cat
+      if (roll < 0.80) {
+        return { type: 'cat-check' };
+      }
+      // 10% chance: wander
+      if (roll < 0.90) {
+        return { type: 'wander' };
+      }
+      // 10% chance: rest / idle
+      if (needs.energy < 50) return { type: 'rest' };
+      return { type: 'idle-look' };
+    }
+
+    // ── DAYTIME BEHAVIOR ──
 
     if (consecutiveRef.current >= 3) {
       consecutiveRef.current = 0;
