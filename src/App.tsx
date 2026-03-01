@@ -61,6 +61,7 @@ import { SmartScheduleTracker } from './components/systems/SmartScheduleTracker'
 import { StoryModePanel } from './components/ui/StoryModePanel';
 import { MiniGamesPanel } from './components/ui/MiniGamesPanel';
 import { TournamentsPanel } from './components/ui/TournamentsPanel';
+import { HouseFlippingPanel } from './components/ui/HouseFlippingPanel';
 import { CookingMiniGame } from './components/ui/CookingMiniGame';
 import { RepairMiniGame } from './components/ui/RepairMiniGame';
 import { GardenMiniGame } from './components/ui/GardenMiniGame';
@@ -787,6 +788,24 @@ function TournamentsButton() {
   );
 }
 
+function HouseFlippingButton() {
+  const setShow = useStore((s) => s.setShowHouseFlipping);
+
+  return (
+    <button
+      type="button"
+      onClick={() => setShow(true)}
+      className="pointer-events-auto relative flex h-10 w-10 items-center justify-center rounded-full border border-emerald-400/30 bg-black/50 text-lg backdrop-blur-md transition-all hover:bg-emerald-400/20"
+      title="House Flipping"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-emerald-300">
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+        <polyline points="9 22 9 12 15 12 15 22" />
+      </svg>
+    </button>
+  );
+}
+
 function TrophyButton() {
   const setShowLeaderboard = useStore((s) => s.setShowLeaderboard);
   const totalTasks = useStore((s) => s.totalTasksCompleted);
@@ -1104,6 +1123,7 @@ function App() {
             <MiniGamesButton />
             <StoryModeButton />
             <TournamentsButton />
+            <HouseFlippingButton />
             <ShopButton />
             <CraftingButton />
             <FurnitureCraftingButton />
@@ -1174,6 +1194,7 @@ function App() {
       <StoryModePanel />
       <MiniGamesPanel />
       <TournamentsPanel />
+      <HouseFlippingPanel />
       <CookingMiniGame />
       <RepairMiniGame />
       <GardenMiniGame />

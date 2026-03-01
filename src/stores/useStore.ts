@@ -631,6 +631,10 @@ interface SimBotStore {
   showTournaments: boolean;
   setShowTournaments: (show: boolean) => void;
 
+  // House flipping
+  showHouseFlipping: boolean;
+  setShowHouseFlipping: (show: boolean) => void;
+
   // Robot evolution / aging
   robotEvolutions: Record<RobotId, RobotEvolution>;
   showEvolutionPanel: boolean;
@@ -1420,6 +1424,10 @@ export const useStore = create<SimBotStore>((set) => ({
   // Tournaments
   showTournaments: false,
   setShowTournaments: (show) => set({ showTournaments: show }),
+
+  // House flipping
+  showHouseFlipping: false,
+  setShowHouseFlipping: (show) => set({ showHouseFlipping: show }),
 
   // Robot evolution / aging
   robotEvolutions: loadEvolutionData(),
