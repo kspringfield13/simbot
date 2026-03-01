@@ -62,6 +62,8 @@ Or connect the GitHub repo to [vercel.com](https://vercel.com) for automatic dep
 ## 🗺️ Roadmap
 
 - [x] Mini-games — cooking, repair puzzles, garden tending with bonus coins (2026-03-01)
+- [x] Robot aging/evolution — 5-stage progression with visual upgrades ✅ (3/1)
+- [x] Smart scheduling AI — learns optimal cleaning patterns from user behavior ✅ (3/1)
 - [ ] LLM-powered task reasoning (OpenAI/local LLM)
 - [ ] Room scanning from photos/video (spatial mapping)
 - [ ] Custom furniture placement
