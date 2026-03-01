@@ -4,6 +4,7 @@ import { achievements, getUnlockedAchievements } from '../../systems/Achievement
 import { getEventConfig, getEventRoomName } from '../../systems/HomeEvents';
 import { SaveLoadButtons } from './SaveLoadSystem';
 import { StatsGraphs } from './StatsGraphs';
+import { PET_CONFIGS, PET_IDS } from '../../config/pets';
 
 const taskTypeLabels: Record<string, string> = {
   cleaning: '🧹 Cleaning',
@@ -46,6 +47,7 @@ export function StatsPanel() {
   const simMinutes = useStore((s) => s.simMinutes);
   const homeEventHistory = useStore((s) => s.homeEventHistory);
   const activeEvent = useStore((s) => s.activeHomeEvent);
+  const petStates = useStore((s) => s.petStates);
 
   if (!showStats) {
     return (
@@ -151,6 +153,41 @@ export function StatsPanel() {
                 {avgCleanliness}%
               </span>
             </div>
+          </div>
+
+          {/* Pets */}
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ color: '#999', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
+              Pets
+            </div>
+            {PET_IDS.map((petId) => {
+              const config = PET_CONFIGS[petId];
+              const state = petStates[petId];
+              const emoji = petId === 'fish' ? '🐟' : '🐹';
+              const happiness = Math.round(state.happiness);
+              const color = happiness >= 70 ? '#4ade80' : happiness >= 40 ? '#facc15' : '#f87171';
+              return (
+                <div key={petId} style={{ marginBottom: 8, padding: '8px 10px', background: 'rgba(255,255,255,0.04)', borderRadius: 6 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <span>{emoji} {config.name}</span>
+                    <span style={{ color, fontWeight: 600, fontFamily: 'monospace' }}>{happiness}%</span>
+                  </div>
+                  <div style={{ height: 4, background: 'rgba(255,255,255,0.08)', borderRadius: 2 }}>
+                    <div style={{
+                      height: '100%',
+                      width: `${happiness}%`,
+                      background: color,
+                      borderRadius: 2,
+                      transition: 'width 0.5s, background 0.5s',
+                    }} />
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, fontSize: 10, color: '#777' }}>
+                    <span>Fed {state.totalFeedings}x</span>
+                    <span>{happiness >= 70 ? 'Happy' : happiness >= 40 ? 'Okay' : 'Hungry'}</span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
           {/* Tasks by Type */}
