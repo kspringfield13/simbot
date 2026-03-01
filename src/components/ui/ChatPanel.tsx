@@ -1,15 +1,14 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useStore } from '../../stores/useStore';
+import { useVoice } from '../../hooks/useVoice';
+import {
+  parseVoiceCommand,
+  ROOM_CENTERS,
+  ROOM_DISPLAY_NAMES,
+} from '../../systems/VoiceCommands';
 import type { RoomId, TaskType } from '../../types';
 
-const ROOM_NAMES: Record<RoomId, string> = {
-  'living-room': 'living room',
-  kitchen: 'kitchen',
-  hallway: 'hallway',
-  laundry: 'laundry room',
-  bedroom: 'bedroom',
-  bathroom: 'bathroom',
-};
+const ROOM_NAMES: Record<RoomId, string> = ROOM_DISPLAY_NAMES;
 
 const TASK_NAMES: Record<string, string> = {
   vacuum: 'vacuuming',
@@ -22,15 +21,6 @@ const TASK_NAMES: Record<string, string> = {
   polish: 'polishing surfaces',
   organize: 'organizing',
   spray: 'cleaning with spray',
-};
-
-const ROOM_CENTERS: Record<RoomId, [number, number, number]> = {
-  kitchen: [-5, 0, -4],
-  'living-room': [5, 0, -4],
-  hallway: [0, 0, -1],
-  laundry: [-5, 0, 3],
-  bedroom: [5, 0, 3],
-  bathroom: [0, 0, 3],
 };
 
 function parseRoomFromInput(input: string): RoomId | null {
@@ -163,14 +153,254 @@ export function ChatPanel() {
   const activeRobotId = useStore((s) => s.activeRobotId);
   const _setRobotThought = useStore((s) => s.setRobotThought);
   const setRobotThought = (t: string) => _setRobotThought(activeRobotId, t);
+  const transcript = useStore((s) => s.transcript);
+
+  // Voice command actions
+  const setSimSpeed = useStore((s) => s.setSimSpeed);
+  const setActiveRobotId = useStore((s) => s.setActiveRobotId);
+  const setShowShop = useStore((s) => s.setShowShop);
+  const setShowCrafting = useStore((s) => s.setShowCrafting);
+  const setShowDiary = useStore((s) => s.setShowDiary);
+  const setShowLeaderboard = useStore((s) => s.setShowLeaderboard);
+  const setShowPersonality = useStore((s) => s.setShowPersonality);
+  const setShowDevicePanel = useStore((s) => s.setShowDevicePanel);
+  const setShowSchedulePanel = useStore((s) => s.setShowSchedulePanel);
+  const setSoundMuted = useStore((s) => s.setSoundMuted);
+  const simSpeed = useStore((s) => s.simSpeed);
+
+  const handleVoiceCommand = useCallback((text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+
+    // Open the chat panel to show feedback
+    setIsOpen(true);
+
+    // Add user message (marked as voice)
+    addMessage({
+      id: `v-${Date.now()}`,
+      sender: 'user',
+      text: `🎤 ${trimmed}`,
+      timestamp: Date.now(),
+    });
+
+    const cmd = parseVoiceCommand(trimmed);
+    let response = '';
+
+    switch (cmd.type) {
+      case 'pause': {
+        setSimSpeed(0);
+        setRobotThought('Pausing... standing by!');
+        response = 'Simulation paused. Say "resume" to continue. ⏸️';
+        break;
+      }
+      case 'resume': {
+        setSimSpeed(1);
+        setRobotThought('Back in action!');
+        response = 'Simulation resumed! Let\'s get back to work. ▶️';
+        break;
+      }
+      case 'speed_up': {
+        const nextSpeed = simSpeed === 0 ? 1 : simSpeed === 1 ? 10 : 60;
+        setSimSpeed(nextSpeed as 0 | 1 | 10 | 60);
+        response = `Speed set to ${nextSpeed}x! ⏩`;
+        break;
+      }
+      case 'slow_down': {
+        const prevSpeed = simSpeed === 60 ? 10 : simSpeed === 10 ? 1 : 1;
+        setSimSpeed(prevSpeed as 0 | 1 | 10 | 60);
+        response = `Speed set to ${prevSpeed}x. 🐢`;
+        break;
+      }
+      case 'mute': {
+        setSoundMuted(true);
+        response = 'Sound muted. 🔇';
+        break;
+      }
+      case 'unmute': {
+        setSoundMuted(false);
+        response = 'Sound on! 🔊';
+        break;
+      }
+      case 'switch_robot': {
+        if (cmd.robotId) {
+          setActiveRobotId(cmd.robotId);
+          response = `Switched to ${cmd.robotId}! 🤖`;
+        }
+        break;
+      }
+      case 'open_panel': {
+        const panelMap: Record<string, () => void> = {
+          shop: () => setShowShop(true),
+          crafting: () => setShowCrafting(true),
+          diary: () => setShowDiary(true),
+          leaderboard: () => setShowLeaderboard(true),
+          personality: () => setShowPersonality(true),
+          devices: () => setShowDevicePanel(true),
+          schedule: () => setShowSchedulePanel(true),
+        };
+        const open = cmd.panel && panelMap[cmd.panel];
+        if (open) {
+          open();
+          response = `Opening ${cmd.panel}! 📋`;
+        }
+        break;
+      }
+      case 'close_panel': {
+        const closeMap: Record<string, () => void> = {
+          shop: () => setShowShop(false),
+          crafting: () => setShowCrafting(false),
+          diary: () => setShowDiary(false),
+          leaderboard: () => setShowLeaderboard(false),
+          personality: () => setShowPersonality(false),
+          devices: () => setShowDevicePanel(false),
+          schedule: () => setShowSchedulePanel(false),
+        };
+        const close = cmd.panel && closeMap[cmd.panel];
+        if (close) {
+          close();
+          response = `Closed ${cmd.panel}. ✅`;
+        }
+        break;
+      }
+      case 'clean_room': {
+        if (cmd.room) {
+          const center = ROOM_CENTERS[cmd.room];
+          if (center) {
+            addTask({
+              id: `voice-${Date.now()}`,
+              command: `clean ${cmd.room}`,
+              source: 'user' as const,
+              targetRoom: cmd.room,
+              targetPosition: center,
+              status: 'queued' as const,
+              progress: 0,
+              description: `Voice command: ${cmd.taskType || 'clean'} ${ROOM_NAMES[cmd.room] || cmd.room}`,
+              taskType: (cmd.taskType || 'cleaning') as TaskType,
+              workDuration: 8,
+              createdAt: Date.now(),
+              assignedTo: activeRobotId,
+            });
+            setRobotThought(`Voice command received! Heading to ${ROOM_NAMES[cmd.room] || cmd.room}!`);
+            response = `On it! ${cmd.taskType || 'Cleaning'} the ${ROOM_NAMES[cmd.room] || cmd.room}. 🧹`;
+          }
+        }
+        break;
+      }
+      case 'send_to_room': {
+        if (cmd.room) {
+          const center = ROOM_CENTERS[cmd.room];
+          if (center) {
+            addTask({
+              id: `voice-${Date.now()}`,
+              command: `go to ${cmd.room}`,
+              source: 'user' as const,
+              targetRoom: cmd.room,
+              targetPosition: center,
+              status: 'queued' as const,
+              progress: 0,
+              description: `Voice command: go to ${ROOM_NAMES[cmd.room] || cmd.room}`,
+              taskType: 'cleaning' as TaskType,
+              workDuration: 8,
+              createdAt: Date.now(),
+              assignedTo: activeRobotId,
+            });
+            setRobotThought(`Roger that! Heading to the ${ROOM_NAMES[cmd.room] || cmd.room}!`);
+            response = `Heading to the ${ROOM_NAMES[cmd.room] || cmd.room}! 🏃`;
+          }
+        }
+        break;
+      }
+      case 'status_query': {
+        if (cmd.room) {
+          const need = roomNeeds[cmd.room];
+          if (need) {
+            const pct = Math.round(need.cleanliness);
+            response = `The ${ROOM_NAMES[cmd.room] || cmd.room} is at ${pct}% cleanliness. ${pct < 50 ? 'Needs attention! 😬' : 'Looking good! ✨'}`;
+          }
+        } else {
+          // General status — use existing logic
+          response = generateResponse(
+            'how clean is the house',
+            robotState,
+            currentAnimation,
+            robotThought,
+            roomNeeds as any,
+            tasks as any,
+            addTask,
+            setRobotThought,
+          );
+        }
+        break;
+      }
+      case 'help': {
+        response = 'Voice commands: "clean the kitchen", "go to bedroom", "pause", "resume", "speed up", "open shop", "switch to chef", "what\'s the status?" 🎤';
+        break;
+      }
+      case 'greet': {
+        response = generateResponse(
+          trimmed,
+          robotState,
+          currentAnimation,
+          robotThought,
+          roomNeeds as any,
+          tasks as any,
+          addTask,
+          setRobotThought,
+        );
+        break;
+      }
+      default: {
+        // Fall back to the existing text chat response
+        response = generateResponse(
+          trimmed,
+          robotState,
+          currentAnimation,
+          robotThought,
+          roomNeeds as any,
+          tasks as any,
+          addTask,
+          setRobotThought,
+        );
+      }
+    }
+
+    if (response) {
+      setTimeout(() => {
+        addMessage({
+          id: `r-${Date.now()}`,
+          sender: 'robot',
+          text: response,
+          timestamp: Date.now(),
+        });
+      }, 300);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    addMessage, addTask, activeRobotId, roomNeeds, robotState,
+    currentAnimation, robotThought, tasks, simSpeed,
+    setSimSpeed, setActiveRobotId, setShowShop, setShowCrafting,
+    setShowDiary, setShowLeaderboard, setShowPersonality,
+    setShowDevicePanel, setShowSchedulePanel, setSoundMuted,
+  ]);
+
+  const { isSupported, isListening, startListening, stopListening } = useVoice(handleVoiceCommand);
+
+  const toggleVoice = useCallback(() => {
+    if (isListening) {
+      stopListening();
+    } else {
+      setIsOpen(true);
+      startListening();
+    }
+  }, [isListening, startListening, stopListening]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   useEffect(() => {
-    if (isOpen) inputRef.current?.focus();
-  }, [isOpen]);
+    if (isOpen && !isListening) inputRef.current?.focus();
+  }, [isOpen, isListening]);
 
   const handleSend = () => {
     const trimmed = input.trim();
@@ -190,6 +420,49 @@ export function ChatPanel() {
 
   return (
     <>
+      {/* Mic button — separate from chat, always visible when supported */}
+      {isSupported && (
+        <button
+          type="button"
+          onClick={toggleVoice}
+          className={`pointer-events-auto fixed bottom-4 z-40 flex h-12 w-12 items-center justify-center rounded-full border text-xl shadow-lg backdrop-blur-md transition-all ${
+            isListening
+              ? 'border-red-400/50 bg-red-500/40 hover:bg-red-500/60'
+              : 'border-white/10 bg-black/60 hover:bg-black/80'
+          }`}
+          style={{
+            right: '4.5rem',
+            marginBottom: 'env(safe-area-inset-bottom, 0px)',
+          }}
+          title={isListening ? 'Stop listening' : 'Hey SimBot — voice commands'}
+        >
+          {isListening ? (
+            <span className="relative flex items-center justify-center">
+              <span className="absolute inline-flex h-8 w-8 animate-ping rounded-full bg-red-400 opacity-40" />
+              <span className="text-lg">🎤</span>
+            </span>
+          ) : (
+            <span className="text-lg">🎙️</span>
+          )}
+        </button>
+      )}
+
+      {/* Listening indicator bar */}
+      {isListening && (
+        <div
+          className="pointer-events-none fixed bottom-[4.5rem] right-4 z-40 flex items-center gap-2 rounded-xl border border-red-400/30 bg-black/80 px-3 py-2 backdrop-blur-md"
+          style={{ marginBottom: 'env(safe-area-inset-bottom, 0px)' }}
+        >
+          <span className="relative flex h-3 w-3">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+            <span className="relative inline-flex h-3 w-3 rounded-full bg-red-500" />
+          </span>
+          <span className="text-xs text-red-300">
+            {transcript || 'Listening...'}
+          </span>
+        </div>
+      )}
+
       {/* Chat toggle button */}
       <button
         type="button"
@@ -217,6 +490,15 @@ export function ChatPanel() {
               <span className="text-sm">🤖</span>
               <span className="text-sm font-medium text-white">SimBot</span>
               <span className={`h-2 w-2 rounded-full ${robotState === 'working' ? 'bg-orange-400' : robotState === 'walking' ? 'bg-blue-400' : 'bg-green-400'}`} />
+              {isListening && (
+                <span className="flex items-center gap-1 rounded-full bg-red-500/20 px-2 py-0.5 text-[10px] text-red-300">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-red-500" />
+                  </span>
+                  VOICE
+                </span>
+              )}
             </div>
             <button
               type="button"
@@ -232,6 +514,11 @@ export function ChatPanel() {
             {messages.length === 0 && (
               <div className="py-8 text-center text-xs text-white/30">
                 Say hi to SimBot! 👋
+                {isSupported && (
+                  <div className="mt-1 text-white/20">
+                    Tap 🎙️ for voice commands
+                  </div>
+                )}
               </div>
             )}
             {messages.map((msg) => (
@@ -239,7 +526,9 @@ export function ChatPanel() {
                 <div
                   className={`max-w-[85%] rounded-2xl px-3 py-2 text-xs ${
                     msg.sender === 'user'
-                      ? 'bg-cyan-500/30 text-cyan-100'
+                      ? msg.text.startsWith('🎤')
+                        ? 'bg-red-500/20 text-red-100'
+                        : 'bg-cyan-500/30 text-cyan-100'
                       : 'bg-white/10 text-white/90'
                   }`}
                 >
@@ -264,12 +553,35 @@ export function ChatPanel() {
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Type a message..."
+                placeholder={isListening ? 'Listening...' : 'Type a message...'}
                 className="flex-1 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs text-white placeholder-white/30 outline-none focus:border-cyan-400/50"
+                disabled={isListening}
               />
+              {isSupported && (
+                <button
+                  type="button"
+                  onClick={toggleVoice}
+                  className={`flex h-8 w-8 items-center justify-center rounded-full text-sm transition-colors ${
+                    isListening
+                      ? 'bg-red-500/40 hover:bg-red-500/60'
+                      : 'bg-white/10 hover:bg-white/20'
+                  }`}
+                  title={isListening ? 'Stop listening' : 'Voice input'}
+                >
+                  {isListening ? (
+                    <span className="relative flex items-center justify-center">
+                      <span className="absolute inline-flex h-6 w-6 animate-ping rounded-full bg-red-400 opacity-30" />
+                      <span className="text-xs">🎤</span>
+                    </span>
+                  ) : (
+                    <span className="text-xs">🎙️</span>
+                  )}
+                </button>
+              )}
               <button
                 type="submit"
                 className="flex h-8 w-8 items-center justify-center rounded-full bg-cyan-500/30 text-sm transition-colors hover:bg-cyan-500/50"
+                disabled={isListening}
               >
                 ↑
               </button>
