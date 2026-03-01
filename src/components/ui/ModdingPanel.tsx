@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo, useRef } from 'react';
 import { useStore } from '../../stores/useStore';
-import type { RobotMod, BehaviorMod, SkinMod, RobotId, SkinAccessory, ModType } from '../../types';
+import type { RobotMod, BehaviorMod, SkinMod, RobotId, SkinAccessory, ModType, BehaviorHook } from '../../types';
 import { ROBOT_IDS } from '../../types';
 import {
   EXAMPLE_BEHAVIOR_MODS,
@@ -36,6 +36,7 @@ export function ModdingPanel() {
   const [behaviorDesc, setBehaviorDesc] = useState('');
   const [behaviorCode, setBehaviorCode] = useState('');
   const [behaviorTarget, setBehaviorTarget] = useState<RobotId | 'all'>('all');
+  const [behaviorHook, setBehaviorHook] = useState<BehaviorHook>('onTask');
   const [codeError, setCodeError] = useState<string | null>(null);
 
   // Skin editor state
@@ -117,6 +118,7 @@ export function ModdingPanel() {
     setBehaviorDesc('');
     setBehaviorCode('');
     setBehaviorTarget('all');
+    setBehaviorHook('onTask');
     setCodeError(null);
   }, []);
 
@@ -138,6 +140,7 @@ export function ModdingPanel() {
       setBehaviorDesc(mod.description);
       setBehaviorCode(mod.code);
       setBehaviorTarget(mod.targetRobot);
+      setBehaviorHook(mod.hook);
     } else {
       resetBehaviorEditor();
     }
@@ -177,7 +180,7 @@ export function ModdingPanel() {
     if (editingModId) {
       const updated = mods.map((m) =>
         m.id === editingModId
-          ? { ...m, name: behaviorName, description: behaviorDesc, code: behaviorCode, targetRobot: behaviorTarget, updatedAt: now }
+          ? { ...m, name: behaviorName, description: behaviorDesc, code: behaviorCode, hook: behaviorHook, targetRobot: behaviorTarget, updatedAt: now }
           : m,
       );
       setMods(updated);
@@ -188,6 +191,7 @@ export function ModdingPanel() {
         name: behaviorName,
         description: behaviorDesc,
         type: 'behavior',
+        hook: behaviorHook,
         code: behaviorCode,
         targetRobot: behaviorTarget,
         enabled: false,
@@ -200,7 +204,7 @@ export function ModdingPanel() {
     }
     resetBehaviorEditor();
     setView('gallery');
-  }, [behaviorName, behaviorDesc, behaviorCode, behaviorTarget, editingModId, mods, resetBehaviorEditor]);
+  }, [behaviorName, behaviorDesc, behaviorCode, behaviorHook, behaviorTarget, editingModId, mods, resetBehaviorEditor]);
 
   const saveSkinMod = useCallback(() => {
     if (!skinName.trim()) return;
@@ -260,6 +264,7 @@ export function ModdingPanel() {
         state: robotState.state,
         needs: { ...robotState.needs },
       },
+      hook: mod.hook,
     });
     setTestResult(result);
     setView('test-result');
@@ -271,6 +276,7 @@ export function ModdingPanel() {
     setBehaviorDesc(example.description);
     setBehaviorCode(example.code);
     setBehaviorTarget(example.targetRobot);
+    setBehaviorHook(example.hook);
     setCodeError(null);
   }, []);
 
@@ -417,6 +423,8 @@ export function ModdingPanel() {
               setCode={setBehaviorCode}
               target={behaviorTarget}
               setTarget={setBehaviorTarget}
+              hook={behaviorHook}
+              setHook={setBehaviorHook}
               error={codeError}
               isEditing={!!editingModId}
               onSave={saveBehaviorMod}
@@ -559,6 +567,11 @@ function ModCard({
             }`}>
               {isBehavior ? 'behavior' : 'skin'}
             </span>
+            {isBehavior && (
+              <span className="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-mono text-emerald-300">
+                {(mod as BehaviorMod).hook}
+              </span>
+            )}
             {mod.targetRobot !== 'all' && (
               <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] text-gray-300">
                 {mod.targetRobot}
@@ -658,6 +671,12 @@ function ModCard({
 
 // ── Behavior Editor ────────────────────────────────────────────
 
+const HOOK_OPTIONS: { value: BehaviorHook; label: string; desc: string }[] = [
+  { value: 'onTask', label: 'onTask', desc: 'Runs when robot starts a task' },
+  { value: 'onIdle', label: 'onIdle', desc: 'Runs when robot is idle' },
+  { value: 'onEvent', label: 'onEvent', desc: 'Runs on game events' },
+];
+
 function BehaviorEditorView({
   name,
   setName,
@@ -667,6 +686,8 @@ function BehaviorEditorView({
   setCode,
   target,
   setTarget,
+  hook,
+  setHook,
   error,
   isEditing,
   onSave,
@@ -681,6 +702,8 @@ function BehaviorEditorView({
   setCode: (v: string) => void;
   target: RobotId | 'all';
   setTarget: (v: RobotId | 'all') => void;
+  hook: BehaviorHook;
+  setHook: (v: BehaviorHook) => void;
   error: string | null;
   isEditing: boolean;
   onSave: () => void;
@@ -762,6 +785,29 @@ function BehaviorEditorView({
         </div>
       </div>
 
+      {/* Hook Selector */}
+      <div>
+        <label className="mb-1.5 block text-xs font-medium text-gray-400">Hook (when this mod fires)</label>
+        <div className="flex gap-1.5">
+          {HOOK_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => setHook(opt.value)}
+              title={opt.desc}
+              className={`rounded-lg px-3 py-1.5 text-xs font-medium font-mono transition-colors ${
+                hook === opt.value
+                  ? 'bg-emerald-500/30 text-emerald-200 ring-1 ring-emerald-500/50'
+                  : 'bg-white/5 text-gray-400 hover:bg-white/10'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+        <p className="mt-1 text-[10px] text-gray-500">{HOOK_OPTIONS.find((o) => o.value === hook)?.desc}</p>
+      </div>
+
       {/* Code Editor */}
       <div>
         <label className="mb-1.5 block text-xs font-medium text-gray-400">
@@ -812,6 +858,12 @@ function BehaviorEditorView({
             <span className="font-mono text-violet-300">say(msg)</span>
             <span className="ml-1 text-gray-500">robot thought</span>
           </div>
+        </div>
+        <h4 className="mb-1.5 mt-3 text-xs font-medium text-gray-300">Hooks</h4>
+        <div className="space-y-1 text-[11px]">
+          <div><span className="font-mono text-emerald-300">onTask</span> <span className="text-gray-500">- fires when robot starts/finishes a task</span></div>
+          <div><span className="font-mono text-emerald-300">onIdle</span> <span className="text-gray-500">- fires when robot enters idle state</span></div>
+          <div><span className="font-mono text-emerald-300">onEvent</span> <span className="text-gray-500">- fires on game events (visitors, weather, etc.)</span></div>
         </div>
       </div>
 

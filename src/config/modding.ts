@@ -1,41 +1,48 @@
-import type { BehaviorMod, SkinMod, RobotId } from '../types';
+import type { BehaviorMod, SkinMod, RobotId, BehaviorHook } from '../types';
 
 // ── Example / Template Mods ──────────────────────────────────
 
 export const EXAMPLE_BEHAVIOR_MODS: Omit<BehaviorMod, 'id' | 'createdAt' | 'updatedAt'>[] = [
   {
-    name: 'Energetic Pacer',
-    description: 'Robot moves faster when battery is above 80%',
+    name: 'Dance Break',
+    description: 'Robot randomly breaks into a dance when idle',
     type: 'behavior',
-    code: `// When battery is high, robot gets a speed boost
-if (robot.battery > 80) {
-  action("boost_speed", 1.5);
-  say("I'm fully charged! Let's go!");
-} else {
-  action("boost_speed", 1.0);
+    hook: 'onIdle',
+    code: `// Random chance to dance when idle
+if (Math.random() < 0.3) {
+  action("dance", "shuffle");
+  say("Time for a dance break!");
+} else if (Math.random() < 0.2) {
+  action("dance", "spin");
+  say("Can't stop the groove!");
+}`,
+    targetRobot: 'all',
+    enabled: false,
+  },
+  {
+    name: 'Perfectionist',
+    description: 'Robot only leaves a room when it is 100% clean',
+    type: 'behavior',
+    hook: 'onTask',
+    code: `// Stay in room until perfectly clean
+if (robot.state === "working") {
+  action("set_threshold", 100);
+  say("Not leaving until it sparkles!");
 }`,
     targetRobot: 'all',
     enabled: false,
   },
   {
     name: 'Social Butterfly',
-    description: 'Robot seeks other robots when lonely',
+    description: 'Prioritizes rooms where other robots are working',
     type: 'behavior',
-    code: `// When social need is low, seek a friend
-if (robot.needs.social < 30) {
+    hook: 'onEvent',
+    code: `// Seek rooms with other robots for company
+action("prefer_occupied_rooms");
+if (robot.needs.social < 40) {
   action("seek_friend");
-  say("I need some company!");
+  say("Let's work together!");
 }`,
-    targetRobot: 'all',
-    enabled: false,
-  },
-  {
-    name: 'Neat Freak',
-    description: 'Robot prioritizes the dirtiest room',
-    type: 'behavior',
-    code: `// Always clean the worst room first
-action("prioritize_dirty_room");
-say("I can't stand the mess!");`,
     targetRobot: 'all',
     enabled: false,
   },
@@ -116,6 +123,8 @@ export interface BehaviorContext {
     state: string;
     needs: { energy: number; happiness: number; social: number; boredom: number };
   };
+  hook: BehaviorHook;
+  event?: string;  // populated for onEvent hooks
 }
 
 export interface BehaviorResult {

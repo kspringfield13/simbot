@@ -357,6 +357,7 @@ export interface IntruderEvent {
 
 // ── Robot Modding API ──────────────────────────────────────────
 export type ModType = 'behavior' | 'skin';
+export type BehaviorHook = 'onTask' | 'onIdle' | 'onEvent';
 
 export interface BehaviorMod {
   id: string;
@@ -364,6 +365,7 @@ export interface BehaviorMod {
   description: string;
   type: 'behavior';
   code: string;           // JavaScript snippet (DSL subset)
+  hook: BehaviorHook;     // when this mod fires
   targetRobot: RobotId | 'all';
   enabled: boolean;
   createdAt: number;
