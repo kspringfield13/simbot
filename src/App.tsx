@@ -691,22 +691,32 @@ function EvolutionButton() {
 function SmartScheduleButton() {
   const setShow = useStore((s) => s.setShowSmartSchedule);
   const eventCount = useStore((s) => s.smartScheduleData.events.length);
+  const smartEnabled = useStore((s) => s.smartScheduleEnabled);
 
   return (
     <button
       type="button"
       onClick={() => setShow(true)}
-      className="pointer-events-auto relative flex h-10 w-10 items-center justify-center rounded-full border border-indigo-400/30 bg-black/50 text-lg backdrop-blur-md transition-all hover:bg-indigo-400/20"
-      title="Smart Schedule AI"
+      className={`pointer-events-auto relative flex h-10 w-10 items-center justify-center rounded-full border bg-black/50 text-lg backdrop-blur-md transition-all ${
+        smartEnabled
+          ? 'border-emerald-400/40 hover:bg-emerald-400/20'
+          : 'border-indigo-400/30 hover:bg-indigo-400/20'
+      }`}
+      title={smartEnabled ? 'Smart Schedule AI (Active)' : 'Smart Schedule AI'}
     >
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-indigo-300">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={`h-5 w-5 ${smartEnabled ? 'text-emerald-300' : 'text-indigo-300'}`}>
         <circle cx="12" cy="12" r="10" />
         <path d="M12 6v6l4 2" />
       </svg>
       {eventCount > 0 && (
-        <span className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-indigo-400 px-1 text-[9px] font-bold text-black">
+        <span className={`absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[9px] font-bold text-black ${
+          smartEnabled ? 'bg-emerald-400' : 'bg-indigo-400'
+        }`}>
           {eventCount > 99 ? '99+' : eventCount}
         </span>
+      )}
+      {smartEnabled && (
+        <span className="absolute -bottom-0.5 left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-emerald-400 shadow-[0_0_4px_rgba(52,211,153,0.6)]" />
       )}
     </button>
   );

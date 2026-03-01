@@ -604,8 +604,10 @@ interface SimBotStore {
 
   // Smart schedule AI
   smartScheduleData: import('../systems/SmartSchedule').SmartScheduleData;
+  smartScheduleEnabled: boolean;
   showSmartSchedule: boolean;
   setShowSmartSchedule: (show: boolean) => void;
+  setSmartScheduleEnabled: (enabled: boolean) => void;
   setSmartScheduleData: (data: import('../systems/SmartSchedule').SmartScheduleData) => void;
 
   // Mini-games
@@ -1374,8 +1376,13 @@ export const useStore = create<SimBotStore>((set) => ({
 
   // Smart schedule AI
   smartScheduleData: { events: [], roomPatterns: {}, lastAnalyzedAt: 0, userInteractionTimes: [], totalUserCommands: 0, peakActivityHour: 9 },
+  smartScheduleEnabled: (() => { try { return localStorage.getItem('simbot-smart-schedule-enabled') === 'true'; } catch { return false; } })(),
   showSmartSchedule: false,
   setShowSmartSchedule: (show) => set({ showSmartSchedule: show }),
+  setSmartScheduleEnabled: (enabled) => {
+    try { localStorage.setItem('simbot-smart-schedule-enabled', String(enabled)); } catch { /* ignore */ }
+    set({ smartScheduleEnabled: enabled });
+  },
   setSmartScheduleData: (data) => set({ smartScheduleData: data }),
 
   // Mini-games

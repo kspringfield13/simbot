@@ -5,6 +5,7 @@ import {
   getRoomPriority,
   getConfidenceLevel,
   getConfidencePercent,
+  getAutoScheduleEntries,
   type RoomPattern,
 } from '../../systems/SmartSchedule';
 
@@ -196,10 +197,30 @@ function RoomInsightCard({ pattern }: { pattern: RoomPattern }) {
   );
 }
 
+function ToggleSwitch({ enabled, onToggle }: { enabled: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className={`relative h-6 w-11 shrink-0 rounded-full transition-colors duration-200 ${
+        enabled ? 'bg-emerald-500' : 'bg-white/15'
+      }`}
+    >
+      <span
+        className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 ${
+          enabled ? 'translate-x-5' : 'translate-x-0'
+        }`}
+      />
+    </button>
+  );
+}
+
 export function SmartSchedulePanel() {
   const show = useStore((s) => s.showSmartSchedule);
   const setShow = useStore((s) => s.setShowSmartSchedule);
   const data = useStore((s) => s.smartScheduleData);
+  const enabled = useStore((s) => s.smartScheduleEnabled);
+  const setEnabled = useStore((s) => s.setSmartScheduleEnabled);
 
   if (!show) return null;
 
@@ -207,6 +228,7 @@ export function SmartSchedulePanel() {
   const confidencePercent = getConfidencePercent(data);
   const sortedRooms = getRoomPriority(data.roomPatterns);
   const hasPatterns = sortedRooms.length > 0;
+  const autoEntries = getAutoScheduleEntries(data);
 
   // Global hourly distribution
   const globalHourly = new Array(24).fill(0);
@@ -234,6 +256,43 @@ export function SmartSchedulePanel() {
             Learning optimal cleaning patterns from activity data. Patterns improve as more tasks are completed.
           </p>
         </div>
+
+        {/* Smart Schedule Toggle */}
+        <div className={`mb-4 flex items-center justify-between rounded-xl border p-3 transition-colors ${
+          enabled ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-white/5 bg-white/5'
+        }`}>
+          <div>
+            <div className="text-sm font-semibold text-white">Smart Schedule</div>
+            <div className="text-[10px] text-white/40">
+              {enabled
+                ? autoEntries.length > 0
+                  ? `Auto-scheduling ${autoEntries.length} task${autoEntries.length === 1 ? '' : 's'} at optimal times`
+                  : 'Enabled — collecting data to build schedule'
+                : 'Enable to auto-schedule tasks from learned patterns'}
+            </div>
+          </div>
+          <ToggleSwitch enabled={enabled} onToggle={() => setEnabled(!enabled)} />
+        </div>
+
+        {/* Auto-scheduled tasks preview (when enabled and has entries) */}
+        {enabled && autoEntries.length > 0 && (
+          <div className="mb-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3">
+            <div className="mb-2 text-[11px] font-bold text-emerald-300/80">
+              Active Auto-Schedule
+            </div>
+            <div className="space-y-1">
+              {autoEntries.map((e) => (
+                <div key={`${e.roomId}:${e.taskType}`} className="flex items-center justify-between text-[10px]">
+                  <span className="text-white/60">{e.command}</span>
+                  <span className="font-mono text-emerald-300/70">{formatTimeOfDay(e.optimalTime)}</span>
+                </div>
+              ))}
+            </div>
+            <div className="mt-2 text-[9px] text-white/25">
+              Robots will automatically perform these tasks daily at the learned times.
+            </div>
+          </div>
+        )}
 
         {/* Confidence & stats row */}
         <div className="mb-4 flex items-center justify-between rounded-xl border border-white/5 bg-white/5 p-3">

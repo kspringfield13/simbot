@@ -224,6 +224,92 @@ export function getRoomPriority(
     .sort((a, b) => b.avgDirtyRate - a.avgDirtyRate);
 }
 
+// ── Auto-schedule helpers ───────────────────────────────
+
+/** Map a (roomId, taskType) pair back to a natural-language command string */
+const TASK_COMMAND_MAP: Record<string, Record<string, string>> = {
+  kitchen: {
+    dishes: 'wash dishes',
+    cooking: 'cook meal',
+    'grocery-list': 'check groceries',
+    sweeping: 'sweep kitchen',
+    cleaning: 'clean kitchen',
+    vacuuming: 'vacuum kitchen',
+  },
+  'living-room': {
+    cleaning: 'clean living room',
+    vacuuming: 'vacuum living room',
+  },
+  bedroom: {
+    'bed-making': 'make bed',
+    organizing: 'organize desk',
+    cleaning: 'tidy bedroom',
+    vacuuming: 'vacuum bedroom',
+  },
+  bathroom: {
+    scrubbing: 'scrub bathroom',
+    cleaning: 'clean bathroom',
+  },
+  laundry: {
+    laundry: 'do laundry',
+    cleaning: 'clean laundry room',
+  },
+  hallway: {
+    cleaning: 'clean hallway',
+    vacuuming: 'vacuum hallway',
+  },
+  yard: {
+    mowing: 'mow lawn',
+    watering: 'water plants',
+    'leaf-blowing': 'blow leaves',
+    weeding: 'pull weeds',
+    cleaning: 'tidy yard',
+  },
+  'f2-bedroom': {
+    'bed-making': 'make upstairs bed',
+    cleaning: 'clean upstairs bedroom',
+  },
+  'f2-office': {
+    organizing: 'organize office',
+    cleaning: 'clean office',
+  },
+  'f2-balcony': {
+    sweeping: 'sweep balcony',
+    cleaning: 'clean balcony',
+  },
+};
+
+export function taskToCommand(roomId: string, taskType: string): string | null {
+  return TASK_COMMAND_MAP[roomId]?.[taskType] ?? null;
+}
+
+/** Entry for an auto-scheduled cleaning run */
+export interface AutoScheduleEntry {
+  roomId: string;
+  taskType: string;
+  command: string;
+  optimalTime: number; // minutes within day (0-1439)
+}
+
+/** Get the list of auto-schedule entries derived from learned patterns */
+export function getAutoScheduleEntries(data: SmartScheduleData): AutoScheduleEntry[] {
+  const entries: AutoScheduleEntry[] = [];
+  for (const pattern of Object.values(data.roomPatterns)) {
+    if (pattern.totalTaskCount < 3) continue; // need some data before auto-scheduling
+    const topTask = pattern.topTasks[0];
+    if (!topTask) continue;
+    const command = taskToCommand(pattern.roomId, topTask.taskType);
+    if (!command) continue;
+    entries.push({
+      roomId: pattern.roomId,
+      taskType: topTask.taskType,
+      command,
+      optimalTime: pattern.optimalCleanTime,
+    });
+  }
+  return entries.sort((a, b) => a.optimalTime - b.optimalTime);
+}
+
 /** Confidence level based on amount of data collected */
 export function getConfidenceLevel(data: SmartScheduleData): 'low' | 'medium' | 'high' {
   if (data.events.length >= 80) return 'high';
