@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useStore } from '../../stores/useStore';
 import { UPGRADES, ROBOT_COLORS } from '../../config/shop';
+import { ROOM_UPGRADES, FURNITURE_ITEMS, ROBOT_ACCESSORIES } from '../../systems/Economy';
 import { ROBOT_CONFIGS } from '../../config/robots';
 import type { RobotId } from '../../types';
 import { ROBOT_IDS } from '../../types';
 
-type Tab = 'upgrades' | 'colors';
+type Tab = 'upgrades' | 'rooms' | 'furniture' | 'accessories' | 'colors';
 
 export function ShopPanel() {
   const showShop = useStore((s) => s.showShop);
@@ -15,6 +16,13 @@ export function ShopPanel() {
   const robotColors = useStore((s) => s.robotColors);
   const purchaseUpgrade = useStore((s) => s.purchaseUpgrade);
   const purchaseColor = useStore((s) => s.purchaseColor);
+  const purchasedRoomUpgrades = useStore((s) => s.purchasedRoomUpgrades);
+  const purchasedFurniture = useStore((s) => s.purchasedFurniture);
+  const purchasedAccessories = useStore((s) => s.purchasedAccessories);
+  const purchaseRoomUpgrade = useStore((s) => s.purchaseRoomUpgrade);
+  const purchaseFurnitureItem = useStore((s) => s.purchaseFurnitureItem);
+  const purchaseAccessory = useStore((s) => s.purchaseAccessory);
+  const recordTransaction = useStore((s) => s.recordTransaction);
 
   const [tab, setTab] = useState<Tab>('upgrades');
   const [colorRobot, setColorRobot] = useState<RobotId>('sim');
@@ -22,41 +30,75 @@ export function ShopPanel() {
 
   if (!showShop) return null;
 
+  const flash = (id: string) => {
+    setFlashItem(id);
+    setTimeout(() => setFlashItem(null), 600);
+  };
+
   const handleBuyUpgrade = (id: string, cost: number) => {
     const ok = purchaseUpgrade(id, cost);
     if (ok) {
-      setFlashItem(id);
-      setTimeout(() => setFlashItem(null), 600);
+      flash(id);
+      recordTransaction('expense', 'upgrade', cost, `Upgrade: ${id}`);
     }
   };
 
   const handleBuyColor = (robotId: RobotId, hex: string, cost: number) => {
     const ok = purchaseColor(robotId, hex, cost);
     if (ok) {
-      setFlashItem(`${robotId}-${hex}`);
-      setTimeout(() => setFlashItem(null), 600);
+      flash(`${robotId}-${hex}`);
+      recordTransaction('expense', 'color', cost, `Color for ${robotId}`);
     }
+  };
+
+  const handleBuyRoom = (id: string, cost: number) => {
+    const ok = purchaseRoomUpgrade(id, cost);
+    if (ok) flash(id);
+  };
+
+  const handleBuyFurniture = (id: string, cost: number) => {
+    const ok = purchaseFurnitureItem(id, cost);
+    if (ok) flash(id);
+  };
+
+  const handleBuyAccessory = (id: string, cost: number) => {
+    const ok = purchaseAccessory(id, cost);
+    if (ok) flash(id);
   };
 
   const isOwned = (id: string) => purchasedUpgrades.includes(id);
   const isLocked = (u: typeof UPGRADES[number]) =>
     u.requires != null && !purchasedUpgrades.includes(u.requires);
 
+  const tabConfig: { key: Tab; label: string; color: string }[] = [
+    { key: 'upgrades', label: 'Upgrades', color: 'blue' },
+    { key: 'rooms', label: 'Rooms', color: 'emerald' },
+    { key: 'furniture', label: 'Furniture', color: 'amber' },
+    { key: 'accessories', label: 'Gear', color: 'purple' },
+    { key: 'colors', label: 'Colors', color: 'pink' },
+  ];
+
+  const tabColors: Record<string, string> = {
+    blue: 'border-blue-400 text-blue-300',
+    emerald: 'border-emerald-400 text-emerald-300',
+    amber: 'border-amber-400 text-amber-300',
+    purple: 'border-purple-400 text-purple-300',
+    pink: 'border-pink-400 text-pink-300',
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         onClick={() => setShowShop(false)}
       />
 
-      {/* Panel */}
-      <div className="relative w-[420px] max-h-[80vh] overflow-hidden rounded-2xl border border-white/10 bg-gray-900/95 shadow-2xl backdrop-blur-md">
+      <div className="relative w-[460px] max-h-[85vh] overflow-hidden rounded-2xl border border-white/10 bg-gray-900/95 shadow-2xl backdrop-blur-md">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
           <div className="flex items-center gap-2.5">
             <span className="text-xl">🛍️</span>
-            <h2 className="text-lg font-semibold text-white">Robot Shop</h2>
+            <h2 className="text-lg font-semibold text-white">SimCoin Shop</h2>
           </div>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1.5 rounded-full border border-yellow-400/30 bg-yellow-400/10 px-3 py-1">
@@ -75,32 +117,25 @@ export function ShopPanel() {
 
         {/* Tabs */}
         <div className="flex border-b border-white/10">
-          <button
-            type="button"
-            onClick={() => setTab('upgrades')}
-            className={`flex-1 py-2.5 text-sm font-medium transition-colors ${
-              tab === 'upgrades'
-                ? 'border-b-2 border-blue-400 text-blue-300'
-                : 'text-white/40 hover:text-white/70'
-            }`}
-          >
-            Upgrades
-          </button>
-          <button
-            type="button"
-            onClick={() => setTab('colors')}
-            className={`flex-1 py-2.5 text-sm font-medium transition-colors ${
-              tab === 'colors'
-                ? 'border-b-2 border-pink-400 text-pink-300'
-                : 'text-white/40 hover:text-white/70'
-            }`}
-          >
-            Colors
-          </button>
+          {tabConfig.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setTab(t.key)}
+              className={`flex-1 py-2 text-[11px] font-medium transition-colors ${
+                tab === t.key
+                  ? `border-b-2 ${tabColors[t.color]}`
+                  : 'text-white/40 hover:text-white/70'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
         </div>
 
         {/* Content */}
         <div className="max-h-[55vh] overflow-y-auto p-4">
+          {/* Upgrades tab */}
           {tab === 'upgrades' && (
             <div className="space-y-2">
               {(['speed', 'battery', 'efficiency'] as const).map((cat) => (
@@ -112,7 +147,7 @@ export function ShopPanel() {
                     const owned = isOwned(u.id);
                     const locked = isLocked(u);
                     const canAfford = coins >= u.cost;
-                    const flash = flashItem === u.id;
+                    const isFlash = flashItem === u.id;
 
                     return (
                       <div
@@ -123,7 +158,7 @@ export function ShopPanel() {
                             : locked
                               ? 'border-white/5 bg-white/[0.02] opacity-50'
                               : 'border-white/10 bg-white/5'
-                        } ${flash ? 'scale-[1.02] border-yellow-400/50 bg-yellow-400/10' : ''}`}
+                        } ${isFlash ? 'scale-[1.02] border-yellow-400/50 bg-yellow-400/10' : ''}`}
                       >
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
@@ -162,9 +197,165 @@ export function ShopPanel() {
             </div>
           )}
 
+          {/* Room upgrades tab */}
+          {tab === 'rooms' && (
+            <div className="space-y-1.5">
+              {ROOM_UPGRADES.map((item) => {
+                const owned = purchasedRoomUpgrades.includes(item.id);
+                const canAfford = coins >= item.cost;
+                const isFlash = flashItem === item.id;
+
+                return (
+                  <div
+                    key={item.id}
+                    className={`flex items-center justify-between rounded-xl border px-4 py-3 transition-all ${
+                      owned
+                        ? 'border-green-500/30 bg-green-500/10'
+                        : 'border-white/10 bg-white/5'
+                    } ${isFlash ? 'scale-[1.02] border-yellow-400/50 bg-yellow-400/10' : ''}`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <span className="text-lg">{item.icon}</span>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-white">{item.name}</span>
+                          {owned && (
+                            <span className="rounded-full bg-green-500/20 px-1.5 py-0.5 text-[10px] font-bold text-green-400">
+                              OWNED
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-0.5 text-xs text-white/40">{item.description}</p>
+                      </div>
+                    </div>
+                    {!owned && (
+                      <button
+                        type="button"
+                        disabled={!canAfford}
+                        onClick={() => handleBuyRoom(item.id, item.cost)}
+                        className={`ml-3 flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                          !canAfford
+                            ? 'cursor-not-allowed bg-white/5 text-white/20'
+                            : 'bg-yellow-400/20 text-yellow-300 hover:bg-yellow-400/30 active:scale-95'
+                        }`}
+                      >
+                        <span>🪙</span>
+                        <span>{item.cost}</span>
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Furniture tab */}
+          {tab === 'furniture' && (
+            <div className="space-y-1.5">
+              {FURNITURE_ITEMS.map((item) => {
+                const owned = purchasedFurniture.includes(item.id);
+                const canAfford = coins >= item.cost;
+                const isFlash = flashItem === item.id;
+
+                return (
+                  <div
+                    key={item.id}
+                    className={`flex items-center justify-between rounded-xl border px-4 py-3 transition-all ${
+                      owned
+                        ? 'border-green-500/30 bg-green-500/10'
+                        : 'border-white/10 bg-white/5'
+                    } ${isFlash ? 'scale-[1.02] border-yellow-400/50 bg-yellow-400/10' : ''}`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <span className="text-lg">{item.icon}</span>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-white">{item.name}</span>
+                          {owned && (
+                            <span className="rounded-full bg-green-500/20 px-1.5 py-0.5 text-[10px] font-bold text-green-400">
+                              OWNED
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-0.5 text-xs text-white/40">{item.description}</p>
+                      </div>
+                    </div>
+                    {!owned && (
+                      <button
+                        type="button"
+                        disabled={!canAfford}
+                        onClick={() => handleBuyFurniture(item.id, item.cost)}
+                        className={`ml-3 flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                          !canAfford
+                            ? 'cursor-not-allowed bg-white/5 text-white/20'
+                            : 'bg-yellow-400/20 text-yellow-300 hover:bg-yellow-400/30 active:scale-95'
+                        }`}
+                      >
+                        <span>🪙</span>
+                        <span>{item.cost}</span>
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Accessories tab */}
+          {tab === 'accessories' && (
+            <div className="space-y-1.5">
+              {ROBOT_ACCESSORIES.map((item) => {
+                const owned = purchasedAccessories.includes(item.id);
+                const canAfford = coins >= item.cost;
+                const isFlash = flashItem === item.id;
+
+                return (
+                  <div
+                    key={item.id}
+                    className={`flex items-center justify-between rounded-xl border px-4 py-3 transition-all ${
+                      owned
+                        ? 'border-green-500/30 bg-green-500/10'
+                        : 'border-white/10 bg-white/5'
+                    } ${isFlash ? 'scale-[1.02] border-yellow-400/50 bg-yellow-400/10' : ''}`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <span className="text-lg">{item.icon}</span>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-white">{item.name}</span>
+                          {owned && (
+                            <span className="rounded-full bg-green-500/20 px-1.5 py-0.5 text-[10px] font-bold text-green-400">
+                              OWNED
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-0.5 text-xs text-white/40">{item.description}</p>
+                      </div>
+                    </div>
+                    {!owned && (
+                      <button
+                        type="button"
+                        disabled={!canAfford}
+                        onClick={() => handleBuyAccessory(item.id, item.cost)}
+                        className={`ml-3 flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                          !canAfford
+                            ? 'cursor-not-allowed bg-white/5 text-white/20'
+                            : 'bg-yellow-400/20 text-yellow-300 hover:bg-yellow-400/30 active:scale-95'
+                        }`}
+                      >
+                        <span>🪙</span>
+                        <span>{item.cost}</span>
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Colors tab */}
           {tab === 'colors' && (
             <div className="space-y-4">
-              {/* Robot picker */}
               <div className="flex gap-2">
                 {ROBOT_IDS.map((rid) => {
                   const cfg = ROBOT_CONFIGS[rid];
@@ -190,12 +381,11 @@ export function ShopPanel() {
                 })}
               </div>
 
-              {/* Color grid */}
               <div className="grid grid-cols-3 gap-2">
                 {ROBOT_COLORS.map((c) => {
                   const isActive = robotColors[colorRobot] === c.hex;
                   const canAfford = coins >= c.cost;
-                  const flash = flashItem === `${colorRobot}-${c.hex}`;
+                  const isFlash = flashItem === `${colorRobot}-${c.hex}`;
 
                   return (
                     <button
@@ -209,7 +399,7 @@ export function ShopPanel() {
                           : canAfford
                             ? 'border-white/10 bg-white/5 hover:bg-white/10 active:scale-95'
                             : 'cursor-not-allowed border-white/5 bg-white/[0.02] opacity-50'
-                      } ${flash ? 'scale-105 border-yellow-400/50 bg-yellow-400/10' : ''}`}
+                      } ${isFlash ? 'scale-105 border-yellow-400/50 bg-yellow-400/10' : ''}`}
                     >
                       <span
                         className="inline-block h-6 w-6 rounded-full border-2 border-white/20"
@@ -228,7 +418,6 @@ export function ShopPanel() {
                 })}
               </div>
 
-              {/* Reset to default */}
               {robotColors[colorRobot] && (
                 <button
                   type="button"
@@ -249,10 +438,10 @@ export function ShopPanel() {
           )}
         </div>
 
-        {/* Footer hint */}
+        {/* Footer */}
         <div className="border-t border-white/10 px-5 py-3">
           <p className="text-center text-[11px] text-white/25">
-            Earn coins by completing tasks — harder tasks pay more
+            Earn SimCoins by completing tasks — harder tasks pay more
           </p>
         </div>
       </div>

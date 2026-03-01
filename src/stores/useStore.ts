@@ -14,6 +14,8 @@ import type { NeighborHouse, VisitEvent } from '../systems/Neighborhood';
 import { generateNeighborhood, getRandomInteraction } from '../systems/Neighborhood';
 import { loadSecurityData, saveSecurityData } from '../config/security';
 import { getSkillQualityBonus } from '../config/skills';
+import type { EconomyTransaction, TransactionCategory } from '../systems/Economy';
+import { loadEconomyData, saveEconomyData } from '../systems/Economy';
 import { loadFloorPlanId, saveFloorPlanId } from '../config/floorPlans';
 import type { ChallengeDefinition, BestTime } from '../config/challenges';
 import { loadBestTimes, saveBestTime, getStarsForTime } from '../config/challenges';
@@ -390,6 +392,7 @@ function savePetData(data: PetsStorageData) {
 }
 
 const initialShopData = loadShopData();
+const initialEconomyData = loadEconomyData();
 const initialCraftingData = loadCraftingData();
 const initialFurnitureCraftingData = loadFurnitureCraftingData();
 const initialSecurityData = loadSecurityData();
@@ -601,6 +604,21 @@ interface SimBotStore {
   addCoins: (amount: number) => void;
   purchaseUpgrade: (id: string, cost: number) => boolean;
   purchaseColor: (robotId: RobotId, colorHex: string, cost: number) => boolean;
+
+  // Economy / budget
+  economyTransactions: EconomyTransaction[];
+  purchasedRoomUpgrades: string[];
+  purchasedFurniture: string[];
+  purchasedAccessories: string[];
+  showBudgetPanel: boolean;
+  setShowBudgetPanel: (show: boolean) => void;
+  coinAnimations: { id: string; amount: number; createdAt: number }[];
+  addCoinAnimation: (amount: number) => void;
+  removeCoinAnimation: (id: string) => void;
+  recordTransaction: (type: 'income' | 'expense', category: TransactionCategory, amount: number, label: string) => void;
+  purchaseRoomUpgrade: (id: string, cost: number) => boolean;
+  purchaseFurnitureItem: (id: string, cost: number) => boolean;
+  purchaseAccessory: (id: string, cost: number) => boolean;
 
   // Smart home devices
   deviceStates: Record<string, DeviceState>;
@@ -1334,6 +1352,89 @@ export const useStore = create<SimBotStore>((set) => ({
     const shopData = { coins: nextCoins, purchasedUpgrades: state.purchasedUpgrades, robotColors: nextColors };
     saveShopData(shopData);
     set({ coins: nextCoins, robotColors: nextColors });
+    return true;
+  },
+
+  // Economy / budget
+  economyTransactions: initialEconomyData.transactions,
+  purchasedRoomUpgrades: initialEconomyData.purchasedRoomUpgrades,
+  purchasedFurniture: initialEconomyData.purchasedFurniture,
+  purchasedAccessories: initialEconomyData.purchasedAccessories,
+  showBudgetPanel: false,
+  setShowBudgetPanel: (show) => set({ showBudgetPanel: show }),
+  coinAnimations: [],
+  addCoinAnimation: (amount) => set((state) => {
+    const anim = { id: crypto.randomUUID(), amount, createdAt: Date.now() };
+    return { coinAnimations: [...state.coinAnimations, anim] };
+  }),
+  removeCoinAnimation: (id) => set((state) => ({
+    coinAnimations: state.coinAnimations.filter((a) => a.id !== id),
+  })),
+  recordTransaction: (type, category, amount, label) => set((state) => {
+    const tx: EconomyTransaction = {
+      id: crypto.randomUUID(),
+      type,
+      category,
+      amount,
+      label,
+      timestamp: Date.now(),
+      simMinutes: state.simMinutes,
+    };
+    const next = [...state.economyTransactions, tx];
+    saveEconomyData({
+      transactions: next,
+      purchasedRoomUpgrades: state.purchasedRoomUpgrades,
+      purchasedFurniture: state.purchasedFurniture,
+      purchasedAccessories: state.purchasedAccessories,
+    });
+    return { economyTransactions: next };
+  }),
+  purchaseRoomUpgrade: (id, cost) => {
+    const state = useStore.getState();
+    if (state.coins < cost || state.purchasedRoomUpgrades.includes(id)) return false;
+    const nextCoins = state.coins - cost;
+    const nextUpgrades = [...state.purchasedRoomUpgrades, id];
+    saveShopData({ coins: nextCoins, purchasedUpgrades: state.purchasedUpgrades, robotColors: state.robotColors });
+    saveEconomyData({
+      transactions: state.economyTransactions,
+      purchasedRoomUpgrades: nextUpgrades,
+      purchasedFurniture: state.purchasedFurniture,
+      purchasedAccessories: state.purchasedAccessories,
+    });
+    set({ coins: nextCoins, purchasedRoomUpgrades: nextUpgrades });
+    state.recordTransaction('expense', 'room-upgrade', cost, `Room upgrade: ${id}`);
+    return true;
+  },
+  purchaseFurnitureItem: (id, cost) => {
+    const state = useStore.getState();
+    if (state.coins < cost || state.purchasedFurniture.includes(id)) return false;
+    const nextCoins = state.coins - cost;
+    const nextFurn = [...state.purchasedFurniture, id];
+    saveShopData({ coins: nextCoins, purchasedUpgrades: state.purchasedUpgrades, robotColors: state.robotColors });
+    saveEconomyData({
+      transactions: state.economyTransactions,
+      purchasedRoomUpgrades: state.purchasedRoomUpgrades,
+      purchasedFurniture: nextFurn,
+      purchasedAccessories: state.purchasedAccessories,
+    });
+    set({ coins: nextCoins, purchasedFurniture: nextFurn });
+    state.recordTransaction('expense', 'furniture', cost, `Furniture: ${id}`);
+    return true;
+  },
+  purchaseAccessory: (id, cost) => {
+    const state = useStore.getState();
+    if (state.coins < cost || state.purchasedAccessories.includes(id)) return false;
+    const nextCoins = state.coins - cost;
+    const nextAcc = [...state.purchasedAccessories, id];
+    saveShopData({ coins: nextCoins, purchasedUpgrades: state.purchasedUpgrades, robotColors: state.robotColors });
+    saveEconomyData({
+      transactions: state.economyTransactions,
+      purchasedRoomUpgrades: state.purchasedRoomUpgrades,
+      purchasedFurniture: state.purchasedFurniture,
+      purchasedAccessories: nextAcc,
+    });
+    set({ coins: nextCoins, purchasedAccessories: nextAcc });
+    state.recordTransaction('expense', 'accessory', cost, `Accessory: ${id}`);
     return true;
   },
 

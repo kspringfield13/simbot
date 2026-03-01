@@ -3,7 +3,8 @@ import { useStore } from '../stores/useStore';
 import { findTaskTarget } from '../utils/homeLayout';
 import { getNavigationPath } from '../utils/pathfinding';
 import { demoCommands } from '../utils/demoTasks';
-import { getTaskCoinReward, getShopSpeedMultiplier } from '../config/shop';
+import { getShopSpeedMultiplier } from '../config/shop';
+import { getEnhancedCoinReward } from '../systems/Economy';
 import { getDeployedRobotBonuses } from '../config/crafting';
 import { rollMaterialDrop } from '../config/furnitureCrafting';
 import { getSkillSpeedBonus } from '../config/skills';
@@ -295,9 +296,11 @@ export const useTaskRunner = () => {
         state.recordRobotTaskCompletion(rid, activeTask.taskType, activeTask.workDuration);
         state.recordPersonalityTaskCompletion(rid, activeTask.taskType);
 
-        // Award coins for completing the task
-        const coinReward = getTaskCoinReward(activeTask.workDuration);
+        // Award coins for completing the task (difficulty-scaled)
+        const coinReward = getEnhancedCoinReward(activeTask.workDuration, activeTask.taskType);
         state.addCoins(coinReward);
+        state.recordTransaction('income', 'task-reward', coinReward, `${activeTask.taskType} in ${activeTask.targetRoom}`);
+        state.addCoinAnimation(coinReward);
 
         // Award crafting materials
         const materialDrop = rollMaterialDrop(activeTask.taskType);

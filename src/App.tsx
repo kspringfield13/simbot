@@ -5,6 +5,9 @@ import { StreetView } from './components/scene/StreetView';
 import { RobotTerminal } from './components/ui/RobotTerminal';
 import { NeighborhoodPanel } from './components/ui/NeighborhoodPanel';
 import { NeighborhoodMap } from './components/ui/NeighborhoodMap';
+import { ShopPanel } from './components/ui/ShopPanel';
+import { BudgetPanel } from './components/ui/BudgetPanel';
+import { CoinAnimationOverlay } from './components/ui/CoinAnimation';
 import { TaskProcessor } from './components/systems/TaskProcessor';
 import { useStore } from './stores/useStore';
 
@@ -63,6 +66,36 @@ function NeighborhoodToggle() {
   );
 }
 
+function EconomyButtons() {
+  const coins = useStore((s) => s.coins);
+  const setShowShop = useStore((s) => s.setShowShop);
+  const setShowBudgetPanel = useStore((s) => s.setShowBudgetPanel);
+
+  return (
+    <div className="pointer-events-auto flex items-center gap-1">
+      {/* Coin balance badge */}
+      <button
+        type="button"
+        onClick={() => setShowBudgetPanel(true)}
+        className="flex items-center gap-1.5 rounded-full border border-yellow-400/30 bg-black/60 px-3 py-2 backdrop-blur-md transition-all hover:bg-black/80"
+        title="Household budget"
+      >
+        <span className="text-sm">🪙</span>
+        <span className="text-sm font-bold text-yellow-300">{coins}</span>
+      </button>
+      {/* Shop button */}
+      <button
+        type="button"
+        onClick={() => setShowShop(true)}
+        className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-black/50 text-lg backdrop-blur-md transition-all hover:bg-black/70"
+        title="SimCoin Shop"
+      >
+        🛍️
+      </button>
+    </div>
+  );
+}
+
 function App() {
   const streetView = useStore((s) => s.streetView);
 
@@ -83,7 +116,11 @@ function App() {
       <RobotTerminal />
       <NeighborhoodPanel />
       <NeighborhoodMap />
+      <ShopPanel />
+      <BudgetPanel />
+      <CoinAnimationOverlay />
       <div className="pointer-events-none fixed right-4 top-4 z-30 flex gap-2" style={{ marginTop: 'env(safe-area-inset-top, 0px)' }}>
+        <EconomyButtons />
         <NeighborhoodToggle />
         <CameraToggle />
       </div>
