@@ -41,7 +41,11 @@ export type TaskType =
   | 'sweeping'
   | 'grocery-list'
   | 'general'
-  | 'seasonal';
+  | 'seasonal'
+  | 'mowing'
+  | 'watering'
+  | 'leaf-blowing'
+  | 'weeding';
 
 export type Season = 'winter' | 'spring' | 'summer' | 'fall';
 

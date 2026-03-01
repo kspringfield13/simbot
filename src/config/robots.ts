@@ -7,7 +7,7 @@ export const ROBOT_CONFIGS: Record<RobotId, RobotConfig> = {
     color: '#1a8cff',
     startPosition: [0, 0, -2],
     favoriteRoom: 'living-room',
-    preferredRooms: ['living-room', 'hallway', 'kitchen'],
+    preferredRooms: ['living-room', 'hallway', 'kitchen', 'yard'],
     curiosity: 0.8,
     warmth: 0.9,
     playfulness: 0.7,

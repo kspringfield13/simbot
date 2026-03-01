@@ -191,6 +191,18 @@ export function findTaskTarget(command: string): TaskTarget | null {
     return hasRoom('living-room') ? toTarget('living-room', roomPos('living-room'), 'Tidying living room.', 'cleaning', 24, 'Cleaning living room.', 'Living room reset.') : null;
   if (cmd.includes('bedroom'))
     return hasRoom('bedroom') ? toTarget('bedroom', roomPos('bedroom'), 'Tidying bedroom.', 'cleaning', 24, 'Tidying bedroom.', 'Bedroom reset.') : null;
+  // ── Outdoor / Yard tasks ──────────────────────────────────
+  if (cmd.includes('mow') || cmd.includes('lawn'))
+    return hasRoom('yard') ? toTarget('yard', roomPos('yard', -2, 0), 'Mowing the lawn.', 'mowing', 35, 'Heading outside to mow.', 'Lawn is getting long.') : null;
+  if (cmd.includes('water') && (cmd.includes('plant') || cmd.includes('garden') || cmd.includes('flower') || cmd.includes('yard')))
+    return hasRoom('yard') ? toTarget('yard', roomPos('yard', 2, -1), 'Watering the plants.', 'watering', 25, 'Watering the garden.', 'Plants look thirsty.') : null;
+  if (cmd.includes('leaf') || cmd.includes('blow') || cmd.includes('rake'))
+    return hasRoom('yard') ? toTarget('yard', roomPos('yard', 0, 2), 'Blowing leaves.', 'leaf-blowing', 28, 'Clearing the leaves.', 'Leaves are piling up.') : null;
+  if (cmd.includes('weed') || cmd.includes('pull'))
+    return hasRoom('yard') ? toTarget('yard', roomPos('yard', -1, -2), 'Pulling weeds.', 'weeding', 30, 'Weeding the garden.', 'Weeds are sprouting.') : null;
+  if (cmd.includes('yard') || cmd.includes('garden') || cmd.includes('outside') || cmd.includes('outdoor') || cmd.includes('porch'))
+    return hasRoom('yard') ? toTarget('yard', roomPos('yard'), 'Tidying the yard.', 'cleaning', 26, 'Heading to the yard.', 'Yard needs attention.') : null;
+
   if (cmd.includes('clean') || cmd.includes('tidy'))
     return hasRoom('living-room') ? toTarget('living-room', roomPos('living-room'), 'General cleanup.', 'cleaning', 20, 'Starting cleanup.', 'Quick sweep.') : null;
   return null;

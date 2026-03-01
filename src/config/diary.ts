@@ -31,6 +31,10 @@ const TASK_VERBS: Record<TaskType, string> = {
   'grocery-list': 'checked the pantry',
   general: 'handled a task',
   seasonal: 'did some seasonal work',
+  mowing: 'mowed the lawn',
+  watering: 'watered the plants',
+  'leaf-blowing': 'cleared the leaves',
+  weeding: 'pulled weeds',
 };
 
 const ROOM_LABELS: Record<string, string> = {
@@ -40,6 +44,7 @@ const ROOM_LABELS: Record<string, string> = {
   laundry: 'the laundry room',
   bedroom: 'the bedroom',
   bathroom: 'the bathroom',
+  yard: 'the yard',
 };
 
 // ── Sim personality templates ──────────────────────────────────
@@ -89,6 +94,22 @@ const SIM_TASK_ENTRIES: Record<string, string[]> = {
   seasonal: [
     'Did some seasonal prep. Love getting into the spirit of things!',
     'Seasonal chores done! There\'s something special about this time of year.',
+  ],
+  mowing: [
+    'Mowed the lawn! Love the look of fresh-cut grass.',
+    'The yard looks amazing after a good mow. So satisfying!',
+  ],
+  watering: [
+    'Watered all the plants. They look so happy and green now!',
+    'Garden watering done. The flowers are practically glowing.',
+  ],
+  'leaf-blowing': [
+    'Cleared all the leaves from the yard. Looking spotless!',
+    'Leaf blowing done! The yard is so clean now.',
+  ],
+  weeding: [
+    'Pulled weeds from the garden beds. The plants have room to breathe!',
+    'Weeding complete. The garden looks so much better.',
   ],
   general: [
     'Took care of some things in {room}. All good now!',
@@ -142,6 +163,22 @@ const CHEF_TASK_ENTRIES: Record<string, string[]> = {
     'Seasonal kitchen prep done. Every season has its flavors!',
     'Did some seasonal work. Reminds me why I love this time of year.',
   ],
+  mowing: [
+    'Mowed the lawn with precision. Straight lines, perfect height.',
+    'Lawn maintenance complete. The yard meets my standards now.',
+  ],
+  watering: [
+    'Watered the garden. Each plant got exactly the right amount.',
+    'Irrigation complete. Optimal hydration for all specimens.',
+  ],
+  'leaf-blowing': [
+    'Cleared the yard of debris. A clean exterior is non-negotiable.',
+    'Leaves removed. The yard is presentable again.',
+  ],
+  weeding: [
+    'Weeded the garden beds methodically. No weed escapes my notice.',
+    'Garden weeding done. Only the plants I approve of remain.',
+  ],
   general: [
     'Handled some work in {room}. Efficient as always.',
   ],
@@ -191,6 +228,22 @@ const SPARKLE_TASK_ENTRIES: Record<string, string[]> = {
   ],
   seasonal: [
     'Seasonal cleaning done with extra attention to detail. Spotless!',
+  ],
+  mowing: [
+    'Mowed the lawn to absolute perfection. Every blade the same height.',
+    'Lawn mowing complete. The geometric precision of those lines!',
+  ],
+  watering: [
+    'Watered each plant with exactly the right amount. Not a drop wasted.',
+    'Garden watering done. Every leaf is glistening. Beautiful.',
+  ],
+  'leaf-blowing': [
+    'Not a single leaf remains on the lawn. Spotless exterior achieved.',
+    'Leaves cleared with surgical precision. The yard sparkles!',
+  ],
+  weeding: [
+    'Every weed extracted, root and all. The garden beds are immaculate.',
+    'Weeding complete. I inspected every square inch. Perfection.',
   ],
   general: [
     'Completed a task in {room}. Quality verified.',
@@ -395,6 +448,7 @@ export function generatePersonalityDiaryEntry(
     laundry: 'the laundry room',
     bedroom: 'the bedroom',
     bathroom: 'the bathroom',
+    yard: 'the yard',
   };
 
   const taskLabels: Record<string, string> = {
@@ -408,6 +462,10 @@ export function generatePersonalityDiaryEntry(
     scrubbing: 'scrubbing',
     sweeping: 'sweeping',
     seasonal: 'seasonal tasks',
+    mowing: 'mowing the lawn',
+    watering: 'watering plants',
+    'leaf-blowing': 'leaf blowing',
+    weeding: 'weeding',
   };
 
   const text = template

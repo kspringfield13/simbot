@@ -42,6 +42,12 @@ const ROOM_KEYWORDS: Record<string, RoomId> = {
   bathroom: 'bathroom',
   'bath room': 'bathroom',
   bath: 'bathroom',
+  yard: 'yard',
+  garden: 'yard',
+  outside: 'yard',
+  outdoor: 'yard',
+  porch: 'yard',
+  lawn: 'yard',
 };
 
 const TASK_KEYWORDS: Record<string, TaskType> = {
@@ -60,6 +66,14 @@ const TASK_KEYWORDS: Record<string, TaskType> = {
   tidy: 'organizing',
   'make bed': 'bed-making',
   'make the bed': 'bed-making',
+  mow: 'mowing',
+  'mow the lawn': 'mowing',
+  water: 'watering',
+  'water plants': 'watering',
+  weed: 'weeding',
+  'pull weeds': 'weeding',
+  'leaf blow': 'leaf-blowing',
+  rake: 'leaf-blowing',
 };
 
 const ROBOT_KEYWORDS: Record<string, RobotId> = {
@@ -206,6 +220,7 @@ export const ROOM_CENTERS: Record<RoomId, [number, number, number]> = {
   laundry: [-5, 0, 3],
   bedroom: [5, 0, 3],
   bathroom: [0, 0, 3],
+  yard: [0, 0, 24],
 };
 
 export const ROOM_DISPLAY_NAMES: Record<RoomId, string> = {
@@ -215,4 +230,5 @@ export const ROOM_DISPLAY_NAMES: Record<RoomId, string> = {
   laundry: 'laundry room',
   bedroom: 'bedroom',
   bathroom: 'bathroom',
+  yard: 'yard',
 };

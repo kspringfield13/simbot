@@ -56,13 +56,15 @@ const houseRooms: Room[] = [
   { id: 'laundry', name: 'Laundry Closet', position: [5 * S, 0, -1 * S], size: [3 * S, 2 * S], color: '#484646', furniture: [] },
   { id: 'bedroom', name: 'Master Bedroom', position: [-4 * S, 0, 4 * S], size: [8 * S, 8 * S], color: '#444446', furniture: [] },
   { id: 'bathroom', name: 'Master Bathroom', position: [4 * S, 0, 4 * S], size: [8 * S, 8 * S], color: '#464848', furniture: [] },
+  { id: 'yard', name: 'Yard', position: [0, 0, 12 * S], size: [16 * S, 8 * S], color: '#3a5a32', furniture: [] },
 ];
 
 const houseWalls: Wall[] = [
   { start: [-8 * S, -10 * S], end: [8 * S, -10 * S], height: 2.8 * S, thickness: 0.15 * S },
   { start: [-8 * S, -10 * S], end: [-8 * S, 8 * S], height: 2.8 * S, thickness: 0.15 * S },
   { start: [8 * S, -10 * S], end: [8 * S, 8 * S], height: 2.8 * S, thickness: 0.15 * S },
-  { start: [-8 * S, 8 * S], end: [8 * S, 8 * S], height: 2.8 * S, thickness: 0.15 * S },
+  { start: [-8 * S, 8 * S], end: [-1 * S, 8 * S], height: 2.8 * S, thickness: 0.15 * S },
+  { start: [1 * S, 8 * S], end: [8 * S, 8 * S], height: 2.8 * S, thickness: 0.15 * S },
   { start: [-8 * S, -2 * S], end: [-3 * S, -2 * S], height: 2.8 * S, thickness: 0.12 * S },
   { start: [3.5 * S, -2 * S], end: [8 * S, -2 * S], height: 2.8 * S, thickness: 0.12 * S },
   { start: [3.5 * S, -2 * S], end: [3.5 * S, 0], height: 2.8 * S, thickness: 0.12 * S },
@@ -71,7 +73,7 @@ const houseWalls: Wall[] = [
   { start: [-0.5 * S, 0], end: [0, 0], height: 2.8 * S, thickness: 0.12 * S },
   { start: [0, 0], end: [1.5 * S, 0], height: 2.8 * S, thickness: 0.12 * S },
   { start: [3 * S, 0], end: [8 * S, 0], height: 2.8 * S, thickness: 0.12 * S },
-  { start: [0, 0], end: [0, 8 * S], height: 2.8 * S, thickness: 0.12 * S },
+  { start: [0, 0], end: [0, 6.5 * S], height: 2.8 * S, thickness: 0.12 * S },
 ];
 
 const houseFurniture: FurniturePiece[] = [
@@ -103,9 +105,14 @@ const houseWaypoints: WaypointDef[] = [
   { id: 'laundry-door', pos: [3.5 * S, -1 * S], connections: ['hall-east', 'laundry-center'], pauseAtDoorway: true },
   { id: 'laundry-center', pos: [5 * S, -1 * S], connections: ['laundry-door'] },
   { id: 'bedroom-door', pos: [-1.2 * S, 0.5 * S], connections: ['hall-center', 'bedroom-center'], pauseAtDoorway: true },
-  { id: 'bedroom-center', pos: [-4 * S, 4 * S], connections: ['bedroom-door'] },
+  { id: 'bedroom-center', pos: [-4 * S, 4 * S], connections: ['bedroom-door', 'back-passage'] },
   { id: 'bathroom-door', pos: [2 * S, 0.5 * S], connections: ['hall-center', 'bathroom-center'], pauseAtDoorway: true },
-  { id: 'bathroom-center', pos: [4 * S, 4 * S], connections: ['bathroom-door'] },
+  { id: 'bathroom-center', pos: [4 * S, 4 * S], connections: ['bathroom-door', 'back-passage'] },
+  { id: 'back-passage', pos: [0, 7 * S], connections: ['bedroom-center', 'bathroom-center', 'yard-door'] },
+  { id: 'yard-door', pos: [0, 8.5 * S], connections: ['back-passage', 'yard-center'], pauseAtDoorway: true },
+  { id: 'yard-center', pos: [0, 12 * S], connections: ['yard-door', 'yard-west', 'yard-east'] },
+  { id: 'yard-west', pos: [-4 * S, 12 * S], connections: ['yard-center'] },
+  { id: 'yard-east', pos: [4 * S, 12 * S], connections: ['yard-center'] },
 ];
 
 const houseDoorFrames: DoorFrame[] = [
@@ -113,6 +120,7 @@ const houseDoorFrames: DoorFrame[] = [
   { cx: -1.25 * S, cz: 0, alongZ: false, gapWidth: 1.2 * S, h: 2.3 * S },
   { cx: 2.25 * S, cz: 0, alongZ: false, gapWidth: 1.2 * S, h: 2.3 * S },
   { cx: 3.5 * S, cz: -1 * S, alongZ: true, gapWidth: 1.0 * S, h: 2.3 * S },
+  { cx: 0, cz: 8 * S, alongZ: false, gapWidth: 1.5 * S, h: 2.3 * S },
 ];
 
 const houseCeilings = [
@@ -131,6 +139,7 @@ const houseLights = [
   { position: [8, 4.5, 8] as [number, number, number], intensity: 0.5, color: '#f0f5ff', distance: 18 },
   { position: [0, 4.5, -2] as [number, number, number], intensity: 0.3, color: '#ffe0b0', distance: 12 },
   { position: [10, 4.5, -2] as [number, number, number], intensity: 0.3, color: '#fff5e0', distance: 8 },
+  { position: [0, 6, 24] as [number, number, number], intensity: 0.3, color: '#fffbe0', distance: 28 },
 ];
 
 const housePreset: FloorPlanPreset = {

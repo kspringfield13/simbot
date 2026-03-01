@@ -89,6 +89,26 @@ const INNER_VOICE = {
       'Seasonal tasks feel extra rewarding somehow.',
       'The holidays always bring the best tasks.',
     ],
+    mowing: [
+      'The sound of the mower is surprisingly soothing.',
+      'Fresh-cut grass might be my favorite outdoor scent.',
+      'Making neat lines in the lawn is deeply satisfying.',
+    ],
+    watering: [
+      'The plants seem happier already. I can almost see them drinking.',
+      'There\'s something peaceful about watering a garden.',
+      'Each drop of water is a small promise to these plants.',
+    ],
+    'leaf-blowing': [
+      'Leaves everywhere! Time to round them all up.',
+      'There\'s a certain art to blowing leaves into neat piles.',
+      'The yard looks so much better without all these leaves.',
+    ],
+    weeding: [
+      'One weed at a time. Patience is key out here.',
+      'The garden beds deserve to be weed-free.',
+      'Pulling weeds is surprisingly therapeutic.',
+    ],
   } as Record<string, string[]>,
 
   afterTask: [

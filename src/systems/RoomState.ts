@@ -11,6 +11,7 @@ const baseDecayByRoom: Record<RoomId, { cleanliness: number; tidiness: number }>
   laundry: { cleanliness: 0.09, tidiness: 0.1 },
   bedroom: { cleanliness: 0.07, tidiness: 0.1 },
   bathroom: { cleanliness: 0.14, tidiness: 0.11 },
+  yard: { cleanliness: 0.12, tidiness: 0.14 },
 };
 
 export function createInitialRoomNeeds(): Record<RoomId, RoomNeedState> {
@@ -69,6 +70,10 @@ export function boostRoomAfterTask(
     'grocery-list': { cleanliness: 2, tidiness: 8, routine: 12 },
     general: { cleanliness: 8, tidiness: 8, routine: 8 },
     seasonal: { cleanliness: 12, tidiness: 14, routine: 18 },
+    mowing: { cleanliness: 22, tidiness: 24, routine: 18 },
+    watering: { cleanliness: 14, tidiness: 18, routine: 20 },
+    'leaf-blowing': { cleanliness: 26, tidiness: 20, routine: 16 },
+    weeding: { cleanliness: 18, tidiness: 22, routine: 18 },
   };
 
   const boost = boosts[taskType] ?? boosts.general;
@@ -86,12 +91,14 @@ function getRoutineBias(period: SimPeriod, roomId: RoomId): number {
     if (roomId === 'kitchen') return 14;
     if (roomId === 'bedroom') return 8;
     if (roomId === 'living-room') return 6;
+    if (roomId === 'yard') return 8;
   }
 
   if (period === 'afternoon') {
     if (roomId === 'laundry') return 14;
     if (roomId === 'living-room') return 10;
     if (roomId === 'hallway') return 6;
+    if (roomId === 'yard') return 12;
   }
 
   if (period === 'evening') {
@@ -178,6 +185,13 @@ function pickPreset(roomId: RoomId, period: SimPeriod): AutonomousTaskPreset {
 
   if (roomId === 'laundry') {
     return { taskType: 'laundry', workDuration: 26, description: 'Folding and sorting laundry.', thought: 'Laundry closet could use a pass.' };
+  }
+
+  if (roomId === 'yard') {
+    if (period === 'morning') return { taskType: 'watering', workDuration: 25, description: 'Watering the garden plants.', thought: 'Morning is the best time to water.' };
+    if (period === 'afternoon') return { taskType: 'mowing', workDuration: 35, description: 'Mowing the lawn.', thought: 'The grass is getting tall out there.' };
+    if (period === 'evening') return { taskType: 'weeding', workDuration: 30, description: 'Pulling weeds from garden beds.', thought: 'Weeds are creeping in again.' };
+    return { taskType: 'leaf-blowing', workDuration: 28, description: 'Clearing leaves from the yard.', thought: 'Leaves are scattered everywhere.' };
   }
 
   return { taskType: 'sweeping', workDuration: 18, description: 'Sweeping and resetting hallway.', thought: 'I should keep the hallway tidy.' };
