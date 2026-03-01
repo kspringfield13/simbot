@@ -595,6 +595,10 @@ interface SimBotStore {
   spectatorLive: boolean;
   spectatorViewerCount: number;
 
+  // Community gallery
+  showCommunityGallery: boolean;
+  setShowCommunityGallery: (show: boolean) => void;
+
   // Shop / economy
   coins: number;
   purchasedUpgrades: string[];
@@ -1335,6 +1339,8 @@ export const useStore = create<SimBotStore>((set) => ({
   coins: initialShopData.coins,
   purchasedUpgrades: initialShopData.purchasedUpgrades,
   robotColors: initialShopData.robotColors,
+  showCommunityGallery: false,
+  setShowCommunityGallery: (show) => set({ showCommunityGallery: show }),
   showShop: false,
   setShowShop: (show) => set({ showShop: show }),
   addCoins: (amount) => set((state) => {
