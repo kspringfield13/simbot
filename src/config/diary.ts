@@ -1,5 +1,6 @@
-import type { DiaryEntry, RobotId, RobotMood, TaskType, WeatherType } from '../types';
+import type { DiaryEntry, RobotId, RobotMood, RobotPersonalityData, TaskType, WeatherType } from '../types';
 import { formatSimClock } from '../systems/TimeSystem';
+import { getPersonalityTraits } from '../systems/Personality';
 
 // ── Personality-driven templates ──────────────────────────────────
 // Each robot has a distinct writing style in their diary
@@ -326,4 +327,99 @@ export function getMoodEmoji(mood: RobotMood): string {
     bored: '😐',
   };
   return map[mood] ?? '🤖';
+}
+
+// ── Personality diary entries ──────────────────────────────
+// Generates occasional personality reflection entries
+const PERSONALITY_REFLECTIONS: Record<RobotId, Record<string, string[]>> = {
+  sim: {
+    task: [
+      'I\'ve been doing a lot of {task} lately. I think I\'m getting really good at it!',
+      'Is it weird that I look forward to {task}? It just feels natural now.',
+      'I\'ve noticed I always gravitate toward {task}. It\'s becoming my thing!',
+    ],
+    room: [
+      'I spend so much time in {room}. It feels like my second home.',
+      'There\'s something about {room} that just draws me in.',
+      '{room} feels like it\'s mine to protect. I know every corner.',
+    ],
+  },
+  chef: {
+    task: [
+      '{task} has become second nature. Efficiency through repetition.',
+      'My {task} technique is flawless at this point. Practice makes perfect.',
+      'I\'ve developed a real specialty for {task}. It\'s my signature move.',
+    ],
+    room: [
+      '{room} is where I do my best work. I know it like the back of my hand.',
+      'I\'ve claimed {room} as my territory. Everything in its place.',
+      '{room} runs smoother when I\'m in charge of it.',
+    ],
+  },
+  sparkle: {
+    task: [
+      'My {task} routine is perfected to an art form now.',
+      'I\'ve done {task} so many times, I can spot imperfections invisible to others.',
+      '{task} is where I truly shine. Pun absolutely intended.',
+    ],
+    room: [
+      '{room} is my masterpiece. Nobody keeps it cleaner than me.',
+      'I know every tile, every surface in {room}. It\'s MY domain.',
+      '{room} sparkles because I make it sparkle. Every single time.',
+    ],
+  },
+};
+
+export function generatePersonalityDiaryEntry(
+  robotId: RobotId,
+  simMinutes: number,
+  mood: RobotMood,
+  battery: number,
+  personality: RobotPersonalityData,
+): DiaryEntry | null {
+  const traits = getPersonalityTraits(personality);
+  if (traits.length === 0) return null;
+
+  // Pick a random strong trait to reflect on
+  const trait = traits[Math.floor(Math.random() * Math.min(3, traits.length))];
+  const templates = PERSONALITY_REFLECTIONS[robotId]?.[trait.type] ?? [];
+  if (templates.length === 0) return null;
+
+  const template = templates[Math.floor(Math.random() * templates.length)];
+  const { timeText } = formatSimClock(simMinutes);
+
+  const roomLabels: Record<string, string> = {
+    'living-room': 'the living room',
+    kitchen: 'the kitchen',
+    hallway: 'the hallway',
+    laundry: 'the laundry room',
+    bedroom: 'the bedroom',
+    bathroom: 'the bathroom',
+  };
+
+  const taskLabels: Record<string, string> = {
+    cleaning: 'cleaning',
+    vacuuming: 'vacuuming',
+    dishes: 'doing dishes',
+    laundry: 'laundry',
+    organizing: 'organizing',
+    cooking: 'cooking',
+    'bed-making': 'bed-making',
+    scrubbing: 'scrubbing',
+    sweeping: 'sweeping',
+    seasonal: 'seasonal tasks',
+  };
+
+  const text = template
+    .replace('{task}', taskLabels[trait.key] ?? trait.key)
+    .replace('{room}', roomLabels[trait.key] ?? trait.key);
+
+  return {
+    id: crypto.randomUUID(),
+    robotId,
+    simMinutes,
+    text: `${timeText} - 💭 ${text}`,
+    mood,
+    battery,
+  };
 }

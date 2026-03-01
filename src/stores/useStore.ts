@@ -15,6 +15,12 @@ import {
   type LeaderboardData,
   type RobotSessionStats,
 } from '../systems/Leaderboard';
+import {
+  loadPersonalities,
+  savePersonalities,
+  recordPersonalityTask,
+  recordRoomTime,
+} from '../systems/Personality';
 import type {
   CameraMode,
   ChatMessage,
@@ -26,6 +32,7 @@ import type {
   RobotInstanceState,
   RobotMood,
   RobotNeeds,
+  RobotPersonalityData,
   RobotState,
   RoomId,
   RoomNeedState,
@@ -388,6 +395,13 @@ interface SimBotStore {
   recordRobotTaskCompletion: (robotId: RobotId, taskType: TaskType, workDuration: number) => void;
   sampleCleanliness: (avgCleanliness: number) => void;
   flushSession: (simMinutesPlayed: number) => void;
+
+  // Personality
+  showPersonality: boolean;
+  setShowPersonality: (show: boolean) => void;
+  personalities: Record<RobotId, RobotPersonalityData>;
+  recordPersonalityTaskCompletion: (robotId: RobotId, taskType: TaskType) => void;
+  recordPersonalityRoomTime: (robotId: RobotId, roomId: RoomId, minutes: number) => void;
 }
 
 const initialSimMinutes = (7 * 60) + 20;
@@ -902,6 +916,21 @@ export const useStore = create<SimBotStore>((set) => ({
     leaderboardData: saveSession(state.sessionStats, simMinutesPlayed),
     sessionStats: createSessionStats(),
   })),
+
+  // Personality
+  showPersonality: false,
+  setShowPersonality: (show) => set({ showPersonality: show }),
+  personalities: loadPersonalities(),
+  recordPersonalityTaskCompletion: (robotId, taskType) => set((state) => {
+    const next = recordPersonalityTask(state.personalities, robotId, taskType);
+    savePersonalities(next);
+    return { personalities: next };
+  }),
+  recordPersonalityRoomTime: (robotId, roomId, minutes) => set((state) => {
+    const next = recordRoomTime(state.personalities, robotId, roomId, minutes);
+    savePersonalities(next);
+    return { personalities: next };
+  }),
 }));
 
 // Each completion reduces duration by ~5%, capping at 30% faster

@@ -10,6 +10,7 @@ import { ROBOT_CONFIGS } from '../config/robots';
 import { getComfortMultiplier } from '../config/devices';
 import { SEASONAL_TASKS, SEASON_THOUGHTS } from '../config/seasons';
 import { generateDiaryEntry } from '../config/diary';
+import { getRoomPreferenceBonus } from '../systems/Personality';
 
 const ACTIVE_STATUSES = new Set(['queued', 'walking', 'working']);
 
@@ -875,6 +876,7 @@ export function AIBrain({ robotId }: { robotId: RobotId }) {
       }
       // 25% chance: night cleaning (if a room needs it)
       if (roll < 0.65 && needs.energy >= 25) {
+        const nightPersonality = s.personalities[robotId];
         const roomScores: { id: RoomId; score: number }[] = [];
         for (const room of rooms) {
           const rn = s.roomNeeds[room.id];
@@ -884,6 +886,7 @@ export function AIBrain({ robotId }: { robotId: RobotId }) {
           if (room.id === config.favoriteRoom) score += 8;
           if (config.preferredRooms.includes(room.id)) score += 5;
           if (!config.preferredRooms.includes(room.id)) score -= 8;
+          score += getRoomPreferenceBonus(nightPersonality, room.id);
           roomScores.push({ id: room.id, score });
         }
         roomScores.sort((a, b) => b.score - a.score);
@@ -914,6 +917,7 @@ export function AIBrain({ robotId }: { robotId: RobotId }) {
     }
 
     // Score rooms with preference weighting
+    const personality = s.personalities[robotId];
     const roomScores: { id: RoomId; score: number }[] = [];
     for (const room of rooms) {
       const rn = s.roomNeeds[room.id];
@@ -926,6 +930,8 @@ export function AIBrain({ robotId }: { robotId: RobotId }) {
       if (config.preferredRooms.includes(room.id)) score += 5;
       // Non-preferred rooms penalty (specialists avoid other areas)
       if (!config.preferredRooms.includes(room.id)) score -= 8;
+      // Personality-developed room preference (small bias, up to 5 pts)
+      score += getRoomPreferenceBonus(personality, room.id);
       roomScores.push({ id: room.id, score });
     }
     roomScores.sort((a, b) => b.score - a.score);

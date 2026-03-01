@@ -170,3 +170,17 @@ export interface TaskTarget {
   response: string;
   thought: string;
 }
+
+// ── Robot Personality v2 ──────────────────────────────────
+export interface RobotPersonalityData {
+  taskCounts: Partial<Record<TaskType, number>>;       // how many times each task done
+  roomTimeMins: Partial<Record<RoomId, number>>;       // sim-minutes spent in each room
+  totalTasksDone: number;
+}
+
+export interface PersonalityTrait {
+  label: string;        // e.g. "Loves vacuuming"
+  type: 'task' | 'room';
+  key: string;          // taskType or roomId
+  strength: number;     // 0-1 normalized preference strength
+}

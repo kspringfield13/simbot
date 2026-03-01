@@ -275,6 +275,7 @@ export const useTaskRunner = () => {
         state.recordTaskCompletion(activeTask.taskType);
         state.recordStats(activeTask.taskType, activeTask.targetRoom);
         state.recordRobotTaskCompletion(rid, activeTask.taskType, activeTask.workDuration);
+        state.recordPersonalityTaskCompletion(rid, activeTask.taskType);
 
         // Award coins for completing the task
         const coinReward = getTaskCoinReward(activeTask.workDuration);

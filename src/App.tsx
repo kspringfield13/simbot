@@ -23,7 +23,9 @@ import { DevicePanel } from './components/ui/DevicePanel';
 import { DiaryPanel } from './components/ui/DiaryPanel';
 import { FloorPlanSelector } from './components/ui/FloorPlanSelector';
 import { LeaderboardPanel } from './components/ui/LeaderboardPanel';
+import { PersonalityPanel } from './components/ui/PersonalityPanel';
 import { LeaderboardTracker } from './components/systems/LeaderboardTracker';
+import { PersonalityTracker } from './components/systems/PersonalityTracker';
 import { useStore } from './stores/useStore';
 import { musicEngine } from './systems/MusicEngine';
 import { useSpectatorHost, useSpectatorViewer } from './hooks/useSpectator';
@@ -334,6 +336,42 @@ function DiaryButton() {
   );
 }
 
+function PersonalityButton() {
+  const setShowPersonality = useStore((s) => s.setShowPersonality);
+  const traitCount = useStore((s) => {
+    const rid = s.activeRobotId;
+    const p = s.personalities[rid];
+    if (!p || p.totalTasksDone < 3) return 0;
+    const entries = Object.entries(p.taskCounts);
+    if (entries.length === 0) return 0;
+    // Quick count of developed traits (tasks done >= 2)
+    return entries.filter(([, c]) => (c ?? 0) >= 2).length;
+  });
+
+  return (
+    <button
+      type="button"
+      onClick={() => setShowPersonality(true)}
+      className="pointer-events-auto relative flex h-10 w-10 items-center justify-center rounded-full border border-purple-400/30 bg-black/50 text-lg backdrop-blur-md transition-all hover:bg-purple-400/20"
+      title="Robot personality"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-purple-300">
+        <path d="M12 2a5 5 0 0 1 5 5v3a5 5 0 0 1-10 0V7a5 5 0 0 1 5-5z" />
+        <path d="M8 14s1.5 2 4 2 4-2 4-2" />
+        <path d="M9 9h.01" />
+        <path d="M15 9h.01" />
+        <path d="M12 18v4" />
+        <path d="M8 22h8" />
+      </svg>
+      {traitCount > 0 && (
+        <span className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-purple-400 px-1 text-[9px] font-bold text-black">
+          {traitCount}
+        </span>
+      )}
+    </button>
+  );
+}
+
 function TrophyButton() {
   const setShowLeaderboard = useStore((s) => s.setShowLeaderboard);
   const totalTasks = useStore((s) => s.totalTasksCompleted);
@@ -409,6 +447,7 @@ function App() {
           <ScheduleSystem />
           <BatterySystem />
           <LeaderboardTracker />
+          <PersonalityTracker />
         </>
       )}
 
@@ -429,6 +468,7 @@ function App() {
             <ShopButton />
             <SmartHomeButton />
             <DiaryButton />
+            <PersonalityButton />
             <ShareButton />
             <MusicToggle />
             <FloorPlanButton />
@@ -455,6 +495,7 @@ function App() {
       <DevicePanel />
       <DiaryPanel />
       <LeaderboardPanel />
+      <PersonalityPanel />
       <FloorPlanSelector />
       {!isSpectating && (
         <TutorialOverlay forceOpen={showTutorial} onClose={() => setShowTutorial(false)} />
