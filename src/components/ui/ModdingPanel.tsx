@@ -1,11 +1,12 @@
 import { useState, useCallback, useMemo, useRef } from 'react';
 import { useStore } from '../../stores/useStore';
-import type { RobotMod, BehaviorMod, SkinMod, RobotId, SkinAccessory, ModType, BehaviorHook } from '../../types';
+import type { RobotMod, BehaviorMod, SkinMod, SkinPattern, RobotId, SkinAccessory, ModType, BehaviorHook } from '../../types';
 import { ROBOT_IDS } from '../../types';
 import {
   EXAMPLE_BEHAVIOR_MODS,
   EXAMPLE_SKIN_MODS,
   ACCESSORY_CATALOG,
+  SKIN_PATTERNS,
   validateModCode,
   executeBehaviorMod,
 } from '../../config/modding';
@@ -45,6 +46,7 @@ export function ModdingPanel() {
   const [skinBodyColor, setSkinBodyColor] = useState('#3b82f6');
   const [skinAccentColor, setSkinAccentColor] = useState('#8b5cf6');
   const [skinGlowColor, setSkinGlowColor] = useState('#60a5fa');
+  const [skinPattern, setSkinPattern] = useState<SkinPattern>('solid');
   const [skinAccessories, setSkinAccessories] = useState<SkinAccessory[]>([]);
   const [skinTarget, setSkinTarget] = useState<RobotId | 'all'>('all');
 
@@ -129,6 +131,7 @@ export function ModdingPanel() {
     setSkinBodyColor('#3b82f6');
     setSkinAccentColor('#8b5cf6');
     setSkinGlowColor('#60a5fa');
+    setSkinPattern('solid');
     setSkinAccessories([]);
     setSkinTarget('all');
   }, []);
@@ -156,6 +159,7 @@ export function ModdingPanel() {
       setSkinBodyColor(mod.bodyColor);
       setSkinAccentColor(mod.accentColor);
       setSkinGlowColor(mod.glowColor);
+      setSkinPattern(mod.pattern || 'solid');
       setSkinAccessories([...mod.accessories]);
       setSkinTarget(mod.targetRobot);
     } else {
@@ -212,7 +216,7 @@ export function ModdingPanel() {
     if (editingModId) {
       const updated = mods.map((m) =>
         m.id === editingModId
-          ? { ...m, name: skinName, description: skinDesc, bodyColor: skinBodyColor, accentColor: skinAccentColor, glowColor: skinGlowColor, accessories: skinAccessories, targetRobot: skinTarget, updatedAt: now }
+          ? { ...m, name: skinName, description: skinDesc, bodyColor: skinBodyColor, accentColor: skinAccentColor, glowColor: skinGlowColor, pattern: skinPattern, accessories: skinAccessories, targetRobot: skinTarget, updatedAt: now }
           : m,
       );
       setMods(updated);
@@ -226,6 +230,7 @@ export function ModdingPanel() {
         bodyColor: skinBodyColor,
         accentColor: skinAccentColor,
         glowColor: skinGlowColor,
+        pattern: skinPattern,
         accessories: skinAccessories,
         targetRobot: skinTarget,
         enabled: false,
@@ -238,7 +243,7 @@ export function ModdingPanel() {
     }
     resetSkinEditor();
     setView('gallery');
-  }, [skinName, skinDesc, skinBodyColor, skinAccentColor, skinGlowColor, skinAccessories, skinTarget, editingModId, mods, resetSkinEditor]);
+  }, [skinName, skinDesc, skinBodyColor, skinAccentColor, skinGlowColor, skinPattern, skinAccessories, skinTarget, editingModId, mods, resetSkinEditor]);
 
   const toggleModEnabled = useCallback((modId: string) => {
     const updated = mods.map((m) =>
@@ -287,6 +292,7 @@ export function ModdingPanel() {
     setSkinBodyColor(example.bodyColor);
     setSkinAccentColor(example.accentColor);
     setSkinGlowColor(example.glowColor);
+    setSkinPattern(example.pattern || 'solid');
     setSkinAccessories([...example.accessories]);
     setSkinTarget(example.targetRobot);
   }, []);
@@ -445,6 +451,8 @@ export function ModdingPanel() {
               setAccentColor={setSkinAccentColor}
               glowColor={skinGlowColor}
               setGlowColor={setSkinGlowColor}
+              pattern={skinPattern}
+              setPattern={setSkinPattern}
               accessories={skinAccessories}
               toggleAccessory={toggleAccessory}
               target={skinTarget}
@@ -590,6 +598,11 @@ function ModCard({
                 <div className="h-5 w-5 rounded-full border border-white/10" style={{ backgroundColor: (mod as SkinMod).accentColor }} title="Accent" />
                 <div className="h-5 w-5 rounded-full border border-white/10 shadow-sm" style={{ backgroundColor: (mod as SkinMod).glowColor, boxShadow: `0 0 6px ${(mod as SkinMod).glowColor}` }} title="Glow" />
               </div>
+              {(mod as SkinMod).pattern && (mod as SkinMod).pattern !== 'solid' && (
+                <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] text-gray-300">
+                  {(mod as SkinMod).pattern}
+                </span>
+              )}
               {(mod as SkinMod).accessories.length > 0 && (
                 <span className="text-xs text-gray-500">
                   {(mod as SkinMod).accessories.map((a) => {
@@ -808,7 +821,7 @@ function BehaviorEditorView({
         <p className="mt-1 text-[10px] text-gray-500">{HOOK_OPTIONS.find((o) => o.value === hook)?.desc}</p>
       </div>
 
-      {/* Code Editor */}
+      {/* Code Editor with Syntax Highlighting */}
       <div>
         <label className="mb-1.5 block text-xs font-medium text-gray-400">
           Behavior Script
@@ -816,13 +829,10 @@ function BehaviorEditorView({
             Available: robot.battery, robot.mood, robot.needs, action(), say()
           </span>
         </label>
-        <textarea
+        <SyntaxHighlightedEditor
           value={code}
-          onChange={(e) => setCode(e.target.value)}
+          onChange={setCode}
           placeholder={`// Write your behavior script here\nif (robot.battery < 20) {\n  action("charge");\n  say("Low battery!");\n}`}
-          className="h-48 w-full resize-none rounded-lg border border-white/10 bg-black/40 px-3 py-2 font-mono text-xs leading-relaxed text-green-300 placeholder-gray-600 outline-none focus:border-violet-500/50"
-          spellCheck={false}
-          maxLength={2000}
         />
         <div className="mt-1 flex items-center justify-between">
           <span className="text-[10px] text-gray-500">{code.length}/2000 chars</span>
@@ -892,6 +902,8 @@ function SkinEditorView({
   setAccentColor,
   glowColor,
   setGlowColor,
+  pattern,
+  setPattern,
   accessories,
   toggleAccessory,
   target,
@@ -911,6 +923,8 @@ function SkinEditorView({
   setAccentColor: (v: string) => void;
   glowColor: string;
   setGlowColor: (v: string) => void;
+  pattern: SkinPattern;
+  setPattern: (v: SkinPattern) => void;
   accessories: SkinAccessory[];
   toggleAccessory: (type: string) => void;
   target: RobotId | 'all';
@@ -984,6 +998,28 @@ function SkinEditorView({
         </div>
       </div>
 
+      {/* Pattern Selector */}
+      <div>
+        <label className="mb-1.5 block text-xs font-medium text-gray-400">Pattern</label>
+        <div className="grid grid-cols-4 gap-1.5">
+          {SKIN_PATTERNS.map((p) => (
+            <button
+              key={p.value}
+              type="button"
+              onClick={() => setPattern(p.value)}
+              title={p.desc}
+              className={`rounded-lg px-2 py-1.5 text-xs font-medium transition-colors ${
+                pattern === p.value
+                  ? 'bg-cyan-500/30 text-cyan-200 ring-1 ring-cyan-500/50'
+                  : 'bg-white/5 text-gray-400 hover:bg-white/10'
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Live Preview */}
       <div>
         <label className="mb-1.5 block text-xs font-medium text-gray-400">Preview</label>
@@ -992,6 +1028,7 @@ function SkinEditorView({
             bodyColor={bodyColor}
             accentColor={accentColor}
             glowColor={glowColor}
+            pattern={pattern}
             accessories={accessories}
           />
         </div>
@@ -1055,6 +1092,100 @@ function SkinEditorView({
   );
 }
 
+// ── Syntax Highlighted Editor ────────────────────────────────────────────
+
+const HIGHLIGHT_RULES: { pattern: RegExp; className: string }[] = [
+  { pattern: /\/\/.*$/gm, className: 'text-gray-500' },                          // comments
+  { pattern: /\b(if|else|return|const|let|var|true|false|null)\b/g, className: 'text-purple-400' }, // keywords
+  { pattern: /\b(action|say)\b/g, className: 'text-yellow-300' },                // API functions
+  { pattern: /\brobot\b/g, className: 'text-cyan-300' },                         // robot context
+  { pattern: /\b(Math\.random|Math\.floor|Math\.ceil|Math\.round)\b/g, className: 'text-blue-300' }, // Math
+  { pattern: /("[^"]*"|'[^']*')/g, className: 'text-emerald-300' },              // strings
+  { pattern: /\b(\d+\.?\d*)\b/g, className: 'text-orange-300' },                 // numbers
+  { pattern: /(\.\w+)/g, className: 'text-sky-300' },                            // property access
+];
+
+function highlightCode(code: string): string {
+  if (!code) return '';
+  // Escape HTML
+  let html = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  // Apply highlights in priority order using markers to prevent re-matching
+  const markers: { start: number; end: number; replacement: string }[] = [];
+
+  for (const rule of HIGHLIGHT_RULES) {
+    const regex = new RegExp(rule.pattern.source, rule.pattern.flags);
+    let match;
+    while ((match = regex.exec(html)) !== null) {
+      // Check if overlapping with an existing marker
+      const s = match.index;
+      const e = s + match[0].length;
+      const overlaps = markers.some(
+        (m) => (s >= m.start && s < m.end) || (e > m.start && e <= m.end),
+      );
+      if (!overlaps) {
+        markers.push({
+          start: s,
+          end: e,
+          replacement: `<span class="${rule.className}">${match[0]}</span>`,
+        });
+      }
+    }
+  }
+
+  // Sort markers by start position descending so replacement doesn't shift indices
+  markers.sort((a, b) => b.start - a.start);
+  for (const m of markers) {
+    html = html.slice(0, m.start) + m.replacement + html.slice(m.end);
+  }
+
+  return html;
+}
+
+function SyntaxHighlightedEditor({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+}) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const highlightRef = useRef<HTMLPreElement>(null);
+
+  const syncScroll = useCallback(() => {
+    if (textareaRef.current && highlightRef.current) {
+      highlightRef.current.scrollTop = textareaRef.current.scrollTop;
+      highlightRef.current.scrollLeft = textareaRef.current.scrollLeft;
+    }
+  }, []);
+
+  const highlighted = useMemo(() => highlightCode(value), [value]);
+
+  return (
+    <div className="relative h-48 rounded-lg border border-white/10 bg-black/40 focus-within:border-violet-500/50">
+      {/* Highlighted underlay */}
+      <pre
+        ref={highlightRef}
+        className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words px-3 py-2 font-mono text-xs leading-relaxed"
+        aria-hidden="true"
+        dangerouslySetInnerHTML={{ __html: highlighted || `<span class="text-gray-600">${placeholder.replace(/</g, '&lt;')}</span>` }}
+      />
+      {/* Transparent textarea on top for editing */}
+      <textarea
+        ref={textareaRef}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onScroll={syncScroll}
+        className="absolute inset-0 h-full w-full resize-none bg-transparent px-3 py-2 font-mono text-xs leading-relaxed text-transparent caret-green-300 outline-none"
+        spellCheck={false}
+        maxLength={2000}
+      />
+    </div>
+  );
+}
+
 // ── Color Picker ────────────────────────────────────────────
 
 function ColorPicker({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
@@ -1086,11 +1217,13 @@ function SkinPreview({
   bodyColor,
   accentColor,
   glowColor,
+  pattern = 'solid',
   accessories,
 }: {
   bodyColor: string;
   accentColor: string;
   glowColor: string;
+  pattern?: SkinPattern;
   accessories: SkinAccessory[];
 }) {
   const hasHat = accessories.some((a) => a.type === 'hat');
@@ -1106,6 +1239,54 @@ function SkinPreview({
           <stop offset="0%" stopColor={glowColor} stopOpacity="0.3" />
           <stop offset="100%" stopColor={glowColor} stopOpacity="0" />
         </radialGradient>
+        {/* Pattern definitions */}
+        {pattern === 'stripes' && (
+          <pattern id="patStripes" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(0)">
+            <rect width="8" height="4" fill={bodyColor} />
+            <rect y="4" width="8" height="4" fill={accentColor} opacity="0.4" />
+          </pattern>
+        )}
+        {pattern === 'dots' && (
+          <pattern id="patDots" width="10" height="10" patternUnits="userSpaceOnUse">
+            <rect width="10" height="10" fill={bodyColor} />
+            <circle cx="5" cy="5" r="2" fill={accentColor} opacity="0.5" />
+          </pattern>
+        )}
+        {pattern === 'camo' && (
+          <pattern id="patCamo" width="16" height="16" patternUnits="userSpaceOnUse">
+            <rect width="16" height="16" fill={bodyColor} />
+            <circle cx="4" cy="4" r="5" fill={accentColor} opacity="0.25" />
+            <circle cx="12" cy="10" r="4" fill={accentColor} opacity="0.15" />
+            <circle cx="8" cy="14" r="3" fill={glowColor} opacity="0.1" />
+          </pattern>
+        )}
+        {pattern === 'gradient' && (
+          <linearGradient id="patGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={bodyColor} />
+            <stop offset="100%" stopColor={accentColor} />
+          </linearGradient>
+        )}
+        {pattern === 'circuit' && (
+          <pattern id="patCircuit" width="12" height="12" patternUnits="userSpaceOnUse">
+            <rect width="12" height="12" fill={bodyColor} />
+            <line x1="0" y1="6" x2="12" y2="6" stroke={accentColor} strokeWidth="0.5" opacity="0.4" />
+            <line x1="6" y1="0" x2="6" y2="12" stroke={accentColor} strokeWidth="0.5" opacity="0.4" />
+            <circle cx="6" cy="6" r="1.5" fill={accentColor} opacity="0.5" />
+            <circle cx="0" cy="0" r="1" fill={glowColor} opacity="0.3" />
+          </pattern>
+        )}
+        {pattern === 'chevron' && (
+          <pattern id="patChevron" width="12" height="8" patternUnits="userSpaceOnUse">
+            <rect width="12" height="8" fill={bodyColor} />
+            <path d="M0 8 L6 4 L12 8" fill="none" stroke={accentColor} strokeWidth="1.5" opacity="0.4" />
+          </pattern>
+        )}
+        {pattern === 'diamond' && (
+          <pattern id="patDiamond" width="10" height="10" patternUnits="userSpaceOnUse">
+            <rect width="10" height="10" fill={bodyColor} />
+            <path d="M5 0 L10 5 L5 10 L0 5 Z" fill="none" stroke={accentColor} strokeWidth="0.8" opacity="0.35" />
+          </pattern>
+        )}
       </defs>
       <circle cx="60" cy="70" r="50" fill="url(#robotGlow)" />
 
@@ -1120,9 +1301,9 @@ function SkinPreview({
       )}
 
       {/* Body */}
-      <rect x="30" y="55" width="60" height="50" rx="12" fill={bodyColor} />
+      <rect x="30" y="55" width="60" height="50" rx="12" fill={patternFill(pattern, bodyColor)} />
       {/* Head */}
-      <rect x="35" y="25" width="50" height="35" rx="10" fill={bodyColor} />
+      <rect x="35" y="25" width="50" height="35" rx="10" fill={patternFill(pattern, bodyColor)} />
       {/* Eyes */}
       <circle cx="48" cy="40" r="5" fill={glowColor} />
       <circle cx="72" cy="40" r="5" fill={glowColor} />
@@ -1165,6 +1346,21 @@ function SkinPreview({
       )}
     </svg>
   );
+}
+
+/** Map pattern to SVG fill value */
+function patternFill(pattern: SkinPattern, fallback: string): string {
+  const map: Record<string, string> = {
+    solid: fallback,
+    stripes: 'url(#patStripes)',
+    dots: 'url(#patDots)',
+    camo: 'url(#patCamo)',
+    gradient: 'url(#patGradient)',
+    circuit: 'url(#patCircuit)',
+    chevron: 'url(#patChevron)',
+    diamond: 'url(#patDiamond)',
+  };
+  return map[pattern] || fallback;
 }
 
 // ── Test Result View ────────────────────────────────────────────

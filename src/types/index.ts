@@ -377,6 +377,8 @@ export interface SkinAccessory {
   color: string;
 }
 
+export type SkinPattern = 'solid' | 'stripes' | 'dots' | 'camo' | 'gradient' | 'circuit' | 'chevron' | 'diamond';
+
 export interface SkinMod {
   id: string;
   name: string;
@@ -385,6 +387,7 @@ export interface SkinMod {
   bodyColor: string;
   accentColor: string;
   glowColor: string;
+  pattern: SkinPattern;
   accessories: SkinAccessory[];
   targetRobot: RobotId | 'all';
   enabled: boolean;

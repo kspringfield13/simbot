@@ -1,8 +1,53 @@
-import type { BehaviorMod, SkinMod, RobotId, BehaviorHook } from '../types';
+import type { BehaviorMod, SkinMod, SkinPattern, RobotId, BehaviorHook } from '../types';
+
+// ── Skin Patterns ──────────────────────────────────────────
+
+export const SKIN_PATTERNS: { value: SkinPattern; label: string; desc: string }[] = [
+  { value: 'solid', label: 'Solid', desc: 'Clean single-color finish' },
+  { value: 'stripes', label: 'Stripes', desc: 'Horizontal racing stripes' },
+  { value: 'dots', label: 'Dots', desc: 'Polka dot pattern' },
+  { value: 'camo', label: 'Camo', desc: 'Military camouflage' },
+  { value: 'gradient', label: 'Gradient', desc: 'Smooth color fade' },
+  { value: 'circuit', label: 'Circuit', desc: 'Circuit board traces' },
+  { value: 'chevron', label: 'Chevron', desc: 'V-shaped chevron bands' },
+  { value: 'diamond', label: 'Diamond', desc: 'Diamond grid overlay' },
+];
 
 // ── Example / Template Mods ──────────────────────────────────
 
 export const EXAMPLE_BEHAVIOR_MODS: Omit<BehaviorMod, 'id' | 'createdAt' | 'updatedAt'>[] = [
+  {
+    name: 'Lazy Robot',
+    description: 'Takes extra breaks between tasks to relax',
+    type: 'behavior',
+    hook: 'onTask',
+    code: `// After finishing a task, take a break
+if (robot.state === "idle") {
+  action("pause", 3);
+  say("Just need a quick breather...");
+}
+if (robot.needs.energy < 60) {
+  action("rest");
+  say("I deserve a break!");
+}`,
+    targetRobot: 'all',
+    enabled: false,
+  },
+  {
+    name: 'Speedster',
+    description: 'Moves at 2x speed and rushes through tasks',
+    type: 'behavior',
+    hook: 'onTask',
+    code: `// Double speed for everything
+action("set_speed", 2);
+say("Gotta go fast!");
+if (robot.state === "working") {
+  action("rush_task");
+  say("Zoom zoom zoom!");
+}`,
+    targetRobot: 'all',
+    enabled: false,
+  },
   {
     name: 'Dance Break',
     description: 'Robot randomly breaks into a dance when idle',
@@ -56,6 +101,7 @@ export const EXAMPLE_SKIN_MODS: Omit<SkinMod, 'id' | 'createdAt' | 'updatedAt'>[
     bodyColor: '#0066ff',
     accentColor: '#00ffcc',
     glowColor: '#00ffff',
+    pattern: 'stripes',
     accessories: [
       { type: 'trail', color: '#00ffff' },
       { type: 'antenna', color: '#00ffcc' },
@@ -70,6 +116,7 @@ export const EXAMPLE_SKIN_MODS: Omit<SkinMod, 'id' | 'createdAt' | 'updatedAt'>[
     bodyColor: '#ffd700',
     accentColor: '#ff8c00',
     glowColor: '#ffaa00',
+    pattern: 'diamond',
     accessories: [
       { type: 'shield', color: '#ffd700' },
       { type: 'hat', color: '#ff8c00' },
@@ -84,8 +131,24 @@ export const EXAMPLE_SKIN_MODS: Omit<SkinMod, 'id' | 'createdAt' | 'updatedAt'>[
     bodyColor: '#1a1a2e',
     accentColor: '#e94560',
     glowColor: '#e94560',
+    pattern: 'camo',
     accessories: [
       { type: 'antenna', color: '#e94560' },
+    ],
+    targetRobot: 'all',
+    enabled: false,
+  },
+  {
+    name: 'Circuit Master',
+    description: 'Tech-themed with circuit board pattern',
+    type: 'skin',
+    bodyColor: '#0d3b0d',
+    accentColor: '#00ff41',
+    glowColor: '#00ff41',
+    pattern: 'circuit',
+    accessories: [
+      { type: 'antenna', color: '#00ff41' },
+      { type: 'trail', color: '#00ff41' },
     ],
     targetRobot: 'all',
     enabled: false,
