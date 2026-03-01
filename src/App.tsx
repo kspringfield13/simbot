@@ -26,6 +26,8 @@ import { LeaderboardPanel } from './components/ui/LeaderboardPanel';
 import { PersonalityPanel } from './components/ui/PersonalityPanel';
 import { LeaderboardTracker } from './components/systems/LeaderboardTracker';
 import { PersonalityTracker } from './components/systems/PersonalityTracker';
+import { HomeEventTracker } from './components/systems/HomeEventTracker';
+import { EventBanner } from './components/ui/EventBanner';
 import { useStore } from './stores/useStore';
 import { musicEngine } from './systems/MusicEngine';
 import { useSpectatorHost, useSpectatorViewer } from './hooks/useSpectator';
@@ -448,6 +450,7 @@ function App() {
           <BatterySystem />
           <LeaderboardTracker />
           <PersonalityTracker />
+          <HomeEventTracker />
         </>
       )}
 
@@ -486,6 +489,7 @@ function App() {
 
       <VisitorToast />
       <SeasonToast />
+      <EventBanner />
       <ScreenshotModal />
       {!screenshotMode && !photoMode && !isSpectating && <ChatPanel />}
       {!screenshotMode && !photoMode && !isSpectating && <BatteryIndicator />}

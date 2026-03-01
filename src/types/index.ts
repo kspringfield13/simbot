@@ -184,3 +184,28 @@ export interface PersonalityTrait {
   key: string;          // taskType or roomId
   strength: number;     // 0-1 normalized preference strength
 }
+
+// ── Home Events ──────────────────────────────────────────
+export type HomeEventType = 'plumbing-leak' | 'power-outage' | 'pest-invasion';
+export type HomeEventPhase = 'detection' | 'response' | 'resolution';
+
+export interface HomeEvent {
+  id: string;
+  type: HomeEventType;
+  phase: HomeEventPhase;
+  roomId: RoomId;
+  startedAt: number;        // sim-minutes when event began
+  detectedBy: RobotId | null;
+  respondingRobots: RobotId[];
+  resolvedAt: number | null;  // sim-minutes when resolved
+}
+
+export interface HomeEventHistoryEntry {
+  id: string;
+  type: HomeEventType;
+  roomId: RoomId;
+  startedAt: number;
+  resolvedAt: number;
+  detectedBy: RobotId;
+  respondingRobots: RobotId[];
+}

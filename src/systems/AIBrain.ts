@@ -11,6 +11,7 @@ import { getComfortMultiplier } from '../config/devices';
 import { SEASONAL_TASKS, SEASON_THOUGHTS } from '../config/seasons';
 import { generateDiaryEntry } from '../config/diary';
 import { getRoomPreferenceBonus } from '../systems/Personality';
+import { getEventConfig } from '../systems/HomeEvents';
 
 const ACTIVE_STATUSES = new Set(['queued', 'walking', 'working']);
 
@@ -315,6 +316,7 @@ type Behavior =
   | { type: 'night-patrol' }
   | { type: 'night-cleaning'; roomId: RoomId }
   | { type: 'cat-check' }
+  | { type: 'emergency-response'; roomId: RoomId }
   | { type: 'none' };
 
 function getMoodFromNeeds(energy: number, happiness: number, social: number, boredom: number): RobotMood {
@@ -833,6 +835,43 @@ export function AIBrain({ robotId }: { robotId: RobotId }) {
         break;
       }
 
+      case 'emergency-response': {
+        const event = s.activeHomeEvent;
+        if (event) {
+          const evConfig = getEventConfig(event.type);
+          const roomName = rooms.find((r) => r.id === behavior.roomId)?.name ?? behavior.roomId;
+          const anchors = roomTaskAnchors[behavior.roomId];
+          const raw = anchors?.[Math.floor(Math.random() * anchors.length)] ?? [0, 0, -1];
+          const [ex, ez] = findClearPosition(raw[0], raw[2], 0.8);
+
+          s.addTask({
+            id: crypto.randomUUID(),
+            command: `Emergency: ${evConfig.label}`,
+            source: 'ai',
+            targetRoom: behavior.roomId,
+            targetPosition: [ex, 0, ez],
+            status: 'queued',
+            progress: 0,
+            description: `Fixing ${evConfig.label.toLowerCase()} in ${roomName}!`,
+            taskType: 'cleaning',
+            workDuration: Math.round(evConfig.fixDuration * 0.6),
+            createdAt: Date.now(),
+            assignedTo: robotId,
+          });
+
+          const thoughts = evConfig.responseThoughts[robotId];
+          s.setRobotThought(robotId, pick(thoughts));
+          s.setRobotMood(robotId, 'focused');
+          s.updateRobotNeeds(robotId, {
+            happiness: Math.min(100, needs.happiness + 5),
+            boredom: Math.max(0, needs.boredom - 20),
+          });
+          consecutiveRef.current = 0;
+        }
+        nextDecisionRef.current = now + rand(8, 14);
+        break;
+      }
+
       case 'idle-look': {
         if (s.simPeriod === 'morning') s.setRobotThought(robotId, pick(INNER_VOICE.morning));
         else if (s.simPeriod === 'night') s.setRobotThought(robotId, pick(INNER_VOICE.night));
@@ -859,6 +898,18 @@ export function AIBrain({ robotId }: { robotId: RobotId }) {
     if (robot.battery < 20) return { type: 'rest' };
 
     if (needs.energy < 15) return { type: 'rest' };
+
+    // ── EMERGENCY: Home event in progress — rush to help ──
+    if (s.activeHomeEvent && s.activeHomeEvent.phase === 'response') {
+      const event = s.activeHomeEvent;
+      // Only respond if not already responding (no active emergency task)
+      const hasEmergencyTask = s.tasks.some(
+        (t) => t.assignedTo === robotId && t.command.startsWith('Emergency:') && ACTIVE_STATUSES.has(t.status),
+      );
+      if (!hasEmergencyTask) {
+        return { type: 'emergency-response', roomId: event.roomId };
+      }
+    }
 
     // ── NIGHT MODE (10pm–6am): special night behaviors ──
     if (s.simPeriod === 'night') {

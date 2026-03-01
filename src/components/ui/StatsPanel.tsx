@@ -1,6 +1,7 @@
 import { useStore } from '../../stores/useStore';
 import { rooms } from '../../utils/homeLayout';
 import { achievements, getUnlockedAchievements } from '../../systems/Achievements';
+import { getEventConfig, getEventRoomName } from '../../systems/HomeEvents';
 
 const taskTypeLabels: Record<string, string> = {
   cleaning: '🧹 Cleaning',
@@ -24,6 +25,8 @@ export function StatsPanel() {
   const tasksByRoom = useStore((s) => s.tasksByRoom);
   const roomNeeds = useStore((s) => s.roomNeeds);
   const simMinutes = useStore((s) => s.simMinutes);
+  const homeEventHistory = useStore((s) => s.homeEventHistory);
+  const activeEvent = useStore((s) => s.activeHomeEvent);
 
   if (!showStats) {
     return (
@@ -149,6 +152,52 @@ export function StatsPanel() {
       {totalTasksCompleted === 0 && (
         <div style={{ color: '#666', textAlign: 'center', padding: '12px 0' }}>
           No tasks completed yet. Watch the robot work!
+        </div>
+      )}
+
+      {/* Home Events */}
+      {(homeEventHistory.length > 0 || activeEvent) && (
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ color: '#999', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
+            Home Events ({homeEventHistory.length} resolved)
+          </div>
+          {activeEvent && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6,
+              padding: '6px 8px', background: 'rgba(239,68,68,0.15)', borderRadius: 6,
+            }}>
+              <span style={{ fontSize: 16 }}>{getEventConfig(activeEvent.type).emoji}</span>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: '#f87171' }}>
+                  {getEventConfig(activeEvent.type).label} — {activeEvent.phase.toUpperCase()}
+                </div>
+                <div style={{ fontSize: 10, color: '#999' }}>
+                  {getEventRoomName(activeEvent.roomId)}
+                </div>
+              </div>
+            </div>
+          )}
+          {homeEventHistory.slice(-5).reverse().map((entry) => {
+            const cfg = getEventConfig(entry.type);
+            const duration = Math.round(entry.resolvedAt - entry.startedAt);
+            return (
+              <div key={entry.id} style={{
+                display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6,
+                padding: '6px 8px', background: 'rgba(74,222,128,0.06)', borderRadius: 6,
+              }}>
+                <span style={{ fontSize: 14 }}>{cfg.emoji}</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 11, color: '#ccc' }}>
+                    {cfg.label} in {getEventRoomName(entry.roomId)}
+                  </div>
+                  <div style={{ fontSize: 10, color: '#777' }}>
+                    Fixed in {duration} min by {entry.respondingRobots.join(', ')}
+                  </div>
+                </div>
+                <span style={{ fontSize: 10, color: '#4ade80' }}>Resolved</span>
+              </div>
+            );
+          })}
         </div>
       )}
 

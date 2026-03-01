@@ -26,6 +26,8 @@ import type {
   ChatMessage,
   DeviceState,
   DiaryEntry,
+  HomeEvent,
+  HomeEventHistoryEntry,
   NavigationPoint,
   Room,
   RobotId,
@@ -402,6 +404,13 @@ interface SimBotStore {
   personalities: Record<RobotId, RobotPersonalityData>;
   recordPersonalityTaskCompletion: (robotId: RobotId, taskType: TaskType) => void;
   recordPersonalityRoomTime: (robotId: RobotId, roomId: RoomId, minutes: number) => void;
+
+  // Home events
+  activeHomeEvent: HomeEvent | null;
+  homeEventHistory: HomeEventHistoryEntry[];
+  setActiveHomeEvent: (event: HomeEvent | null) => void;
+  updateHomeEvent: (updates: Partial<HomeEvent>) => void;
+  resolveHomeEvent: (entry: HomeEventHistoryEntry) => void;
 }
 
 const initialSimMinutes = (7 * 60) + 20;
@@ -931,6 +940,19 @@ export const useStore = create<SimBotStore>((set) => ({
     savePersonalities(next);
     return { personalities: next };
   }),
+
+  // Home events
+  activeHomeEvent: null,
+  homeEventHistory: [],
+  setActiveHomeEvent: (event) => set({ activeHomeEvent: event }),
+  updateHomeEvent: (updates) => set((state) => {
+    if (!state.activeHomeEvent) return {};
+    return { activeHomeEvent: { ...state.activeHomeEvent, ...updates } };
+  }),
+  resolveHomeEvent: (entry) => set((state) => ({
+    activeHomeEvent: null,
+    homeEventHistory: [...state.homeEventHistory, entry],
+  })),
 }));
 
 // Each completion reduces duration by ~5%, capping at 30% faster
