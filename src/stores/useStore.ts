@@ -8,6 +8,8 @@ import type { CustomRobot } from '../config/crafting';
 import { getDeployedRobotBonuses } from '../config/crafting';
 import type { MaterialInventory, CraftedFurnitureItem, ActiveCraft } from '../config/furnitureCrafting';
 import { loadFurnitureCraftingData, saveFurnitureCraftingData, getRecipeById, canAffordRecipe } from '../config/furnitureCrafting';
+import type { CameraZoneId, AlarmState, SecurityLogEntry } from '../config/security';
+import { loadSecurityData, saveSecurityData } from '../config/security';
 import { getSkillQualityBonus } from '../config/skills';
 import { loadFloorPlanId, saveFloorPlanId } from '../config/floorPlans';
 import type { ChallengeDefinition, BestTime } from '../config/challenges';
@@ -59,6 +61,7 @@ import type {
   SimPeriod,
   Task,
   TaskType,
+  IntruderEvent,
   TimelapseEvent,
   TimelapsePlaybackState,
   VisitorEvent,
@@ -386,6 +389,7 @@ function savePetData(data: PetsStorageData) {
 const initialShopData = loadShopData();
 const initialCraftingData = loadCraftingData();
 const initialFurnitureCraftingData = loadFurnitureCraftingData();
+const initialSecurityData = loadSecurityData();
 
 const initialRoomLayout = loadRoomLayout();
 
@@ -762,6 +766,24 @@ interface SimBotStore {
   placeCraftedFurniture: (itemId: string, roomId: string, position: [number, number]) => void;
   unplaceCraftedFurniture: (itemId: string) => void;
   deleteCraftedFurniture: (itemId: string) => void;
+
+  // Home security
+  installedCameras: CameraZoneId[];
+  alarmState: AlarmState;
+  patrolEnabled: boolean;
+  activeIntruder: IntruderEvent | null;
+  intruderHistory: { type: IntruderEvent['type']; roomId: RoomId; detectedAt: number; resolvedAt: number }[];
+  securityLog: SecurityLogEntry[];
+  showSecurityPanel: boolean;
+  setShowSecurityPanel: (show: boolean) => void;
+  installCamera: (id: CameraZoneId) => void;
+  uninstallCamera: (id: CameraZoneId) => void;
+  setAlarmState: (state: AlarmState) => void;
+  setPatrolEnabled: (enabled: boolean) => void;
+  setActiveIntruder: (event: IntruderEvent | null) => void;
+  updateIntruder: (updates: Partial<IntruderEvent>) => void;
+  resolveIntruder: () => void;
+  addSecurityLog: (entry: Omit<SecurityLogEntry, 'id'>) => void;
 }
 
 const initialSimMinutes = (7 * 60) + 20;
@@ -1811,6 +1833,68 @@ export const useStore = create<SimBotStore>((set) => ({
     const nextItems = state.craftedFurniture.filter((item) => item.id !== itemId);
     saveFurnitureCraftingData({ materials: state.furnitureMaterials, craftedItems: nextItems, activeCraft: state.activeFurnitureCraft });
     return { craftedFurniture: nextItems };
+  }),
+
+  // ── Home security ──────────────────────────────────
+  installedCameras: initialSecurityData.installedCameras,
+  alarmState: initialSecurityData.alarmState,
+  patrolEnabled: initialSecurityData.patrolEnabled,
+  activeIntruder: null,
+  intruderHistory: initialSecurityData.intruderHistory,
+  securityLog: [],
+  showSecurityPanel: false,
+  setShowSecurityPanel: (show) => set({ showSecurityPanel: show }),
+
+  installCamera: (id) => set((state) => {
+    if (state.installedCameras.includes(id)) return {};
+    const next = [...state.installedCameras, id];
+    saveSecurityData({ ...initialSecurityData, installedCameras: next, alarmState: state.alarmState, patrolEnabled: state.patrolEnabled, intruderHistory: state.intruderHistory });
+    return { installedCameras: next };
+  }),
+
+  uninstallCamera: (id) => set((state) => {
+    const next = state.installedCameras.filter((c) => c !== id);
+    saveSecurityData({ ...initialSecurityData, installedCameras: next, alarmState: state.alarmState, patrolEnabled: state.patrolEnabled, intruderHistory: state.intruderHistory });
+    return { installedCameras: next };
+  }),
+
+  setAlarmState: (alarmState) => set((state) => {
+    saveSecurityData({ installedCameras: state.installedCameras, alarmState, patrolEnabled: state.patrolEnabled, intruderHistory: state.intruderHistory });
+    return { alarmState };
+  }),
+
+  setPatrolEnabled: (patrolEnabled) => set((state) => {
+    saveSecurityData({ installedCameras: state.installedCameras, alarmState: state.alarmState, patrolEnabled, intruderHistory: state.intruderHistory });
+    return { patrolEnabled };
+  }),
+
+  setActiveIntruder: (event) => set({ activeIntruder: event }),
+
+  updateIntruder: (updates) => set((state) => {
+    if (!state.activeIntruder) return {};
+    return { activeIntruder: { ...state.activeIntruder, ...updates } };
+  }),
+
+  resolveIntruder: () => set((state) => {
+    if (!state.activeIntruder) return {};
+    const entry = {
+      type: state.activeIntruder.type,
+      roomId: state.activeIntruder.roomId,
+      detectedAt: state.activeIntruder.startedAt,
+      resolvedAt: state.simMinutes,
+    };
+    const nextHistory = [...state.intruderHistory, entry].slice(-20); // keep last 20
+    saveSecurityData({ installedCameras: state.installedCameras, alarmState: state.alarmState === 'triggered' ? 'armed-home' : state.alarmState, patrolEnabled: state.patrolEnabled, intruderHistory: nextHistory });
+    return {
+      activeIntruder: null,
+      intruderHistory: nextHistory,
+      alarmState: state.alarmState === 'triggered' ? 'armed-home' : state.alarmState,
+    };
+  }),
+
+  addSecurityLog: (entry) => set((state) => {
+    const log: SecurityLogEntry = { ...entry, id: `slog-${Date.now()}-${Math.random().toString(36).slice(2, 6)}` };
+    return { securityLog: [...state.securityLog.slice(-49), log] }; // keep last 50
   }),
 }));
 

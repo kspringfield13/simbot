@@ -51,6 +51,9 @@ import { ChallengePanel, ChallengeTimer, ChallengeResultsModal } from './compone
 import { ChallengeSystem } from './components/systems/ChallengeSystem';
 import { FurnitureCraftingSystem } from './components/systems/FurnitureCraftingSystem';
 import { FurnitureCraftingPanel } from './components/ui/FurnitureCraftingPanel';
+import { SecurityTracker } from './components/systems/SecurityTracker';
+import { SecurityPanel } from './components/ui/SecurityPanel';
+import { INTRUDER_CONFIGS, type IntruderType } from './config/security';
 import { useStore } from './stores/useStore';
 import { useAccessibility } from './stores/useAccessibility';
 import { musicEngine } from './systems/MusicEngine';
@@ -757,6 +760,79 @@ function DisasterButton() {
   );
 }
 
+function SecurityButton() {
+  const setShowSecurityPanel = useStore((s) => s.setShowSecurityPanel);
+  const alarmState = useStore((s) => s.alarmState);
+  const activeIntruder = useStore((s) => s.activeIntruder);
+
+  const isAlert = alarmState === 'triggered' || !!activeIntruder;
+
+  return (
+    <button
+      type="button"
+      onClick={() => setShowSecurityPanel(true)}
+      className={`pointer-events-auto relative flex h-10 w-10 items-center justify-center rounded-full border text-lg backdrop-blur-md transition-all ${
+        isAlert
+          ? 'border-red-400/50 bg-red-500/30 animate-pulse'
+          : alarmState !== 'disarmed'
+          ? 'border-cyan-400/30 bg-cyan-500/20 hover:bg-cyan-500/30'
+          : 'border-cyan-400/30 bg-black/50 hover:bg-cyan-500/20'
+      }`}
+      title="Home Security"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={`h-5 w-5 ${isAlert ? 'text-red-400' : 'text-cyan-300'}`}>
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+      </svg>
+      {isAlert && (
+        <span className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
+          !
+        </span>
+      )}
+    </button>
+  );
+}
+
+function IntruderBanner() {
+  const activeIntruder = useStore((s) => s.activeIntruder);
+
+  if (!activeIntruder) return null;
+
+  const config = INTRUDER_CONFIGS[activeIntruder.type as IntruderType];
+  if (!config) return null;
+
+  const phaseLabels: Record<string, string> = {
+    detected: 'INTRUDER DETECTED',
+    responding: 'ROBOTS RESPONDING',
+    resolved: 'THREAT RESOLVED',
+  };
+
+  return (
+    <div
+      className="pointer-events-none fixed left-1/2 top-24 z-50 -translate-x-1/2 animate-pulse"
+      aria-live="assertive"
+    >
+      <div className={`rounded-xl border px-6 py-3 backdrop-blur-lg ${
+        activeIntruder.phase === 'resolved'
+          ? 'border-green-400/30 bg-green-900/80'
+          : 'border-red-400/40 bg-red-900/80'
+      }`}>
+        <div className="flex items-center gap-3">
+          <span className="text-2xl">{config.emoji}</span>
+          <div>
+            <div className={`text-sm font-bold ${activeIntruder.phase === 'resolved' ? 'text-green-300' : 'text-red-300'}`}>
+              {phaseLabels[activeIntruder.phase] ?? 'ALERT'}
+            </div>
+            <div className="text-xs text-white/70">
+              {config.label} in {activeIntruder.roomId}
+              {activeIntruder.alarmTriggered && ' — Alarm sounding!'}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function DisasterOverlay() {
   const disaster = useStore((s) => s.activeDisaster);
   const reducedMotion = useAccessibility((s) => s.reducedMotion);
@@ -855,6 +931,7 @@ function App() {
           <MoodMusicSystem />
           <ChallengeSystem />
           <FurnitureCraftingSystem />
+          <SecurityTracker />
         </>
       )}
 
@@ -904,6 +981,7 @@ function App() {
             <PetButton />
             <ChallengeButton />
             <DisasterButton />
+            <SecurityButton />
             <AccessibilityButton onClick={() => setShowA11y(true)} />
             <HelpButton onClick={() => setShowTutorial(true)} />
           </nav>
@@ -914,6 +992,7 @@ function App() {
       <SeasonToast />
       <EventBanner />
       <DisasterBanner />
+      <IntruderBanner />
       <DisasterOverlay />
       <ScreenshotModal />
       {!screenshotMode && !photoMode && !isSpectating && <ChatPanel />}
@@ -938,6 +1017,7 @@ function App() {
       <ChallengePanel />
       <ChallengeResultsModal />
       <FurnitureCraftingPanel />
+      <SecurityPanel />
       <ChallengeTimer />
       <AccessibilityPanel open={showA11y} onClose={() => setShowA11y(false)} />
       {!isSpectating && (

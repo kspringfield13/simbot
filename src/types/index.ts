@@ -314,3 +314,21 @@ export interface TimelapsePlaybackState {
   endSimMinutes: number;    // end of the replay window
   currentSimMinutes: number; // current playback position
 }
+
+// ── Home Security ──────────────────────────────────────────
+export type IntruderPhase = 'detected' | 'responding' | 'resolved';
+
+export type IntruderType = 'burglar' | 'raccoon' | 'prankster';
+
+export interface IntruderEvent {
+  id: string;
+  type: IntruderType;
+  phase: IntruderPhase;
+  roomId: RoomId;
+  startedAt: number;         // sim-minutes
+  detectedBy: RobotId | null;
+  respondingRobots: RobotId[];
+  resolvedAt: number | null;
+  cameraDetected: boolean;   // true if camera spotted them
+  alarmTriggered: boolean;   // true if alarm went off
+}
