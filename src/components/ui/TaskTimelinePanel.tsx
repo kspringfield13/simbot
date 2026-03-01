@@ -23,6 +23,8 @@ const TASK_COLORS: Record<TaskType, string> = {
   watering: '#2dd4bf',
   'leaf-blowing': '#facc15',
   weeding: '#a3e635',
+  'feeding-fish': '#38bdf8',
+  'feeding-hamster': '#fca5a5',
 };
 
 function formatTaskLabel(t: TaskType): string {

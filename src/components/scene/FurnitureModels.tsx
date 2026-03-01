@@ -1,4 +1,4 @@
-import { Suspense, useRef, useState } from 'react';
+import { Suspense, useRef, useState, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { Html } from '@react-three/drei';
@@ -8,6 +8,8 @@ import type { FurniturePiece } from '../../utils/furnitureRegistry';
 import { useStore } from '../../stores/useStore';
 import { getRoomFromPoint } from '../../utils/homeLayout';
 import { ROBOT_IDS } from '../../types';
+import { getRoomTheme } from '../../config/roomThemes';
+import type { RoomThemeId } from '../../config/roomThemes';
 
 // ── TV Channel Overlay: cycles static/news/sports when robot in room ──
 
@@ -276,6 +278,13 @@ function FurnitureGroup({ piece }: { piece: FurniturePiece }) {
   const selectedId = useStore((s) => s.selectedFurnitureId);
   const positions = useStore((s) => s.furniturePositions);
   const selectFurniture = useStore((s) => s.selectFurniture);
+  const globalTheme = useStore((s) => s.globalTheme);
+  const perRoomThemes = useStore((s) => s.perRoomThemes);
+
+  // Resolve theme for this furniture's room
+  const activeThemeId: RoomThemeId = perRoomThemes[piece.roomId] ?? globalTheme;
+  const theme = useMemo(() => getRoomTheme(activeThemeId), [activeThemeId]);
+  const isThemed = activeThemeId !== 'default';
 
   const isSelected = selectedId === piece.id;
   const override = positions[piece.id];
@@ -324,6 +333,9 @@ function FurnitureGroup({ piece }: { piece: FurniturePiece }) {
           position={model.offset}
           rotation={model.rotation}
           scale={model.scale}
+          tintColor={isThemed ? theme.furnitureTint : undefined}
+          emissiveColor={isThemed ? theme.furnitureEmissive : undefined}
+          emissiveIntensity={isThemed ? theme.furnitureEmissiveIntensity : undefined}
         />
       ))}
 

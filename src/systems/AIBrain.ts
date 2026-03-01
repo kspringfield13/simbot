@@ -12,6 +12,8 @@ import { SEASONAL_TASKS, SEASON_THOUGHTS } from '../config/seasons';
 import { generateDiaryEntry } from '../config/diary';
 import { getRoomPreferenceBonus } from '../systems/Personality';
 import { getEventConfig } from '../systems/HomeEvents';
+import { PET_CONFIGS, PET_IDS, PET_THOUGHTS } from '../config/pets';
+import type { PetId } from '../config/pets';
 
 const ACTIVE_STATUSES = new Set(['queued', 'walking', 'working']);
 
@@ -108,6 +110,16 @@ const INNER_VOICE = {
       'One weed at a time. Patience is key out here.',
       'The garden beds deserve to be weed-free.',
       'Pulling weeds is surprisingly therapeutic.',
+    ],
+    'feeding-fish': [
+      'Feeding the fish is one of my favorite little rituals.',
+      'The fish always seem to know when it\'s feeding time.',
+      'A sprinkle of food... watch them go!',
+    ],
+    'feeding-hamster': [
+      'The hamster is so excited for food! Look at those little paws.',
+      'Fresh seeds for our fluffy friend.',
+      'The hamster is stuffing its cheeks already!',
     ],
   } as Record<string, string[]>,
 
@@ -336,6 +348,7 @@ type Behavior =
   | { type: 'night-patrol' }
   | { type: 'night-cleaning'; roomId: RoomId }
   | { type: 'cat-check' }
+  | { type: 'feed-pet'; petId: PetId }
   | { type: 'emergency-response'; roomId: RoomId }
   | { type: 'none' };
 
@@ -368,6 +381,7 @@ export function AIBrain({ robotId }: { robotId: RobotId }) {
   const lastTVWatchRef = useRef(0);
   const lastSeasonalTaskRef = useRef(0);
   const lastDiaryObsRef = useRef(0);
+  const lastPetFeedRef = useRef(0);
 
   useFrame(() => {
     const s = useStore.getState();
@@ -730,6 +744,45 @@ export function AIBrain({ robotId }: { robotId: RobotId }) {
         break;
       }
 
+      case 'feed-pet': {
+        const petConfig = PET_CONFIGS[behavior.petId];
+        const [fpx, fpz] = findClearPosition(petConfig.position[0], petConfig.position[2], 0.8);
+
+        s.addTask({
+          id: crypto.randomUUID(),
+          command: `Feeding ${petConfig.name}`,
+          source: 'ai',
+          targetRoom: petConfig.location,
+          targetPosition: [fpx, 0, fpz],
+          status: 'queued',
+          progress: 0,
+          description: `Feeding the ${behavior.petId}.`,
+          taskType: petConfig.feedTaskType,
+          workDuration: petConfig.feedDuration,
+          createdAt: Date.now(),
+          assignedTo: robotId,
+        });
+        s.setRobotThought(robotId, pick(PET_THOUGHTS[behavior.petId]));
+        s.setRobotMood(robotId, 'happy');
+        s.updateRobotNeeds(robotId, {
+          happiness: Math.min(100, needs.happiness + 5),
+          boredom: Math.max(0, needs.boredom - 10),
+          social: Math.min(100, needs.social + 3),
+        });
+        consecutiveRef.current = 0;
+
+        // Feed the pet once robot completes the task
+        const petId = behavior.petId;
+        const feedDur = petConfig.feedDuration * 1000;
+        setTimeout(() => {
+          const current = useStore.getState();
+          current.feedPet(petId, current.simMinutes);
+        }, feedDur + 3000);
+
+        nextDecisionRef.current = now + rand(18, 30);
+        break;
+      }
+
       case 'wander': {
         // Prefer wandering in preferred rooms
         const wanderRooms = Math.random() < 0.7
@@ -966,11 +1019,21 @@ export function AIBrain({ robotId }: { robotId: RobotId }) {
           return { type: 'night-cleaning', roomId: top.id };
         }
       }
-      // 15% chance: check on the cat
-      if (roll < 0.80) {
+      // 10% chance: check on the cat
+      if (roll < 0.75) {
         return { type: 'cat-check' };
       }
-      // 10% chance: wander
+      // 10% chance: feed a pet if hungry
+      if (roll < 0.85 && now - lastPetFeedRef.current > 30) {
+        const petStates = s.petStates;
+        const hungryPets = PET_IDS.filter((pid) => petStates[pid].happiness < 55);
+        if (hungryPets.length > 0) {
+          const petId = hungryPets[Math.floor(Math.random() * hungryPets.length)];
+          lastPetFeedRef.current = now;
+          return { type: 'feed-pet', petId };
+        }
+      }
+      // 5% chance: wander
       if (roll < 0.90) {
         return { type: 'wander' };
       }
@@ -1011,6 +1074,17 @@ export function AIBrain({ robotId }: { robotId: RobotId }) {
 
     if (top && top.score >= 18 && needs.energy >= 25) {
       return { type: 'clean', roomId: top.id };
+    }
+
+    // Pet feeding: ~20% chance when pets are hungry and it's been a while
+    if (now - lastPetFeedRef.current > 30 && Math.random() < 0.20 && needs.energy >= 20) {
+      const petStates = s.petStates;
+      const hungryPets = PET_IDS.filter((pid) => petStates[pid].happiness < 60);
+      if (hungryPets.length > 0) {
+        const petId = hungryPets[Math.floor(Math.random() * hungryPets.length)];
+        lastPetFeedRef.current = now;
+        return { type: 'feed-pet', petId };
+      }
     }
 
     // Seasonal tasks: ~25% chance when it's been a while since the last one

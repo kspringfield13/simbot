@@ -35,6 +35,8 @@ const TASK_VERBS: Record<TaskType, string> = {
   watering: 'watered the plants',
   'leaf-blowing': 'cleared the leaves',
   weeding: 'pulled weeds',
+  'feeding-fish': 'fed the fish',
+  'feeding-hamster': 'fed the hamster',
 };
 
 const ROOM_LABELS: Record<string, string> = {

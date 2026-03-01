@@ -17,6 +17,8 @@ const taskTypeLabels: Record<string, string> = {
   sweeping: '🧹 Sweeping',
   'grocery-list': '📝 Grocery List',
   general: '⚙️ General',
+  'feeding-fish': '🐟 Feeding Fish',
+  'feeding-hamster': '🐹 Feeding Hamster',
 };
 
 const tabStyle = (active: boolean): React.CSSProperties => ({

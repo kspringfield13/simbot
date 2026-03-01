@@ -23,6 +23,7 @@ import { ChargingStation } from './ChargingStation';
 import { SmartDevices } from './SmartDevices';
 import { YardDecorations } from './YardDecorations';
 import { OutsideNPCs } from './OutsideNPCs';
+import { RobotPetsScene } from './RobotPets';
 
 function DynamicSceneLighting() {
   const ambientRef = useRef<THREE.AmbientLight>(null);
@@ -147,6 +148,7 @@ export function HomeScene() {
       <SeasonalDecorations />
       <YardDecorations />
       <OutsideNPCs />
+      <RobotPetsScene />
       <RoomThemeEffects rooms={effectiveRooms} />
       <WeatherEffects />
       <DisasterEffects />

@@ -46,6 +46,7 @@ import { StatsPanel } from './components/ui/StatsPanel';
 import { CameraPresetsPanel } from './components/ui/CameraPresetsPanel';
 import { SkillTreePanel } from './components/ui/SkillTreePanel';
 import { ThemeSelectorPanel } from './components/ui/ThemeSelectorPanel';
+import { PetPanel } from './components/ui/PetPanel';
 import { useStore } from './stores/useStore';
 import { useAccessibility } from './stores/useAccessibility';
 import { musicEngine } from './systems/MusicEngine';
@@ -648,6 +649,33 @@ function HelpButton({ onClick }: { onClick: () => void }) {
   );
 }
 
+function PetButton() {
+  const setShowPetPanel = useStore((s) => s.setShowPetPanel);
+  const avgHappiness = useStore((s) => Math.round((s.petStates.fish.happiness + s.petStates.hamster.happiness) / 2));
+
+  return (
+    <button
+      type="button"
+      onClick={() => setShowPetPanel(true)}
+      className={`pointer-events-auto relative flex h-10 w-10 items-center justify-center rounded-full border text-lg backdrop-blur-md transition-all ${
+        avgHappiness < 40
+          ? 'border-orange-400/50 bg-orange-500/30 hover:bg-orange-500/50'
+          : 'border-amber-400/30 bg-black/50 hover:bg-amber-400/20'
+      }`}
+      title="Robot Pets"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={`h-5 w-5 ${avgHappiness < 40 ? 'text-orange-300' : 'text-amber-300'}`}>
+        <path d="M10 5.172C10 3.782 8.423 2.679 6.5 3c-2.823.47-4.113 6.006-4 7 .137 1.217 1.5 2 2 2s1.5-1 2-1 1.5 1 2 1 1.863-.783 2-2c.074-.65-.109-1.632-.5-2.5" />
+        <path d="M14 5.172C14 3.782 15.577 2.679 17.5 3c2.823.47 4.113 6.006 4 7-.137 1.217-1.5 2-2 2s-1.5-1-2-1-1.5 1-2 1-1.863-.783-2-2c-.074-.65.109-1.632.5-2.5" />
+        <path d="M8 14v.5" />
+        <path d="M16 14v.5" />
+        <path d="M11.25 16.25h1.5L12 17l-.75-.75Z" />
+        <path d="M4.42 11.247A13.152 13.152 0 0 0 4 14.556C4 18.728 7.582 21 12 21s8-2.272 8-6.444c0-1.061-.162-2.2-.493-3.309m-9.243-6.082A8.801 8.801 0 0 1 12 5c.78 0 1.5.108 2.161.306" />
+      </svg>
+    </button>
+  );
+}
+
 function DisasterButton() {
   const triggerDisaster = useStore((s) => s.triggerDisaster);
   const activeDisaster = useStore((s) => s.activeDisaster);
@@ -812,6 +840,7 @@ function App() {
             <ScreenshotButton />
             <CameraPresetsButton />
             <CameraToggle />
+            <PetButton />
             <DisasterButton />
             <AccessibilityButton onClick={() => setShowA11y(true)} />
             <HelpButton onClick={() => setShowTutorial(true)} />
@@ -843,6 +872,7 @@ function App() {
       <CameraPresetsPanel />
       <SkillTreePanel />
       <ThemeSelectorPanel />
+      <PetPanel />
       <AccessibilityPanel open={showA11y} onClose={() => setShowA11y(false)} />
       {!isSpectating && (
         <TutorialOverlay forceOpen={showTutorial} onClose={() => setShowTutorial(false)} />

@@ -29,6 +29,8 @@ const completionMessages: Record<TaskType, string> = {
   watering: 'Plants watered. Garden is refreshed.',
   'leaf-blowing': 'Leaves cleared. Yard is tidy.',
   weeding: 'Weeds pulled. Garden beds are clean.',
+  'feeding-fish': 'Fish fed. Tank looks lively.',
+  'feeding-hamster': 'Hamster fed. Little buddy is happy.',
 };
 
 const completionThoughts: Record<TaskType, string> = {
@@ -48,6 +50,8 @@ const completionThoughts: Record<TaskType, string> = {
   watering: 'Garden is well-hydrated now.',
   'leaf-blowing': 'Yard cleared of leaves. Much better.',
   weeding: 'Garden beds are weed-free.',
+  'feeding-fish': 'Fish seem content now.',
+  'feeding-hamster': 'Hamster is munching away.',
 };
 
 export const useTaskRunner = () => {

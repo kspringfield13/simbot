@@ -354,6 +354,31 @@ function saveRoomThemes(data: RoomThemesData) {
   } catch { /* ignore quota errors */ }
 }
 
+// ── Pet state localStorage persistence ──────────────────────────
+const PETS_STORAGE_KEY = 'simbot-pets';
+
+interface PetsStorageData {
+  fish: { happiness: number; totalFeedings: number; lastFedAt: number };
+  hamster: { happiness: number; totalFeedings: number; lastFedAt: number };
+}
+
+function loadPetData(): PetsStorageData {
+  try {
+    const stored = localStorage.getItem(PETS_STORAGE_KEY);
+    if (stored) return JSON.parse(stored);
+  } catch { /* ignore */ }
+  return {
+    fish: { happiness: 70, totalFeedings: 0, lastFedAt: 0 },
+    hamster: { happiness: 70, totalFeedings: 0, lastFedAt: 0 },
+  };
+}
+
+function savePetData(data: PetsStorageData) {
+  try {
+    localStorage.setItem(PETS_STORAGE_KEY, JSON.stringify(data));
+  } catch { /* ignore quota errors */ }
+}
+
 const initialShopData = loadShopData();
 const initialCraftingData = loadCraftingData();
 
@@ -688,6 +713,13 @@ interface SimBotStore {
   setGlobalTheme: (themeId: RoomThemeId) => void;
   setRoomTheme: (roomId: string, themeId: RoomThemeId) => void;
   resetRoomThemes: () => void;
+
+  // Robot pets
+  petStates: PetsStorageData;
+  showPetPanel: boolean;
+  setShowPetPanel: (show: boolean) => void;
+  feedPet: (petId: 'fish' | 'hamster', simMinutes: number) => void;
+  decayPetHappiness: (amount: number) => void;
 }
 
 const initialSimMinutes = (7 * 60) + 20;
@@ -1560,6 +1592,32 @@ export const useStore = create<SimBotStore>((set) => ({
     saveRoomThemes({ globalTheme: 'default', perRoom: {} });
     set({ globalTheme: 'default', perRoomThemes: {} });
   },
+
+  // Robot pets
+  petStates: loadPetData(),
+  showPetPanel: false,
+  setShowPetPanel: (show) => set({ showPetPanel: show }),
+  feedPet: (petId, simMinutes) => set((s) => {
+    const pet = s.petStates[petId];
+    const next: PetsStorageData = {
+      ...s.petStates,
+      [petId]: {
+        happiness: Math.min(100, pet.happiness + (petId === 'fish' ? 30 : 35)),
+        totalFeedings: pet.totalFeedings + 1,
+        lastFedAt: simMinutes,
+      },
+    };
+    savePetData(next);
+    return { petStates: next };
+  }),
+  decayPetHappiness: (amount) => set((s) => {
+    const next: PetsStorageData = {
+      fish: { ...s.petStates.fish, happiness: Math.max(0, s.petStates.fish.happiness - amount * 0.04) },
+      hamster: { ...s.petStates.hamster, happiness: Math.max(0, s.petStates.hamster.happiness - amount * 0.05) },
+    };
+    savePetData(next);
+    return { petStates: next };
+  }),
 }));
 
 // Each completion reduces duration by ~5%, capping at 30% faster

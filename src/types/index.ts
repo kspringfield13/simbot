@@ -45,7 +45,9 @@ export type TaskType =
   | 'mowing'
   | 'watering'
   | 'leaf-blowing'
-  | 'weeding';
+  | 'weeding'
+  | 'feeding-fish'
+  | 'feeding-hamster';
 
 export type Season = 'winter' | 'spring' | 'summer' | 'fall';
 
