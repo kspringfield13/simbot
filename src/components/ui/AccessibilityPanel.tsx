@@ -1,4 +1,6 @@
 import { useAccessibility, type ColorblindMode } from '../../stores/useAccessibility';
+import { useSandbox } from '../../stores/useSandbox';
+import { useStore } from '../../stores/useStore';
 
 const colorblindOptions: { value: ColorblindMode; label: string; description: string }[] = [
   { value: 'none', label: 'None', description: 'Default colors' },
@@ -48,6 +50,15 @@ export function AccessibilityPanel({ open, onClose }: { open: boolean; onClose: 
   const setReducedMotion = useAccessibility((s) => s.setReducedMotion);
   const setHighContrast = useAccessibility((s) => s.setHighContrast);
   const setScreenReaderEnabled = useAccessibility((s) => s.setScreenReaderEnabled);
+
+  const sandboxMode = useSandbox((s) => s.sandboxMode);
+  const setSandboxMode = useSandbox((s) => s.setSandboxMode);
+  const activateSandbox = useStore((s) => s.activateSandbox);
+
+  const handleSandboxToggle = (enabled: boolean) => {
+    setSandboxMode(enabled);
+    if (enabled) activateSandbox();
+  };
 
   if (!open) return null;
 
@@ -123,6 +134,18 @@ export function AccessibilityPanel({ open, onClose }: { open: boolean; onClose: 
             onChange={setScreenReaderEnabled}
             label="Screen Reader Announcements"
             description="Announces robot actions and room status changes"
+          />
+        </div>
+
+        {/* Sandbox Mode */}
+        <div className="mt-4 rounded-lg border border-amber-400/20 bg-amber-500/5 px-4 py-3">
+          <div className="mb-2 text-sm font-medium text-amber-200">Sandbox Mode</div>
+          <div className="text-xs text-amber-200/50 mb-3">Unlimited coins, all items unlocked, no battery drain. A creative playground!</div>
+          <Toggle
+            checked={sandboxMode}
+            onChange={handleSandboxToggle}
+            label="Enable Sandbox"
+            description="Unlock everything and remove resource limits"
           />
         </div>
 

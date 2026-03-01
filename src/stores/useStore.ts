@@ -3,7 +3,7 @@ import { createInitialRoomNeeds, decayRoomNeeds, boostRoomAfterTask } from '../s
 import { getSimPeriod } from '../systems/TimeSystem';
 import { createAllRobotStates } from '../config/robots';
 import { DEFAULT_ACTIVE_WALLS } from '../utils/homeLayout';
-import { getBatteryDrainMultiplier, getEnergyMultiplier } from '../config/shop';
+import { getBatteryDrainMultiplier, getEnergyMultiplier, UPGRADES } from '../config/shop';
 import type { CustomRobot } from '../config/crafting';
 import { getDeployedRobotBonuses } from '../config/crafting';
 import type { MaterialInventory, CraftedFurnitureItem, ActiveCraft } from '../config/furnitureCrafting';
@@ -78,6 +78,9 @@ import type {
 import { ROBOT_IDS } from '../types';
 import { getSeasonForDay, SEASON_MODIFIERS } from '../config/seasons';
 import { DEVICES } from '../config/devices';
+import { useSandbox } from './useSandbox';
+import { ROBOT_PARTS } from '../config/crafting';
+import { ROOM_UPGRADES, FURNITURE_ITEMS, ROBOT_ACCESSORIES } from '../systems/Economy';
 
 export type SimSpeed = 0 | 1 | 10 | 60;
 
@@ -626,6 +629,9 @@ interface SimBotStore {
   setShowEvolutionPanel: (show: boolean) => void;
   recordEvolution: (robotId: RobotId, taskType: TaskType, workDuration: number) => void;
 
+  // Sandbox mode
+  activateSandbox: () => void;
+
   // Shop / economy
   coins: number;
   purchasedUpgrades: string[];
@@ -1004,8 +1010,12 @@ export const useStore = create<SimBotStore>((set) => ({
       const seasonMod = SEASON_MODIFIERS[state.currentSeason];
 
       // Battery drain/charge rates (per sim-minute), modified by shop upgrades + crafting + season
+      // Sandbox mode: no battery drain, always full
+      const isSandbox = useSandbox.getState().sandboxMode;
       const battDrainMult = getBatteryDrainMultiplier(state.purchasedUpgrades, craftBonuses.batteryBonus) * seasonMod.batteryDrainMult;
-      const batteryDelta = r.isCharging
+      const batteryDelta = isSandbox
+        ? (100 - r.battery) // snap to 100
+        : r.isCharging
         ? deltaSimMinutes * 0.5
         : isWorking ? -deltaSimMinutes * 0.12 * battDrainMult
         : isIdle ? -deltaSimMinutes * 0.01 * battDrainMult
@@ -1415,17 +1425,58 @@ export const useStore = create<SimBotStore>((set) => ({
     return { robotEvolutions: next };
   }),
 
+  // Sandbox mode — unlock everything, unlimited coins
+  activateSandbox: () => set((state) => {
+    const allUpgrades = UPGRADES.map((u) => u.id);
+    const allRoomUpgrades = ROOM_UPGRADES.map((u) => u.id);
+    const allFurniture = FURNITURE_ITEMS.map((f) => f.id);
+    const allAccessories = ROBOT_ACCESSORIES.map((a) => a.id);
+    const allParts = ROBOT_PARTS.map((p) => p.id);
+    const nextUpgrades = [...new Set([...state.purchasedUpgrades, ...allUpgrades])];
+    const nextRoomUpgrades = [...new Set([...state.purchasedRoomUpgrades, ...allRoomUpgrades])];
+    const nextFurniture = [...new Set([...state.purchasedFurniture, ...allFurniture])];
+    const nextAccessories = [...new Set([...state.purchasedAccessories, ...allAccessories])];
+    const nextParts = [...new Set([...state.ownedParts, ...allParts])];
+    // Persist
+    saveShopData({ coins: 999999, purchasedUpgrades: nextUpgrades, robotColors: state.robotColors });
+    saveEconomyData({
+      transactions: state.economyTransactions,
+      purchasedRoomUpgrades: nextRoomUpgrades,
+      purchasedFurniture: nextFurniture,
+      purchasedAccessories: nextAccessories,
+    });
+    saveCraftingData({ ownedParts: nextParts, customRobots: state.customRobots });
+    // Set battery to 100 for all robots
+    const fullBatteryRobots = { ...state.robots };
+    for (const id of ROBOT_IDS) {
+      fullBatteryRobots[id] = { ...fullBatteryRobots[id], battery: 100 };
+    }
+    return {
+      coins: 999999,
+      purchasedUpgrades: nextUpgrades,
+      purchasedRoomUpgrades: nextRoomUpgrades,
+      purchasedFurniture: nextFurniture,
+      purchasedAccessories: nextAccessories,
+      ownedParts: nextParts,
+      robots: fullBatteryRobots,
+    };
+  }),
+
   showShop: false,
   setShowShop: (show) => set({ showShop: show }),
   addCoins: (amount) => set((state) => {
-    const next = { coins: state.coins + amount, purchasedUpgrades: state.purchasedUpgrades, robotColors: state.robotColors };
+    const isSandbox = useSandbox.getState().sandboxMode;
+    const newCoins = isSandbox ? 999999 : state.coins + amount;
+    const next = { coins: newCoins, purchasedUpgrades: state.purchasedUpgrades, robotColors: state.robotColors };
     saveShopData(next);
-    return { coins: next.coins };
+    return { coins: newCoins };
   }),
   purchaseUpgrade: (id, cost) => {
     const state = useStore.getState();
-    if (state.coins < cost || state.purchasedUpgrades.includes(id)) return false;
-    const nextCoins = state.coins - cost;
+    if (state.purchasedUpgrades.includes(id)) return false;
+    const isSandbox = useSandbox.getState().sandboxMode;
+    if (!isSandbox && state.coins < cost) return false;
+    const nextCoins = isSandbox ? 999999 : state.coins - cost;
     const nextUpgrades = [...state.purchasedUpgrades, id];
     const shopData = { coins: nextCoins, purchasedUpgrades: nextUpgrades, robotColors: state.robotColors };
     saveShopData(shopData);
@@ -1434,8 +1485,9 @@ export const useStore = create<SimBotStore>((set) => ({
   },
   purchaseColor: (robotId, colorHex, cost) => {
     const state = useStore.getState();
-    if (state.coins < cost) return false;
-    const nextCoins = state.coins - cost;
+    const isSandbox = useSandbox.getState().sandboxMode;
+    if (!isSandbox && state.coins < cost) return false;
+    const nextCoins = isSandbox ? 999999 : state.coins - cost;
     const nextColors = { ...state.robotColors, [robotId]: colorHex };
     const shopData = { coins: nextCoins, purchasedUpgrades: state.purchasedUpgrades, robotColors: nextColors };
     saveShopData(shopData);
@@ -1479,8 +1531,10 @@ export const useStore = create<SimBotStore>((set) => ({
   }),
   purchaseRoomUpgrade: (id, cost) => {
     const state = useStore.getState();
-    if (state.coins < cost || state.purchasedRoomUpgrades.includes(id)) return false;
-    const nextCoins = state.coins - cost;
+    if (state.purchasedRoomUpgrades.includes(id)) return false;
+    const isSandbox = useSandbox.getState().sandboxMode;
+    if (!isSandbox && state.coins < cost) return false;
+    const nextCoins = isSandbox ? 999999 : state.coins - cost;
     const nextUpgrades = [...state.purchasedRoomUpgrades, id];
     saveShopData({ coins: nextCoins, purchasedUpgrades: state.purchasedUpgrades, robotColors: state.robotColors });
     saveEconomyData({
@@ -1490,13 +1544,15 @@ export const useStore = create<SimBotStore>((set) => ({
       purchasedAccessories: state.purchasedAccessories,
     });
     set({ coins: nextCoins, purchasedRoomUpgrades: nextUpgrades });
-    state.recordTransaction('expense', 'room-upgrade', cost, `Room upgrade: ${id}`);
+    if (!isSandbox) state.recordTransaction('expense', 'room-upgrade', cost, `Room upgrade: ${id}`);
     return true;
   },
   purchaseFurnitureItem: (id, cost) => {
     const state = useStore.getState();
-    if (state.coins < cost || state.purchasedFurniture.includes(id)) return false;
-    const nextCoins = state.coins - cost;
+    if (state.purchasedFurniture.includes(id)) return false;
+    const isSandbox = useSandbox.getState().sandboxMode;
+    if (!isSandbox && state.coins < cost) return false;
+    const nextCoins = isSandbox ? 999999 : state.coins - cost;
     const nextFurn = [...state.purchasedFurniture, id];
     saveShopData({ coins: nextCoins, purchasedUpgrades: state.purchasedUpgrades, robotColors: state.robotColors });
     saveEconomyData({
@@ -1506,13 +1562,15 @@ export const useStore = create<SimBotStore>((set) => ({
       purchasedAccessories: state.purchasedAccessories,
     });
     set({ coins: nextCoins, purchasedFurniture: nextFurn });
-    state.recordTransaction('expense', 'furniture', cost, `Furniture: ${id}`);
+    if (!isSandbox) state.recordTransaction('expense', 'furniture', cost, `Furniture: ${id}`);
     return true;
   },
   purchaseAccessory: (id, cost) => {
     const state = useStore.getState();
-    if (state.coins < cost || state.purchasedAccessories.includes(id)) return false;
-    const nextCoins = state.coins - cost;
+    if (state.purchasedAccessories.includes(id)) return false;
+    const isSandbox = useSandbox.getState().sandboxMode;
+    if (!isSandbox && state.coins < cost) return false;
+    const nextCoins = isSandbox ? 999999 : state.coins - cost;
     const nextAcc = [...state.purchasedAccessories, id];
     saveShopData({ coins: nextCoins, purchasedUpgrades: state.purchasedUpgrades, robotColors: state.robotColors });
     saveEconomyData({
@@ -1522,7 +1580,7 @@ export const useStore = create<SimBotStore>((set) => ({
       purchasedAccessories: nextAcc,
     });
     set({ coins: nextCoins, purchasedAccessories: nextAcc });
-    state.recordTransaction('expense', 'accessory', cost, `Accessory: ${id}`);
+    if (!isSandbox) state.recordTransaction('expense', 'accessory', cost, `Accessory: ${id}`);
     return true;
   },
 
@@ -1720,8 +1778,10 @@ export const useStore = create<SimBotStore>((set) => ({
   customRobots: initialCraftingData.customRobots,
   purchasePart: (partId, cost) => {
     const state = useStore.getState();
-    if (state.coins < cost || state.ownedParts.includes(partId)) return false;
-    const nextCoins = state.coins - cost;
+    if (state.ownedParts.includes(partId)) return false;
+    const isSandbox = useSandbox.getState().sandboxMode;
+    if (!isSandbox && state.coins < cost) return false;
+    const nextCoins = isSandbox ? 999999 : state.coins - cost;
     const nextParts = [...state.ownedParts, partId];
     // Save shop coins
     const shopData = { coins: nextCoins, purchasedUpgrades: state.purchasedUpgrades, robotColors: state.robotColors };

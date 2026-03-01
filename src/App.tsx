@@ -18,6 +18,7 @@ import { ChatPanel } from './components/ui/ChatPanel';
 import { BatteryIndicator } from './components/ui/BatteryIndicator';
 import { ShareButton } from './components/ui/ShareButton';
 import { SpectatorBadge } from './components/ui/SpectatorBadge';
+import { SandboxBadge } from './components/ui/SandboxBadge';
 import { ShopPanel } from './components/ui/ShopPanel';
 import { CraftingPanel } from './components/ui/CraftingPanel';
 import { DevicePanel } from './components/ui/DevicePanel';
@@ -1039,6 +1040,9 @@ function App() {
 
       {/* Spectator badge */}
       <SpectatorBadge />
+
+      {/* Sandbox mode indicator */}
+      <SandboxBadge />
 
       {/* Hide all overlays during screenshot capture or photo mode */}
       {!screenshotMode && !photoMode && !isSpectating && (
