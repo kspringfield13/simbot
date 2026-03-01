@@ -189,6 +189,25 @@ export interface PersonalityTrait {
   strength: number;     // 0-1 normalized preference strength
 }
 
+// ── Robot Social / Friendships ──────────────────────────────
+export interface FriendshipPair {
+  key: string;                // sorted pair key e.g. "chef-sim"
+  robotA: RobotId;
+  robotB: RobotId;
+  level: number;              // 0-100 friendship level
+  totalChats: number;         // lifetime interaction count
+  lastChatAt: number;         // sim-minutes when last chatted
+}
+
+export interface ActiveChat {
+  robotA: RobotId;
+  robotB: RobotId;
+  lines: { speaker: RobotId; text: string }[];
+  currentLineIndex: number;
+  startedAt: number;          // sim-minutes
+  nextLineAt: number;         // sim-minutes when next line shows
+}
+
 // ── Home Events ──────────────────────────────────────────
 export type HomeEventType = 'plumbing-leak' | 'power-outage' | 'pest-invasion';
 export type HomeEventPhase = 'detection' | 'response' | 'resolution';

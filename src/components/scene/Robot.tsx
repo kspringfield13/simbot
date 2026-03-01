@@ -4,8 +4,9 @@ import { useGLTF, useAnimations, Html } from '@react-three/drei';
 import { useStore } from '../../stores/useStore';
 import { getAvoidanceForce, isPositionClear, findClearPosition } from '../../systems/ObstacleMap';
 import { ROBOT_CONFIGS } from '../../config/robots';
-import type { RobotId } from '../../types';
+import type { RobotId, ActiveChat } from '../../types';
 import { ROBOT_IDS } from '../../types';
+import { getFriendshipKey } from '../../config/conversations';
 import * as THREE from 'three';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 
@@ -143,6 +144,59 @@ function RobotFlashlight({ groupRef }: { groupRef: React.RefObject<THREE.Group |
         />
       </mesh>
     </>
+  );
+}
+
+/** Speech bubble shown above a robot during an active chat */
+function ChatBubble({ robotId }: { robotId: RobotId }) {
+  const chatLine = useStore((s) => {
+    const chat = s.activeChats.find(
+      (c: ActiveChat) => c.robotA === robotId || c.robotB === robotId,
+    );
+    if (!chat) return null;
+    const line = chat.lines[chat.currentLineIndex];
+    if (!line || line.speaker !== robotId) return null;
+    return line.text;
+  });
+
+  if (!chatLine) return null;
+
+  return (
+    <Html center distanceFactor={10} position={[0, 2.6, 0]} transform>
+      <div className="pointer-events-none max-w-[170px] animate-pulse rounded-xl border border-pink-400/30 bg-gradient-to-br from-pink-900/80 to-purple-900/80 px-3 py-1.5 text-[10px] leading-snug text-pink-100 shadow-lg backdrop-blur-md">
+        <span className="mr-1 text-[8px]">💬</span>
+        {chatLine}
+      </div>
+    </Html>
+  );
+}
+
+/** Heart icon shown between best friends when they're close */
+function FriendshipHeart({ robotId }: { robotId: RobotId }) {
+  const showHeart = useStore((s) => {
+    const myPos = s.robots[robotId].position;
+    for (const otherId of ROBOT_IDS) {
+      if (otherId === robotId) continue;
+      const otherPos = s.robots[otherId].position;
+      const dx = myPos[0] - otherPos[0];
+      const dz = myPos[2] - otherPos[2];
+      const dist = Math.sqrt(dx * dx + dz * dz);
+      if (dist > 5) continue;
+      const key = getFriendshipKey(robotId, otherId);
+      const friendship = s.friendships[key];
+      if (friendship && friendship.level >= 50) return true;
+    }
+    return false;
+  });
+
+  if (!showHeart) return null;
+
+  return (
+    <Html center distanceFactor={12} position={[0.6, 3.2, 0]} transform>
+      <div className="pointer-events-none animate-bounce text-[12px] opacity-70">
+        ❤️
+      </div>
+    </Html>
   );
 }
 
@@ -342,6 +396,12 @@ function RobotModel({ robotId }: { robotId: RobotId }) {
           </div>
         </Html>
       )}
+
+      {/* Chat bubble (social interaction) */}
+      <ChatBubble robotId={robotId} />
+
+      {/* Friendship heart indicator */}
+      <FriendshipHeart robotId={robotId} />
 
       {/* Selection ring */}
       {isActive && (

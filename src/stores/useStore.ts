@@ -24,10 +24,12 @@ import {
   recordRoomTime,
 } from '../systems/Personality';
 import type {
+  ActiveChat,
   CameraMode,
   ChatMessage,
   DeviceState,
   DiaryEntry,
+  FriendshipPair,
   HomeEvent,
   HomeEventHistoryEntry,
   NavigationPoint,
@@ -212,6 +214,36 @@ function loadDeviceStates(): Record<string, DeviceState> {
 function saveDeviceStates(states: Record<string, DeviceState>) {
   try {
     localStorage.setItem(DEVICE_STORAGE_KEY, JSON.stringify(states));
+  } catch { /* ignore quota errors */ }
+}
+
+// ── Friendship localStorage persistence ──────────────────────────
+const FRIENDSHIP_STORAGE_KEY = 'simbot-friendships';
+
+function createInitialFriendships(): Record<string, FriendshipPair> {
+  return {
+    'chef-sim': { key: 'chef-sim', robotA: 'chef', robotB: 'sim', level: 10, totalChats: 0, lastChatAt: 0 },
+    'chef-sparkle': { key: 'chef-sparkle', robotA: 'chef', robotB: 'sparkle', level: 10, totalChats: 0, lastChatAt: 0 },
+    'sim-sparkle': { key: 'sim-sparkle', robotA: 'sim', robotB: 'sparkle', level: 10, totalChats: 0, lastChatAt: 0 },
+  };
+}
+
+function loadFriendships(): Record<string, FriendshipPair> {
+  try {
+    const stored = localStorage.getItem(FRIENDSHIP_STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      return { ...createInitialFriendships(), ...parsed };
+    }
+    return createInitialFriendships();
+  } catch {
+    return createInitialFriendships();
+  }
+}
+
+function saveFriendships(data: Record<string, FriendshipPair>) {
+  try {
+    localStorage.setItem(FRIENDSHIP_STORAGE_KEY, JSON.stringify(data));
   } catch { /* ignore quota errors */ }
 }
 
@@ -437,6 +469,16 @@ interface SimBotStore {
   setActiveHomeEvent: (event: HomeEvent | null) => void;
   updateHomeEvent: (updates: Partial<HomeEvent>) => void;
   resolveHomeEvent: (entry: HomeEventHistoryEntry) => void;
+
+  // Robot social / friendships
+  friendships: Record<string, FriendshipPair>;
+  activeChats: ActiveChat[];
+  showSocial: boolean;
+  setShowSocial: (show: boolean) => void;
+  updateFriendship: (key: string, levelDelta: number, simMinutes: number) => void;
+  startChat: (chat: ActiveChat) => void;
+  advanceChatLine: (robotA: RobotId, robotB: RobotId) => void;
+  endChat: (robotA: RobotId, robotB: RobotId) => void;
 
   // Crafting workshop
   showCrafting: boolean;
@@ -989,6 +1031,42 @@ export const useStore = create<SimBotStore>((set) => ({
   resolveHomeEvent: (entry) => set((state) => ({
     activeHomeEvent: null,
     homeEventHistory: [...state.homeEventHistory, entry],
+  })),
+
+  // Robot social / friendships
+  friendships: loadFriendships(),
+  activeChats: [],
+  showSocial: false,
+  setShowSocial: (show) => set({ showSocial: show }),
+  updateFriendship: (key, levelDelta, simMinutes) => set((state) => {
+    const current = state.friendships[key];
+    if (!current) return {};
+    const next = {
+      ...state.friendships,
+      [key]: {
+        ...current,
+        level: Math.max(0, Math.min(100, current.level + levelDelta)),
+        totalChats: current.totalChats + (levelDelta > 0 ? 1 : 0),
+        lastChatAt: simMinutes,
+      },
+    };
+    saveFriendships(next);
+    return { friendships: next };
+  }),
+  startChat: (chat) => set((state) => ({
+    activeChats: [...state.activeChats, chat],
+  })),
+  advanceChatLine: (robotA, robotB) => set((state) => ({
+    activeChats: state.activeChats.map((c) =>
+      (c.robotA === robotA && c.robotB === robotB)
+        ? { ...c, currentLineIndex: c.currentLineIndex + 1 }
+        : c
+    ),
+  })),
+  endChat: (robotA, robotB) => set((state) => ({
+    activeChats: state.activeChats.filter((c) =>
+      !(c.robotA === robotA && c.robotB === robotB)
+    ),
   })),
 
   // Crafting workshop

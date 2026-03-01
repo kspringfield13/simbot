@@ -28,7 +28,9 @@ import { PersonalityPanel } from './components/ui/PersonalityPanel';
 import { LeaderboardTracker } from './components/systems/LeaderboardTracker';
 import { PersonalityTracker } from './components/systems/PersonalityTracker';
 import { HomeEventTracker } from './components/systems/HomeEventTracker';
+import { SocialTracker } from './components/systems/SocialTracker';
 import { EventBanner } from './components/ui/EventBanner';
+import { SocialPanel, SocialButton } from './components/ui/SocialPanel';
 import { useStore } from './stores/useStore';
 import { musicEngine } from './systems/MusicEngine';
 import { useSpectatorHost, useSpectatorViewer } from './hooks/useSpectator';
@@ -475,6 +477,7 @@ function App() {
           <LeaderboardTracker />
           <PersonalityTracker />
           <HomeEventTracker />
+          <SocialTracker />
         </>
       )}
 
@@ -497,6 +500,7 @@ function App() {
             <SmartHomeButton />
             <DiaryButton />
             <PersonalityButton />
+            <SocialButton />
             <ShareButton />
             <MusicToggle />
             <FloorPlanButton />
@@ -526,6 +530,7 @@ function App() {
       <DiaryPanel />
       <LeaderboardPanel />
       <PersonalityPanel />
+      <SocialPanel />
       <FloorPlanSelector />
       {!isSpectating && (
         <TutorialOverlay forceOpen={showTutorial} onClose={() => setShowTutorial(false)} />
