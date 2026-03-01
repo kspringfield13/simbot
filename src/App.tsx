@@ -58,6 +58,7 @@ import { SecurityPanel } from './components/ui/SecurityPanel';
 import { EvolutionPanel } from './components/ui/EvolutionPanel';
 import { SmartSchedulePanel } from './components/ui/SmartSchedulePanel';
 import { SmartScheduleTracker } from './components/systems/SmartScheduleTracker';
+import { StoryModePanel } from './components/ui/StoryModePanel';
 import { MiniGamesPanel } from './components/ui/MiniGamesPanel';
 import { CookingMiniGame } from './components/ui/CookingMiniGame';
 import { RepairMiniGame } from './components/ui/RepairMiniGame';
@@ -744,6 +745,25 @@ function MiniGamesButton() {
   );
 }
 
+function StoryModeButton() {
+  const setShow = useStore((s) => s.setShowStoryMode);
+
+  return (
+    <button
+      type="button"
+      onClick={() => setShow(true)}
+      className="pointer-events-auto relative flex h-10 w-10 items-center justify-center rounded-full border border-amber-400/30 bg-black/50 text-lg backdrop-blur-md transition-all hover:bg-amber-400/20"
+      title="Story Mode"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-amber-300">
+        <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
+        <path d="M8 7h6" />
+        <path d="M8 11h4" />
+      </svg>
+    </button>
+  );
+}
+
 function TrophyButton() {
   const setShowLeaderboard = useStore((s) => s.setShowLeaderboard);
   const totalTasks = useStore((s) => s.totalTasksCompleted);
@@ -1059,6 +1079,7 @@ function App() {
             <EvolutionButton />
             <SmartScheduleButton />
             <MiniGamesButton />
+            <StoryModeButton />
             <ShopButton />
             <CraftingButton />
             <FurnitureCraftingButton />
@@ -1126,6 +1147,7 @@ function App() {
       <SecurityPanel />
       <EvolutionPanel />
       <SmartSchedulePanel />
+      <StoryModePanel />
       <MiniGamesPanel />
       <CookingMiniGame />
       <RepairMiniGame />

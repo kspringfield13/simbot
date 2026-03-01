@@ -623,6 +623,10 @@ interface SimBotStore {
   showGardenGame: boolean;
   setShowGardenGame: (show: boolean) => void;
 
+  // Story mode
+  showStoryMode: boolean;
+  setShowStoryMode: (show: boolean) => void;
+
   // Robot evolution / aging
   robotEvolutions: Record<RobotId, RobotEvolution>;
   showEvolutionPanel: boolean;
@@ -1404,6 +1408,10 @@ export const useStore = create<SimBotStore>((set) => ({
   setShowRepairGame: (show) => set({ showRepairGame: show }),
   showGardenGame: false,
   setShowGardenGame: (show) => set({ showGardenGame: show }),
+
+  // Story mode
+  showStoryMode: false,
+  setShowStoryMode: (show) => set({ showStoryMode: show }),
 
   // Robot evolution / aging
   robotEvolutions: loadEvolutionData(),
