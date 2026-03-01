@@ -10,6 +10,8 @@ import type { MaterialInventory, CraftedFurnitureItem, ActiveCraft } from '../co
 import { loadFurnitureCraftingData, saveFurnitureCraftingData, getRecipeById, canAffordRecipe } from '../config/furnitureCrafting';
 import type { CameraZoneId, AlarmState, SecurityLogEntry } from '../config/security';
 import type { StoryArc } from '../systems/StoryDirector';
+import type { NeighborHouse, VisitEvent } from '../systems/Neighborhood';
+import { generateNeighborhood, getRandomInteraction } from '../systems/Neighborhood';
 import { loadSecurityData, saveSecurityData } from '../config/security';
 import { getSkillQualityBonus } from '../config/skills';
 import { loadFloorPlanId, saveFloorPlanId } from '../config/floorPlans';
@@ -791,6 +793,19 @@ interface SimBotStore {
   setStoryArcs: (arcs: StoryArc[]) => void;
   expandedStoryArcId: string | null;
   setExpandedStoryArcId: (id: string | null) => void;
+
+  // Neighborhood
+  neighborHouses: NeighborHouse[];
+  streetView: boolean;
+  visitingHouseId: string | null;  // which neighbor house interior is being viewed
+  activeVisits: VisitEvent[];
+  showNeighborhoodPanel: boolean;
+  setStreetView: (show: boolean) => void;
+  setVisitingHouseId: (id: string | null) => void;
+  setShowNeighborhoodPanel: (show: boolean) => void;
+  sendRobotToVisit: (robotId: RobotId, houseId: string) => void;
+  recallRobot: (robotId: RobotId) => void;
+  returnToPlayerHouse: () => void;
 }
 
 const initialSimMinutes = (7 * 60) + 20;
@@ -1909,6 +1924,53 @@ export const useStore = create<SimBotStore>((set) => ({
   setStoryArcs: (arcs) => set({ storyArcs: arcs.slice(-20) }), // keep last 20 arcs
   expandedStoryArcId: null,
   setExpandedStoryArcId: (id) => set({ expandedStoryArcId: id }),
+
+  // ── Neighborhood ──────────────────────────────────
+  neighborHouses: generateNeighborhood(42),
+  streetView: false,
+  visitingHouseId: null,
+  activeVisits: [],
+  showNeighborhoodPanel: false,
+  setStreetView: (show) => set((s) => ({
+    streetView: show,
+    // When leaving street view, go back to player house
+    visitingHouseId: show ? s.visitingHouseId : null,
+  })),
+  setVisitingHouseId: (id) => set({ visitingHouseId: id, streetView: false }),
+  setShowNeighborhoodPanel: (show) => set({ showNeighborhoodPanel: show }),
+  sendRobotToVisit: (robotId, houseId) => set((s) => {
+    // Don't re-visit if already visiting
+    if (s.activeVisits.some((v) => v.robotId === robotId)) return s;
+    const newVisit: VisitEvent = {
+      robotId,
+      houseId,
+      startedAt: s.simMinutes,
+      interaction: getRandomInteraction(),
+    };
+    const updatedHouses = s.neighborHouses.map((h) =>
+      h.id === houseId
+        ? { ...h, visitingRobots: [...h.visitingRobots, robotId] }
+        : h,
+    );
+    return {
+      activeVisits: [...s.activeVisits, newVisit],
+      neighborHouses: updatedHouses,
+    };
+  }),
+  recallRobot: (robotId) => set((s) => {
+    const visit = s.activeVisits.find((v) => v.robotId === robotId);
+    if (!visit) return s;
+    const updatedHouses = s.neighborHouses.map((h) =>
+      h.id === visit.houseId
+        ? { ...h, visitingRobots: h.visitingRobots.filter((r) => r !== robotId) }
+        : h,
+    );
+    return {
+      activeVisits: s.activeVisits.filter((v) => v.robotId !== robotId),
+      neighborHouses: updatedHouses,
+    };
+  }),
+  returnToPlayerHouse: () => set({ visitingHouseId: null, streetView: false }),
 }));
 
 // Each completion reduces duration by ~5%, capping at 30% faster
