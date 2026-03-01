@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import { useStore } from '../../stores/useStore';
 import { useAccessibility } from '../../stores/useAccessibility';
 import { ROBOT_IDS } from '../../types';
+import { getRobotDisplayName } from '../../stores/useRobotNames';
 
 export function ScreenReaderAnnouncer() {
   const enabled = useAccessibility((s) => s.screenReaderEnabled);
@@ -27,7 +28,7 @@ export function ScreenReaderAnnouncer() {
     const unsub = useStore.subscribe((state) => {
       for (const robotId of ROBOT_IDS) {
         const robot = state.robots[robotId];
-        const name = robotId.charAt(0).toUpperCase() + robotId.slice(1);
+        const name = getRobotDisplayName(robotId);
         const prevState = prevStates.current[`${robotId}-state`];
         const currentState = robot.state;
 

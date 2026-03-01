@@ -3,6 +3,7 @@ import { useStore } from '../../stores/useStore';
 import { ROBOT_CONFIGS } from '../../config/robots';
 import type { RobotId, TimelapseEvent } from '../../types';
 import { ROBOT_IDS } from '../../types';
+import { getRobotDisplayName } from '../../stores/useRobotNames';
 
 function formatSimTime(simMinutes: number): string {
   const dayMin = ((simMinutes % 1440) + 1440) % 1440;
@@ -123,7 +124,7 @@ function TrailCanvas({
       // Label
       ctx.fillStyle = '#fff';
       ctx.font = '10px sans-serif';
-      ctx.fillText(ROBOT_CONFIGS[rid].name, toCanvasX(last[0]) + 7, toCanvasY(last[2]) + 3);
+      ctx.fillText(getRobotDisplayName(rid), toCanvasX(last[0]) + 7, toCanvasY(last[2]) + 3);
     }
     ctx.globalAlpha = 1;
   }, [events, currentSimMinutes]);
@@ -394,7 +395,7 @@ export function TimelapsePanel() {
                     {ev.type === 'task-complete' ? '✓' : '→'}
                   </span>
                   <span>
-                    {ev.robotId ? ROBOT_CONFIGS[ev.robotId].name : '?'}{' '}
+                    {ev.robotId ? getRobotDisplayName(ev.robotId) : '?'}{' '}
                     {ev.type === 'task-start' ? 'started' : 'finished'}{' '}
                     {ev.taskType ?? 'task'}
                     {ev.roomId ? ` in ${ev.roomId}` : ''}

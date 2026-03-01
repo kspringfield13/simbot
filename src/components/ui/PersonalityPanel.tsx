@@ -3,6 +3,7 @@ import { ROBOT_CONFIGS } from '../../config/robots';
 import { getPersonalityTraits } from '../../systems/Personality';
 import { ROBOT_IDS } from '../../types';
 import type { RobotId, TaskType } from '../../types';
+import { useRobotDisplayName, getRobotDisplayName } from '../../stores/useRobotNames';
 
 const ROBOT_EMOJI: Record<RobotId, string> = {
   sim: '🤖',
@@ -76,10 +77,10 @@ export function PersonalityPanel() {
   const activeRobotId = useStore((s) => s.activeRobotId);
   const setActiveRobotId = useStore((s) => s.setActiveRobotId);
   const personality = useStore((s) => s.personalities[s.activeRobotId]);
+  const activeDisplayName = useRobotDisplayName(activeRobotId);
 
   if (!show) return null;
 
-  const config = ROBOT_CONFIGS[activeRobotId];
   const traits = getPersonalityTraits(personality);
 
   // Top tasks sorted by count
@@ -108,7 +109,7 @@ export function PersonalityPanel() {
         <div className="flex items-center justify-between border-b border-white/10 px-5 py-3">
           <div className="flex items-center gap-2.5">
             <span className="text-lg">🧬</span>
-            <span className="text-sm font-semibold text-white">{config.name}'s Personality</span>
+            <span className="text-sm font-semibold text-white">{activeDisplayName}'s Personality</span>
             <span className="rounded-full border border-purple-400/20 bg-purple-500/10 px-2 py-0.5 text-[10px] text-purple-300/70">
               {personality.totalTasksDone} tasks learned
             </span>
@@ -142,7 +143,7 @@ export function PersonalityPanel() {
                 style={isActive ? { borderBottomColor: rc.color } : undefined}
               >
                 <span>{ROBOT_EMOJI[rid]}</span>
-                <span>{rc.name}</span>
+                <span>{getRobotDisplayName(rid)}</span>
                 {traitCount > 0 && (
                   <span className="rounded-full bg-purple-500/20 px-1.5 text-[9px] text-purple-300/80">{traitCount}</span>
                 )}
@@ -163,8 +164,8 @@ export function PersonalityPanel() {
                 <span className="text-2xl">🌱</span>
                 <p className="text-xs text-white/30">
                   {personality.totalTasksDone === 0
-                    ? `${config.name} hasn't completed any tasks yet.`
-                    : `${config.name} is still developing preferences...`}
+                    ? `${activeDisplayName} hasn't completed any tasks yet.`
+                    : `${activeDisplayName} is still developing preferences...`}
                 </p>
                 <p className="text-[10px] text-white/20">Traits emerge as robots complete more tasks and spend time in rooms.</p>
               </div>

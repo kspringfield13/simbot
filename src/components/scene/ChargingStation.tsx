@@ -6,6 +6,7 @@ import { useStore } from '../../stores/useStore';
 import { ROBOT_IDS } from '../../types';
 import { ROBOT_CONFIGS } from '../../config/robots';
 import { getActiveChargingPosition } from '../../utils/battery';
+import { getRobotDisplayName } from '../../stores/useRobotNames';
 
 /**
  * 3D charging station in the hallway.
@@ -145,7 +146,7 @@ export function ChargingStation() {
                   border: `1px solid ${ROBOT_CONFIGS[id].color}55`,
                 }}
               >
-                {ROBOT_CONFIGS[id].name}
+                {getRobotDisplayName(id)}
               </div>
             ))}
           </div>

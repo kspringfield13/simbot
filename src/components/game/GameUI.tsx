@@ -10,8 +10,9 @@ import { formatSimClock } from '../../systems/TimeSystem';
 
 import { ROBOT_CONFIGS } from '../../config/robots';
 import { ROBOT_IDS } from '../../types';
-import type { WeatherType } from '../../types';
+import type { RobotId, WeatherType } from '../../types';
 import { SchedulePanel } from '../ui/SchedulePanel';
+import { useRobotNames, useRobotDisplayName } from '../../stores/useRobotNames';
 
 function RobotPickerItem({ robotId, config, isActive, onSelect }: {
   robotId: string;
@@ -19,8 +20,9 @@ function RobotPickerItem({ robotId, config, isActive, onSelect }: {
   isActive: boolean;
   onSelect: () => void;
 }) {
-  const battery = useStore((s) => Math.round(s.robots[robotId as import('../../types').RobotId].battery));
-  const isCharging = useStore((s) => s.robots[robotId as import('../../types').RobotId].isCharging);
+  const battery = useStore((s) => Math.round(s.robots[robotId as RobotId].battery));
+  const isCharging = useStore((s) => s.robots[robotId as RobotId].isCharging);
+  const displayName = useRobotDisplayName(robotId as RobotId);
   const fill = battery > 50 ? '#4ade80' : battery > 20 ? '#facc15' : '#f87171';
 
   return (
@@ -28,7 +30,7 @@ function RobotPickerItem({ robotId, config, isActive, onSelect }: {
       type="button"
       onClick={onSelect}
       className={`flex flex-col items-center gap-0.5 rounded-lg px-1.5 py-1 transition-all ${isActive ? 'ring-1 ring-white/40 bg-white/10' : 'opacity-60 hover:opacity-100'}`}
-      title={`${config.name} - ${battery}%`}
+      title={`${displayName} - ${battery}%`}
     >
       <span className="h-5 w-5 rounded-full" style={{ background: config.color }} />
       <div className="h-[3px] w-5 overflow-hidden rounded-full bg-white/10">
@@ -41,24 +43,72 @@ function RobotPickerItem({ robotId, config, isActive, onSelect }: {
   );
 }
 
+function RobotRenameInput({ robotId, onDone }: { robotId: RobotId; onDone: () => void }) {
+  const displayName = useRobotDisplayName(robotId);
+  const setCustomName = useRobotNames((s) => s.setCustomName);
+  const [value, setValue] = useState(displayName);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { inputRef.current?.select(); }, []);
+
+  const save = () => {
+    const trimmed = value.trim().slice(0, 20);
+    if (trimmed) setCustomName(robotId, trimmed);
+    onDone();
+  };
+
+  return (
+    <input
+      ref={inputRef}
+      value={value}
+      onChange={(e) => setValue(e.target.value)}
+      onBlur={save}
+      onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') onDone(); }}
+      maxLength={20}
+      className="h-7 w-28 rounded-md border border-cyan-400/50 bg-black/80 px-2 text-[11px] text-white outline-none"
+      autoFocus
+    />
+  );
+}
+
 function RobotPicker() {
   const activeRobotId = useStore((s) => s.activeRobotId);
   const setActiveRobotId = useStore((s) => s.setActiveRobotId);
   const [open, setOpen] = useState(false);
+  const [renaming, setRenaming] = useState(false);
   const config = ROBOT_CONFIGS[activeRobotId];
+  const displayName = useRobotDisplayName(activeRobotId);
 
   return (
     <div className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        className="flex h-9 items-center gap-1.5 rounded-full border border-white/10 bg-black/50 px-2.5 backdrop-blur-md transition-all"
-        title="Select robot"
-      >
-        <span className="h-3.5 w-3.5 rounded-full" style={{ background: config.color }} />
-        <span className="text-[11px] text-white/70">{config.name}</span>
-      </button>
-      {open && (
+      <div className="flex items-center gap-1">
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          className="flex h-9 items-center gap-1.5 rounded-full border border-white/10 bg-black/50 px-2.5 backdrop-blur-md transition-all"
+          title="Select robot"
+        >
+          <span className="h-3.5 w-3.5 rounded-full" style={{ background: config.color }} />
+          <span className="text-[11px] text-white/70">{displayName}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setRenaming(true)}
+          className="flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-black/50 text-white/40 hover:text-white/80 backdrop-blur-md transition-all"
+          title={`Rename ${displayName}`}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3">
+            <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
+            <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
+          </svg>
+        </button>
+      </div>
+      {renaming && (
+        <div className="absolute right-0 top-11 rounded-xl bg-black/80 p-2 backdrop-blur-xl border border-white/10 z-50">
+          <RobotRenameInput robotId={activeRobotId} onDone={() => setRenaming(false)} />
+        </div>
+      )}
+      {open && !renaming && (
         <div className="absolute right-0 top-11 flex gap-1.5 rounded-xl bg-black/70 p-1.5 backdrop-blur-xl border border-white/10">
           {ROBOT_IDS.map(id => {
             const c = ROBOT_CONFIGS[id];

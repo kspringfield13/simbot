@@ -3,6 +3,7 @@ import { useStore } from '../../stores/useStore';
 import { ROBOT_CONFIGS } from '../../config/robots';
 import { ROBOT_IDS } from '../../types';
 import type { RobotId } from '../../types';
+import { getRobotDisplayName } from '../../stores/useRobotNames';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const MINUTES_OPTIONS = [0, 15, 30, 45];
@@ -95,7 +96,7 @@ export function SchedulePanel() {
               className="h-8 rounded-lg border border-white/10 bg-black/40 px-2 text-xs text-white outline-none"
             >
               {ROBOT_IDS.map((id) => (
-                <option key={id} value={id}>{ROBOT_CONFIGS[id].name}</option>
+                <option key={id} value={id}>{getRobotDisplayName(id)}</option>
               ))}
             </select>
           </div>
@@ -155,7 +156,7 @@ export function SchedulePanel() {
                   <span
                     className="h-2.5 w-2.5 shrink-0 rounded-full"
                     style={{ background: config.color }}
-                    title={config.name}
+                    title={getRobotDisplayName(task.assignedTo)}
                   />
 
                   {/* Command */}

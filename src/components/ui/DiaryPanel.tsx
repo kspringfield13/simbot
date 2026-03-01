@@ -5,6 +5,7 @@ import { getMoodEmoji } from '../../config/diary';
 import { formatSimClock } from '../../systems/TimeSystem';
 import { ROBOT_IDS } from '../../types';
 import type { RobotId } from '../../types';
+import { useRobotDisplayName, getRobotDisplayName } from '../../stores/useRobotNames';
 
 const ROBOT_EMOJI: Record<RobotId, string> = {
   sim: '🤖',
@@ -28,9 +29,9 @@ export function DiaryPanel() {
     }
   }, [showDiary, entries.length]);
 
-  if (!showDiary) return null;
+  const activeDisplayName = useRobotDisplayName(activeRobotId);
 
-  const config = ROBOT_CONFIGS[activeRobotId];
+  if (!showDiary) return null;
 
   return (
     <div className="pointer-events-auto fixed inset-0 z-50 flex items-center justify-center">
@@ -55,7 +56,7 @@ export function DiaryPanel() {
               <line x1="8" y1="7" x2="16" y2="7" />
               <line x1="8" y1="11" x2="14" y2="11" />
             </svg>
-            <span className="text-sm font-semibold text-white">{config.name}'s Diary</span>
+            <span className="text-sm font-semibold text-white">{activeDisplayName}'s Diary</span>
             <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-white/50">{dayText}</span>
           </div>
           <button
@@ -86,7 +87,7 @@ export function DiaryPanel() {
                 style={isActive ? { borderBottomColor: rc.color } : undefined}
               >
                 <span>{ROBOT_EMOJI[rid]}</span>
-                <span>{rc.name}</span>
+                <span>{getRobotDisplayName(rid)}</span>
                 {entryCount > 0 && (
                   <span className="rounded-full bg-white/10 px-1.5 text-[9px] text-white/50">{entryCount}</span>
                 )}
@@ -109,7 +110,7 @@ export function DiaryPanel() {
             <div className="flex flex-col items-center gap-2 py-12 text-center">
               <span className="text-3xl">📓</span>
               <p className="text-sm text-white/30">No diary entries yet today.</p>
-              <p className="text-xs text-white/20">{config.name} will write about their day as they complete tasks.</p>
+              <p className="text-xs text-white/20">{activeDisplayName} will write about their day as they complete tasks.</p>
             </div>
           ) : (
             <div className="space-y-2.5">

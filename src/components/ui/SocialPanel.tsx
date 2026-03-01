@@ -2,6 +2,7 @@ import { useStore } from '../../stores/useStore';
 import { ROBOT_CONFIGS } from '../../config/robots';
 import type { RobotId } from '../../types';
 import { ROBOT_IDS } from '../../types';
+import { useRobotDisplayName, getRobotDisplayName } from '../../stores/useRobotNames';
 
 function getFriendshipLabel(level: number): string {
   if (level >= 80) return 'Best Friends';
@@ -37,6 +38,8 @@ function PairRow({ robotA, robotB }: { robotA: RobotId; robotB: RobotId }) {
         (c.robotA === robotB && c.robotB === robotA),
     ),
   );
+  const nameA = useRobotDisplayName(robotA);
+  const nameB = useRobotDisplayName(robotB);
 
   if (!friendship) return null;
 
@@ -63,7 +66,7 @@ function PairRow({ robotA, robotB }: { robotA: RobotId; robotB: RobotId }) {
           style={{ background: configA.color }}
         />
         <span style={{ fontSize: 12, fontWeight: 600, color: '#e0e0e0' }}>
-          {configA.name}
+          {nameA}
         </span>
         <span style={{ fontSize: 10, color: '#666' }}>&amp;</span>
         <span
@@ -71,7 +74,7 @@ function PairRow({ robotA, robotB }: { robotA: RobotId; robotB: RobotId }) {
           style={{ background: configB.color }}
         />
         <span style={{ fontSize: 12, fontWeight: 600, color: '#e0e0e0' }}>
-          {configB.name}
+          {nameB}
         </span>
         {activeChat && (
           <span
@@ -133,7 +136,7 @@ function PairRow({ robotA, robotB }: { robotA: RobotId; robotB: RobotId }) {
           }}
         >
           <span style={{ fontWeight: 600, color: '#ec4899' }}>
-            {ROBOT_CONFIGS[activeChat.lines[activeChat.currentLineIndex].speaker].name}:
+            {getRobotDisplayName(activeChat.lines[activeChat.currentLineIndex].speaker)}:
           </span>{' '}
           "{activeChat.lines[activeChat.currentLineIndex].text}"
         </div>

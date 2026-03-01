@@ -3,6 +3,7 @@ import { useStore } from '../../stores/useStore';
 import { ROBOT_CONFIGS } from '../../config/robots';
 import { ROBOT_IDS } from '../../types';
 import type { RobotId } from '../../types';
+import { useRobotDisplayName } from '../../stores/useRobotNames';
 import {
   computeRobotScore,
   computeSessionScore,
@@ -70,6 +71,7 @@ function RobotCard({
   const color = robotColors[robotId] ?? cfg.color;
   const medal = rank < 3 ? MEDAL_COLORS[rank] : null;
   const tasks = 'tasksCompleted' in stats ? stats.tasksCompleted : (stats as RobotAllTimeStats).totalTasksCompleted;
+  const displayName = useRobotDisplayName(robotId);
 
   return (
     <div className={`rounded-xl border p-3 transition-all ${
@@ -83,7 +85,7 @@ function RobotCard({
             style={{ backgroundColor: color }}
           />
           <span className={`text-sm font-semibold ${medal ? medal.text : 'text-white'}`}>
-            {cfg.name}
+            {displayName}
           </span>
         </div>
         <ScoreBadge score={score} size="sm" />

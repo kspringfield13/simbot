@@ -1,6 +1,8 @@
 import { useStore } from '../../stores/useStore';
 import { ROBOT_CONFIGS } from '../../config/robots';
 import { ROBOT_IDS } from '../../types';
+import type { RobotId } from '../../types';
+import { useRobotDisplayName } from '../../stores/useRobotNames';
 
 function BatteryIcon({ level, isCharging }: { level: number; isCharging: boolean }) {
   const fill = level > 50 ? '#4ade80' : level > 20 ? '#facc15' : '#f87171';
@@ -34,35 +36,38 @@ function BatteryIcon({ level, isCharging }: { level: number; isCharging: boolean
   );
 }
 
-export function BatteryIndicator() {
-  const robots = useStore((s) => s.robots);
+function BatteryRow({ id }: { id: RobotId }) {
+  const robot = useStore((s) => s.robots[id]);
+  const config = ROBOT_CONFIGS[id];
+  const displayName = useRobotDisplayName(id);
+  const level = Math.round(robot.battery);
+  const isLow = level < 20;
 
   return (
-    <div className="pointer-events-none fixed left-4 bottom-4 z-20 flex flex-col gap-1 rounded-xl border border-white/6 bg-black/50 p-2 backdrop-blur-md">
-      {ROBOT_IDS.map((id) => {
-        const robot = robots[id];
-        const config = ROBOT_CONFIGS[id];
-        const level = Math.round(robot.battery);
-        const isLow = level < 20;
+    <div className="flex items-center gap-1.5">
+      <span
+        className="inline-block h-2 w-2 rounded-full"
+        style={{ background: config.color }}
+      />
+      <span className="w-12 text-[9px] text-white/50 truncate">{displayName}</span>
+      <BatteryIcon level={level} isCharging={robot.isCharging} />
+      <span
+        className={`w-7 text-right text-[9px] font-mono ${
+          isLow ? 'text-red-400 animate-pulse' : robot.isCharging ? 'text-emerald-400' : 'text-white/40'
+        }`}
+      >
+        {level}%
+      </span>
+    </div>
+  );
+}
 
-        return (
-          <div key={id} className="flex items-center gap-1.5">
-            <span
-              className="inline-block h-2 w-2 rounded-full"
-              style={{ background: config.color }}
-            />
-            <span className="w-12 text-[9px] text-white/50 truncate">{config.name}</span>
-            <BatteryIcon level={level} isCharging={robot.isCharging} />
-            <span
-              className={`w-7 text-right text-[9px] font-mono ${
-                isLow ? 'text-red-400 animate-pulse' : robot.isCharging ? 'text-emerald-400' : 'text-white/40'
-              }`}
-            >
-              {level}%
-            </span>
-          </div>
-        );
-      })}
+export function BatteryIndicator() {
+  return (
+    <div className="pointer-events-none fixed left-4 bottom-4 z-20 flex flex-col gap-1 rounded-xl border border-white/6 bg-black/50 p-2 backdrop-blur-md">
+      {ROBOT_IDS.map((id) => (
+        <BatteryRow key={id} id={id} />
+      ))}
     </div>
   );
 }

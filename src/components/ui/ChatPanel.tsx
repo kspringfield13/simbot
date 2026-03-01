@@ -7,6 +7,7 @@ import {
   ROOM_DISPLAY_NAMES,
 } from '../../systems/VoiceCommands';
 import type { RoomId, TaskType } from '../../types';
+import { getRobotDisplayName } from '../../stores/useRobotNames';
 
 const ROOM_NAMES: Record<RoomId, string> = ROOM_DISPLAY_NAMES;
 
@@ -488,7 +489,7 @@ export function ChatPanel() {
           <div className="flex items-center justify-between border-b border-white/10 px-4 py-2">
             <div className="flex items-center gap-2">
               <span className="text-sm">🤖</span>
-              <span className="text-sm font-medium text-white">SimBot</span>
+              <span className="text-sm font-medium text-white">{getRobotDisplayName(activeRobotId)}</span>
               <span className={`h-2 w-2 rounded-full ${robotState === 'working' ? 'bg-orange-400' : robotState === 'walking' ? 'bg-blue-400' : 'bg-green-400'}`} />
               {isListening && (
                 <span className="flex items-center gap-1 rounded-full bg-red-500/20 px-2 py-0.5 text-[10px] text-red-300">

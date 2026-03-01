@@ -6,6 +6,7 @@ import { getAvoidanceForce, isPositionClear, findClearPosition } from '../../sys
 import { ROBOT_CONFIGS } from '../../config/robots';
 import type { RobotId, ActiveChat } from '../../types';
 import { ROBOT_IDS } from '../../types';
+import { useRobotDisplayName } from '../../stores/useRobotNames';
 import { getFriendshipKey } from '../../config/conversations';
 import * as THREE from 'three';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
@@ -363,6 +364,7 @@ function RobotModel({ robotId }: { robotId: RobotId }) {
   const activeRobotId = useStore((s) => s.activeRobotId);
   const isActive = activeRobotId === robotId;
   const thought = useStore((s) => s.robots[robotId].thought);
+  const displayName = useRobotDisplayName(robotId);
   return (
     <group ref={groupRef} onClick={handleClick}>
       <group ref={modelRef} scale={[ROBOT_SCALE, ROBOT_SCALE, ROBOT_SCALE]}>
@@ -382,7 +384,7 @@ function RobotModel({ robotId }: { robotId: RobotId }) {
             style={{ borderColor: isActive ? displayColor : 'transparent' }}
           >
             <span className="inline-block h-1.5 w-1.5 rounded-full mr-1" style={{ background: displayColor }} />
-            {config.name}
+            {displayName}
           </div>
           <RobotBatteryBar robotId={robotId} />
         </div>
