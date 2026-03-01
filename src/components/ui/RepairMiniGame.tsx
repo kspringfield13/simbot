@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useStore } from '../../stores/useStore';
+import { getMiniGameHighScore, saveMiniGameHighScore, type MiniGameScore } from '../../utils/miniGameScores';
 
 // ── Repair Mini-Game: Pipe/Wire Puzzle ────────────────────────────────
 
@@ -171,6 +172,25 @@ function renderTileShape(tile: Tile, size: number) {
   );
 }
 
+function getStars(score: number): number {
+  if (score >= 35) return 3;
+  if (score >= 25) return 2;
+  if (score > 0) return 1;
+  return 0;
+}
+
+function StarRating({ stars, size = 'text-2xl' }: { stars: number; size?: string }) {
+  return (
+    <div className="flex gap-1">
+      {[1, 2, 3].map((i) => (
+        <span key={i} className={`${size} ${i <= stars ? 'opacity-100' : 'opacity-20'}`}>
+          {i <= stars ? '⭐' : '☆'}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 export function RepairMiniGame() {
   const show = useStore((s) => s.showRepairGame);
   const setShow = useStore((s) => s.setShowRepairGame);
@@ -178,16 +198,27 @@ export function RepairMiniGame() {
   const recordTransaction = useStore((s) => s.recordTransaction);
   const addCoinAnimation = useStore((s) => s.addCoinAnimation);
   const addNotification = useStore((s) => s.addNotification);
+  const applyRoomTaskResult = useStore((s) => s.applyRoomTaskResult);
 
   const [phase, setPhase] = useState<GamePhase>('ready');
   const [grid, setGrid] = useState<Tile[][]>([]);
   const [moves, setMoves] = useState(0);
   const [timeLeft, setTimeLeft] = useState(0);
   const [score, setScore] = useState(0);
+  const [stars, setStars] = useState(0);
+  const [isNewBest, setIsNewBest] = useState(false);
+  const [highScore, setHighScore] = useState<MiniGameScore | null>(null);
   const timerRef = useRef<number>(0);
 
   const TIME_LIMIT = 60;
   const REWARD_BASE = 20;
+
+  // Load high score on mount
+  useEffect(() => {
+    if (show) {
+      setHighScore(getMiniGameHighScore('repair'));
+    }
+  }, [show]);
 
   const startGame = useCallback(() => {
     const puzzle = generatePuzzle();
@@ -196,6 +227,8 @@ export function RepairMiniGame() {
     setMoves(0);
     setTimeLeft(TIME_LIMIT);
     setScore(0);
+    setStars(0);
+    setIsNewBest(false);
     setPhase('playing');
   }, []);
 
@@ -239,17 +272,31 @@ export function RepairMiniGame() {
     [phase, grid],
   );
 
-  // Award on success
+  // Award on success + sim state effects
   useEffect(() => {
     if (phase !== 'success') return;
     const timeBonus = Math.floor(timeLeft * 0.5);
     const moveBonus = Math.max(0, 15 - Math.floor(moves / 3));
     const total = REWARD_BASE + timeBonus + moveBonus;
+    const earnedStars = getStars(total);
     setScore(total);
+    setStars(earnedStars);
     addCoins(total);
     recordTransaction('income', 'bonus', total, 'Mini-game: Pipe Repair');
     addCoinAnimation(total);
-    addNotification({ type: 'success', title: 'Pipes Connected!', message: `Repair complete! Earned ${total} coins!` });
+
+    // Save high score
+    const newBest = saveMiniGameHighScore('repair', total, earnedStars);
+    setIsNewBest(newBest);
+    setHighScore(getMiniGameHighScore('repair'));
+
+    // Sim state: repair boosts room cleanliness
+    const rooms = ['kitchen', 'bathroom', 'living-room'];
+    const targetRoom = rooms[Math.floor(Math.random() * rooms.length)];
+    applyRoomTaskResult(targetRoom, 'cleaning');
+
+    const starText = earnedStars === 3 ? 'Perfect!' : earnedStars === 2 ? 'Great!' : 'Fixed!';
+    addNotification({ type: 'success', title: `${starText} Pipes Connected!`, message: `Repair complete! Earned ${total} coins! ${'⭐'.repeat(earnedStars)}` });
   }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const close = useCallback(() => {
@@ -273,9 +320,14 @@ export function RepairMiniGame() {
             <span className="text-xl">🔧</span>
             <span className="text-base font-semibold text-white">Pipe Repair Puzzle</span>
           </div>
-          <button onClick={close} className="flex h-7 w-7 items-center justify-center rounded-full text-white/50 hover:bg-white/10 hover:text-white">
-            ✕
-          </button>
+          <div className="flex items-center gap-3">
+            {highScore && (
+              <span className="text-[10px] text-white/40">Best: {highScore.bestScore} {'⭐'.repeat(highScore.bestStars)}</span>
+            )}
+            <button onClick={close} className="flex h-7 w-7 items-center justify-center rounded-full text-white/50 hover:bg-white/10 hover:text-white">
+              ✕
+            </button>
+          </div>
         </div>
 
         <div className="overflow-y-auto p-5" style={{ maxHeight: 'calc(85vh - 60px)' }}>
@@ -289,6 +341,11 @@ export function RepairMiniGame() {
                   Rotate the pipe tiles to connect the water source (top-left)
                   to the drain (bottom-right). Click tiles to rotate them 90°.
                 </p>
+                <div className="mt-3 flex items-center justify-center gap-1 text-xs text-white/40">
+                  <span>⭐ 1 coin+ </span>
+                  <span>⭐⭐ 25+ coins </span>
+                  <span>⭐⭐⭐ 35+ coins</span>
+                </div>
               </div>
               <button
                 onClick={startGame}
@@ -358,6 +415,8 @@ export function RepairMiniGame() {
           {phase === 'success' && (
             <div className="flex flex-col items-center gap-5 py-8">
               <div className="text-6xl">🎉</div>
+              <StarRating stars={stars} />
+              {isNewBest && <span className="text-xs font-bold text-yellow-400 animate-pulse">New Best!</span>}
               <h3 className="text-xl font-bold text-green-400">Pipes Connected!</h3>
               <p className="text-sm text-white/60">
                 Repair complete in {moves} moves with {timeLeft}s to spare!
@@ -384,6 +443,7 @@ export function RepairMiniGame() {
           {phase === 'failed' && (
             <div className="flex flex-col items-center gap-5 py-8">
               <div className="text-6xl">⏰</div>
+              <StarRating stars={0} />
               <h3 className="text-xl font-bold text-red-400">Time's Up!</h3>
               <p className="text-sm text-white/60">The pipes couldn't be connected in time.</p>
               <div className="flex gap-3">

@@ -1,9 +1,10 @@
 import { useStore } from '../../stores/useStore';
+import { getAllMiniGameScores, type MiniGameId } from '../../utils/miniGameScores';
 
 // ── Mini-Games Hub Panel ──────────────────────────────────────────────
 
 interface MiniGameCard {
-  id: string;
+  id: MiniGameId;
   name: string;
   emoji: string;
   description: string;
@@ -23,6 +24,8 @@ export function MiniGamesPanel() {
   const setShowGarden = useStore((s) => s.setShowGardenGame);
 
   if (!show) return null;
+
+  const scores = getAllMiniGameScores();
 
   const games: MiniGameCard[] = [
     {
@@ -87,32 +90,49 @@ export function MiniGamesPanel() {
           </p>
 
           <div className="flex flex-col gap-3">
-            {games.map((game) => (
-              <button
-                key={game.id}
-                onClick={game.onLaunch}
-                className={`group relative overflow-hidden rounded-xl border ${game.borderColor} ${game.hoverColor} bg-gradient-to-br ${game.color} p-4 text-left transition-all active:scale-[0.98]`}
-              >
-                <div className="flex items-start gap-3">
-                  <span className="text-3xl">{game.emoji}</span>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-bold text-white">{game.name}</h3>
-                    <p className="mt-1 text-xs text-white/50 leading-relaxed">{game.description}</p>
-                    <div className="mt-2 flex items-center gap-3">
-                      <span className="flex items-center gap-1 rounded-full border border-yellow-400/20 bg-yellow-900/20 px-2 py-0.5 text-[10px] text-yellow-300">
-                        🪙 {game.reward}
-                      </span>
-                      <span className="text-[10px] text-white/30">{game.taskTypes.join(', ')}</span>
+            {games.map((game) => {
+              const gameScore = scores[game.id];
+              return (
+                <button
+                  key={game.id}
+                  onClick={game.onLaunch}
+                  className={`group relative overflow-hidden rounded-xl border ${game.borderColor} ${game.hoverColor} bg-gradient-to-br ${game.color} p-4 text-left transition-all active:scale-[0.98]`}
+                >
+                  <div className="flex items-start gap-3">
+                    <span className="text-3xl">{game.emoji}</span>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-sm font-bold text-white">{game.name}</h3>
+                      <p className="mt-1 text-xs text-white/50 leading-relaxed">{game.description}</p>
+                      <div className="mt-2 flex items-center gap-3">
+                        <span className="flex items-center gap-1 rounded-full border border-yellow-400/20 bg-yellow-900/20 px-2 py-0.5 text-[10px] text-yellow-300">
+                          🪙 {game.reward}
+                        </span>
+                        <span className="text-[10px] text-white/30">{game.taskTypes.join(', ')}</span>
+                      </div>
+                      {/* High score row */}
+                      {gameScore && gameScore.gamesPlayed > 0 && (
+                        <div className="mt-2 flex items-center gap-3 text-[10px]">
+                          <span className="text-white/40">
+                            Best: <span className="font-bold text-yellow-300">{gameScore.bestScore}</span>
+                          </span>
+                          <span className="text-white/30">
+                            {'⭐'.repeat(gameScore.bestStars)}{'☆'.repeat(3 - gameScore.bestStars)}
+                          </span>
+                          <span className="text-white/25">
+                            {gameScore.gamesPlayed} played
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/40 transition group-hover:bg-white/10 group-hover:text-white/80">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
+                        <polygon points="5 3 19 12 5 21 5 3" />
+                      </svg>
                     </div>
                   </div>
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/40 transition group-hover:bg-white/10 group-hover:text-white/80">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
-                      <polygon points="5 3 19 12 5 21 5 3" />
-                    </svg>
-                  </div>
-                </div>
-              </button>
-            ))}
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>

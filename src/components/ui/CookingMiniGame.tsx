@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useStore } from '../../stores/useStore';
+import { ROBOT_IDS } from '../../types';
+import { getMiniGameHighScore, saveMiniGameHighScore, type MiniGameScore } from '../../utils/miniGameScores';
 
 // ── Cooking Mini-Game: Ingredient Matching + Timing ───────────────────
 
@@ -46,6 +48,25 @@ const RECIPES: Recipe[] = [
 
 type GamePhase = 'ready' | 'playing' | 'cooking' | 'success' | 'failed';
 
+function getStars(score: number): number {
+  if (score >= 30) return 3;
+  if (score >= 20) return 2;
+  if (score > 0) return 1;
+  return 0;
+}
+
+function StarRating({ stars, size = 'text-2xl' }: { stars: number; size?: string }) {
+  return (
+    <div className="flex gap-1">
+      {[1, 2, 3].map((i) => (
+        <span key={i} className={`${size} ${i <= stars ? 'opacity-100' : 'opacity-20'}`}>
+          {i <= stars ? '⭐' : '☆'}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 export function CookingMiniGame() {
   const show = useStore((s) => s.showCookingGame);
   const setShow = useStore((s) => s.setShowCookingGame);
@@ -53,6 +74,9 @@ export function CookingMiniGame() {
   const recordTransaction = useStore((s) => s.recordTransaction);
   const addCoinAnimation = useStore((s) => s.addCoinAnimation);
   const addNotification = useStore((s) => s.addNotification);
+  const setRobotMood = useStore((s) => s.setRobotMood);
+  const updateRobotNeeds = useStore((s) => s.updateRobotNeeds);
+  const robots = useStore((s) => s.robots);
 
   const [phase, setPhase] = useState<GamePhase>('ready');
   const [recipe, setRecipe] = useState<Recipe>(RECIPES[0]);
@@ -61,14 +85,26 @@ export function CookingMiniGame() {
   const [timeLeft, setTimeLeft] = useState(0);
   const [cookProgress, setCookProgress] = useState(0);
   const [score, setScore] = useState(0);
+  const [stars, setStars] = useState(0);
+  const [isNewBest, setIsNewBest] = useState(false);
+  const [highScore, setHighScore] = useState<MiniGameScore | null>(null);
   const timerRef = useRef<number>(0);
+
+  // Load high score on mount
+  useEffect(() => {
+    if (show) {
+      setHighScore(getMiniGameHighScore('cooking'));
+    }
+  }, [show]);
 
   const startGame = useCallback(() => {
     const r = RECIPES[Math.floor(Math.random() * RECIPES.length)];
     setRecipe(r);
     setSelectedIngredients([]);
     setScore(0);
+    setStars(0);
     setCookProgress(0);
+    setIsNewBest(false);
 
     // Build ingredient pool: recipe ingredients + random distractors
     const recipeIngs = r.ingredients.map((id) => ALL_INGREDIENTS.find((i) => i.id === id)!);
@@ -137,16 +173,33 @@ export function CookingMiniGame() {
     [phase, selectedIngredients, recipe],
   );
 
-  // Award coins on success
+  // Award coins on success + sim state effects
   useEffect(() => {
     if (phase !== 'success') return;
     const timeBonus = Math.floor(timeLeft * 1.5);
     const total = recipe.reward + timeBonus;
+    const earnedStars = getStars(total);
     setScore(total);
+    setStars(earnedStars);
     addCoins(total);
     recordTransaction('income', 'bonus', total, `Mini-game: Cooking ${recipe.name}`);
     addCoinAnimation(total);
-    addNotification({ type: 'success', title: 'Dish Complete!', message: `${recipe.emoji} ${recipe.name} earned ${total} coins!` });
+
+    // Save high score
+    const newBest = saveMiniGameHighScore('cooking', total, earnedStars);
+    setIsNewBest(newBest);
+    setHighScore(getMiniGameHighScore('cooking'));
+
+    // Sim state: boost chef robot mood and happiness
+    const chefId = ROBOT_IDS.find((id) => id === 'chef') ?? ROBOT_IDS[0];
+    if (robots[chefId]) {
+      setRobotMood(chefId, 'happy');
+      const currentHappiness = robots[chefId].needs.happiness;
+      updateRobotNeeds(chefId, { happiness: Math.min(100, currentHappiness + 15 + earnedStars * 5) });
+    }
+
+    const starText = earnedStars === 3 ? 'Perfect!' : earnedStars === 2 ? 'Great!' : 'Good!';
+    addNotification({ type: 'success', title: `${starText} Dish Complete!`, message: `${recipe.emoji} ${recipe.name} earned ${total} coins! ${'⭐'.repeat(earnedStars)}` });
   }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const close = useCallback(() => {
@@ -170,9 +223,14 @@ export function CookingMiniGame() {
             <span className="text-xl">🍳</span>
             <span className="text-base font-semibold text-white">Cooking Challenge</span>
           </div>
-          <button onClick={close} className="flex h-7 w-7 items-center justify-center rounded-full text-white/50 hover:bg-white/10 hover:text-white">
-            ✕
-          </button>
+          <div className="flex items-center gap-3">
+            {highScore && (
+              <span className="text-[10px] text-white/40">Best: {highScore.bestScore} {'⭐'.repeat(highScore.bestStars)}</span>
+            )}
+            <button onClick={close} className="flex h-7 w-7 items-center justify-center rounded-full text-white/50 hover:bg-white/10 hover:text-white">
+              ✕
+            </button>
+          </div>
         </div>
 
         <div className="overflow-y-auto p-5" style={{ maxHeight: 'calc(85vh - 60px)' }}>
@@ -186,6 +244,11 @@ export function CookingMiniGame() {
                   Match the ingredients in the right order before time runs out!
                   Pick carefully — wrong ingredients cost you 2 seconds.
                 </p>
+                <div className="mt-3 flex items-center justify-center gap-1 text-xs text-white/40">
+                  <span>⭐ 1 coin+ </span>
+                  <span>⭐⭐ 20+ coins </span>
+                  <span>⭐⭐⭐ 30+ coins</span>
+                </div>
               </div>
               <button
                 onClick={startGame}
@@ -283,6 +346,8 @@ export function CookingMiniGame() {
           {phase === 'success' && (
             <div className="flex flex-col items-center gap-5 py-8">
               <div className="text-6xl">{recipe.emoji}</div>
+              <StarRating stars={stars} />
+              {isNewBest && <span className="text-xs font-bold text-yellow-400 animate-pulse">New Best!</span>}
               <h3 className="text-xl font-bold text-green-400">Delicious!</h3>
               <p className="text-sm text-white/60">{recipe.name} cooked to perfection!</p>
               <div className="flex items-center gap-2 rounded-full border border-yellow-400/30 bg-yellow-900/30 px-5 py-2">
@@ -311,6 +376,7 @@ export function CookingMiniGame() {
           {phase === 'failed' && (
             <div className="flex flex-col items-center gap-5 py-8">
               <div className="text-6xl">⏰</div>
+              <StarRating stars={0} />
               <h3 className="text-xl font-bold text-red-400">Time's Up!</h3>
               <p className="text-sm text-white/60">
                 You got {selectedIngredients.length} of {recipe.ingredients.length} ingredients for {recipe.name}.

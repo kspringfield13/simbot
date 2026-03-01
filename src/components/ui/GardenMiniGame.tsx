@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useStore } from '../../stores/useStore';
+import { ROBOT_IDS } from '../../types';
+import { getMiniGameHighScore, saveMiniGameHighScore, type MiniGameScore } from '../../utils/miniGameScores';
 
 // ── Garden Mini-Game: Plant / Water / Harvest Tending ─────────────────
 
@@ -36,6 +38,25 @@ const PLOT_COUNT = 6;
 const GAME_DURATION = 60; // seconds
 const WITHER_TIME = 8; // seconds to harvest before withering
 
+function getStars(harvested: number): number {
+  if (harvested >= 5) return 3;
+  if (harvested >= 3) return 2;
+  if (harvested >= 1) return 1;
+  return 0;
+}
+
+function StarRating({ stars, size = 'text-2xl' }: { stars: number; size?: string }) {
+  return (
+    <div className="flex gap-1">
+      {[1, 2, 3].map((i) => (
+        <span key={i} className={`${size} ${i <= stars ? 'opacity-100' : 'opacity-20'}`}>
+          {i <= stars ? '⭐' : '☆'}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 export function GardenMiniGame() {
   const show = useStore((s) => s.showGardenGame);
   const setShow = useStore((s) => s.setShowGardenGame);
@@ -43,6 +64,8 @@ export function GardenMiniGame() {
   const recordTransaction = useStore((s) => s.recordTransaction);
   const addCoinAnimation = useStore((s) => s.addCoinAnimation);
   const addNotification = useStore((s) => s.addNotification);
+  const updateRobotNeeds = useStore((s) => s.updateRobotNeeds);
+  const robots = useStore((s) => s.robots);
 
   const [phase, setPhase] = useState<GamePhase>('ready');
   const [plots, setPlots] = useState<PlotState[]>([]);
@@ -51,8 +74,18 @@ export function GardenMiniGame() {
   const [timeLeft, setTimeLeft] = useState(GAME_DURATION);
   const [harvested, setHarvested] = useState(0);
   const [totalCoins, setTotalCoins] = useState(0);
+  const [stars, setStars] = useState(0);
+  const [isNewBest, setIsNewBest] = useState(false);
+  const [highScore, setHighScore] = useState<MiniGameScore | null>(null);
   const tickRef = useRef<number>(0);
   const timerRef = useRef<number>(0);
+
+  // Load high score on mount
+  useEffect(() => {
+    if (show) {
+      setHighScore(getMiniGameHighScore('garden'));
+    }
+  }, [show]);
 
   const startGame = useCallback(() => {
     setPlots(Array.from({ length: PLOT_COUNT }, () => ({
@@ -67,6 +100,8 @@ export function GardenMiniGame() {
     setTimeLeft(GAME_DURATION);
     setHarvested(0);
     setTotalCoins(0);
+    setStars(0);
+    setIsNewBest(false);
     setPhase('playing');
   }, []);
 
@@ -163,18 +198,39 @@ export function GardenMiniGame() {
     [phase, tool, selectedSeed],
   );
 
-  // Award coins on results
+  // Award coins on results + sim state effects
   useEffect(() => {
     if (phase !== 'results') return;
+    const earnedStars = getStars(harvested);
+    setStars(earnedStars);
+
     if (totalCoins > 0) {
       addCoins(totalCoins);
       recordTransaction('income', 'bonus', totalCoins, `Mini-game: Garden (${harvested} plants)`);
       addCoinAnimation(totalCoins);
+
+      // Save high score (use totalCoins as the score)
+      const newBest = saveMiniGameHighScore('garden', totalCoins, earnedStars);
+      setIsNewBest(newBest);
+      setHighScore(getMiniGameHighScore('garden'));
+
+      // Sim state: garden boosts all robots' happiness
+      for (const rid of ROBOT_IDS) {
+        if (robots[rid]) {
+          const currentHappiness = robots[rid].needs.happiness;
+          updateRobotNeeds(rid, { happiness: Math.min(100, currentHappiness + 5 + earnedStars * 3) });
+        }
+      }
+
+      const starText = earnedStars === 3 ? 'Amazing Harvest!' : earnedStars === 2 ? 'Great Harvest!' : 'Garden Complete!';
       addNotification({
         type: 'success',
-        title: 'Garden Complete!',
-        message: `Harvested ${harvested} plants for ${totalCoins} coins!`,
+        title: starText,
+        message: `Harvested ${harvested} plants for ${totalCoins} coins! ${'⭐'.repeat(earnedStars)}`,
       });
+    } else {
+      saveMiniGameHighScore('garden', 0, 0);
+      setHighScore(getMiniGameHighScore('garden'));
     }
   }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -228,9 +284,14 @@ export function GardenMiniGame() {
             <span className="text-xl">🌱</span>
             <span className="text-base font-semibold text-white">Garden Tending</span>
           </div>
-          <button onClick={close} className="flex h-7 w-7 items-center justify-center rounded-full text-white/50 hover:bg-white/10 hover:text-white">
-            ✕
-          </button>
+          <div className="flex items-center gap-3">
+            {highScore && (
+              <span className="text-[10px] text-white/40">Best: {highScore.bestScore} {'⭐'.repeat(highScore.bestStars)}</span>
+            )}
+            <button onClick={close} className="flex h-7 w-7 items-center justify-center rounded-full text-white/50 hover:bg-white/10 hover:text-white">
+              ✕
+            </button>
+          </div>
         </div>
 
         <div className="overflow-y-auto p-5" style={{ maxHeight: 'calc(85vh - 60px)' }}>
@@ -244,6 +305,11 @@ export function GardenMiniGame() {
                   Plant seeds, water them, and harvest before they wither!
                   Each plant earns coins. Manage your {PLOT_COUNT} plots wisely in {GAME_DURATION} seconds.
                 </p>
+                <div className="mt-3 flex items-center justify-center gap-1 text-xs text-white/40">
+                  <span>⭐ 1+ harvest </span>
+                  <span>⭐⭐ 3+ harvests </span>
+                  <span>⭐⭐⭐ 5+ harvests</span>
+                </div>
               </div>
               <button
                 onClick={startGame}
@@ -380,8 +446,10 @@ export function GardenMiniGame() {
           {phase === 'results' && (
             <div className="flex flex-col items-center gap-5 py-8">
               <div className="text-6xl">🌻</div>
+              <StarRating stars={stars} />
+              {isNewBest && totalCoins > 0 && <span className="text-xs font-bold text-yellow-400 animate-pulse">New Best!</span>}
               <h3 className="text-xl font-bold text-green-400">
-                {harvested > 0 ? 'Great Harvest!' : 'Garden Time Over'}
+                {harvested >= 5 ? 'Amazing Harvest!' : harvested >= 3 ? 'Great Harvest!' : harvested > 0 ? 'Garden Complete!' : 'Garden Time Over'}
               </h3>
               <p className="text-sm text-white/60">
                 You harvested {harvested} plant{harvested !== 1 ? 's' : ''}!
