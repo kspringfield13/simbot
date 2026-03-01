@@ -11,6 +11,7 @@ import { loadFloorPlanId, saveFloorPlanId } from '../config/floorPlans';
 import { getComfortMultiplier } from '../config/devices';
 import { createDisaster, DISASTER_TYPES } from '../systems/DisasterEvents';
 import type { RoomDecoration } from '../config/decorations';
+import type { RoomThemeId } from '../config/roomThemes';
 import {
   createSessionStats,
   recordRobotTask,
@@ -327,6 +328,29 @@ function loadSkillData(): Record<RobotId, RobotSkillData> {
 function saveSkillData(data: Record<RobotId, RobotSkillData>) {
   try {
     localStorage.setItem(SKILLS_STORAGE_KEY, JSON.stringify(data));
+  } catch { /* ignore quota errors */ }
+}
+
+// ── Room themes localStorage persistence ──────────────────────────
+const ROOM_THEMES_STORAGE_KEY = 'simbot-room-themes';
+
+interface RoomThemesData {
+  globalTheme: RoomThemeId;
+  perRoom: Record<string, RoomThemeId>;
+}
+
+function loadRoomThemes(): RoomThemesData {
+  try {
+    const stored = localStorage.getItem(ROOM_THEMES_STORAGE_KEY);
+    return stored ? JSON.parse(stored) : { globalTheme: 'default', perRoom: {} };
+  } catch {
+    return { globalTheme: 'default', perRoom: {} };
+  }
+}
+
+function saveRoomThemes(data: RoomThemesData) {
+  try {
+    localStorage.setItem(ROOM_THEMES_STORAGE_KEY, JSON.stringify(data));
   } catch { /* ignore quota errors */ }
 }
 
@@ -655,6 +679,15 @@ interface SimBotStore {
   showSkillTree: boolean;
   setShowSkillTree: (show: boolean) => void;
   unlockSkill: (robotId: RobotId, skillId: string) => void;
+
+  // Room themes
+  globalTheme: RoomThemeId;
+  perRoomThemes: Record<string, RoomThemeId>;
+  showThemeSelector: boolean;
+  setShowThemeSelector: (show: boolean) => void;
+  setGlobalTheme: (themeId: RoomThemeId) => void;
+  setRoomTheme: (roomId: string, themeId: RoomThemeId) => void;
+  resetRoomThemes: () => void;
 }
 
 const initialSimMinutes = (7 * 60) + 20;
@@ -1507,6 +1540,26 @@ export const useStore = create<SimBotStore>((set) => ({
     saveSkillData(next);
     return { robotSkills: next };
   }),
+
+  // Room themes
+  globalTheme: loadRoomThemes().globalTheme,
+  perRoomThemes: loadRoomThemes().perRoom,
+  showThemeSelector: false,
+  setShowThemeSelector: (show) => set({ showThemeSelector: show }),
+  setGlobalTheme: (themeId) => set((state) => {
+    const data: RoomThemesData = { globalTheme: themeId, perRoom: state.perRoomThemes };
+    saveRoomThemes(data);
+    return { globalTheme: themeId };
+  }),
+  setRoomTheme: (roomId, themeId) => set((state) => {
+    const next = { ...state.perRoomThemes, [roomId]: themeId };
+    saveRoomThemes({ globalTheme: state.globalTheme, perRoom: next });
+    return { perRoomThemes: next };
+  }),
+  resetRoomThemes: () => {
+    saveRoomThemes({ globalTheme: 'default', perRoom: {} });
+    set({ globalTheme: 'default', perRoomThemes: {} });
+  },
 }));
 
 // Each completion reduces duration by ~5%, capping at 30% faster

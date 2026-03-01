@@ -45,6 +45,7 @@ import { NotificationTracker } from './components/systems/NotificationTracker';
 import { StatsPanel } from './components/ui/StatsPanel';
 import { CameraPresetsPanel } from './components/ui/CameraPresetsPanel';
 import { SkillTreePanel } from './components/ui/SkillTreePanel';
+import { ThemeSelectorPanel } from './components/ui/ThemeSelectorPanel';
 import { useStore } from './stores/useStore';
 import { useAccessibility } from './stores/useAccessibility';
 import { musicEngine } from './systems/MusicEngine';
@@ -294,6 +295,29 @@ function DecorateResetButton() {
       title="Reset all room decorations"
     >
       Reset
+    </button>
+  );
+}
+
+function ThemeButton() {
+  const setShow = useStore((s) => s.setShowThemeSelector);
+  const globalTheme = useStore((s) => s.globalTheme);
+  const isThemed = globalTheme !== 'default';
+
+  return (
+    <button
+      type="button"
+      onClick={() => setShow(true)}
+      className={`pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full border text-lg backdrop-blur-md transition-all ${
+        isThemed
+          ? 'border-indigo-400/50 bg-indigo-500/30 hover:bg-indigo-500/50'
+          : 'border-white/10 bg-black/50 hover:bg-black/70'
+      }`}
+      title="Room themes"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={`h-5 w-5 ${isThemed ? 'text-indigo-300' : 'text-white'}`}>
+        <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
+      </svg>
     </button>
   );
 }
@@ -780,6 +804,7 @@ function App() {
             <RoomEditorButtons />
             <EditRoomsButton />
             <DecorateResetButton />
+            <ThemeButton />
             <DecorateButton />
             <ResetFurnitureButton />
             <RearrangeButton />
@@ -817,6 +842,7 @@ function App() {
       <TaskTimelinePanel />
       <CameraPresetsPanel />
       <SkillTreePanel />
+      <ThemeSelectorPanel />
       <AccessibilityPanel open={showA11y} onClose={() => setShowA11y(false)} />
       {!isSpectating && (
         <TutorialOverlay forceOpen={showTutorial} onClose={() => setShowTutorial(false)} />

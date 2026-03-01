@@ -18,6 +18,7 @@ import { VisitorSystem } from '../../systems/VisitorSystem';
 import { PetCat } from './PetCat';
 import { WeatherEffects } from './WeatherEffects';
 import { DisasterEffects } from './DisasterEffects';
+import { RoomThemeEffects } from './RoomThemeEffects';
 import { ChargingStation } from './ChargingStation';
 import { SmartDevices } from './SmartDevices';
 import { YardDecorations } from './YardDecorations';
@@ -146,6 +147,7 @@ export function HomeScene() {
       <SeasonalDecorations />
       <YardDecorations />
       <OutsideNPCs />
+      <RoomThemeEffects rooms={effectiveRooms} />
       <WeatherEffects />
       <DisasterEffects />
     </>

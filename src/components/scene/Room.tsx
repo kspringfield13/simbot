@@ -5,6 +5,8 @@ import type { Room as RoomType } from '../../types';
 import { useStore } from '../../stores/useStore';
 import { getFloorOption, getWallpaperOption } from '../../config/decorations';
 import type { RoomDecoration } from '../../config/decorations';
+import { getRoomTheme } from '../../config/roomThemes';
+import type { RoomThemeId } from '../../config/roomThemes';
 
 type DragEdge = 'left' | 'right' | 'top' | 'bottom';
 
@@ -153,9 +155,11 @@ function getOrCreateWallpaperTexture(wallpaperId: string): THREE.CanvasTexture |
 function RoomWallPanels({
   room,
   deco,
+  themeOverrides,
 }: {
   room: RoomType;
   deco: RoomDecoration;
+  themeOverrides?: { roughness: number; metalness: number; opacity: number };
 }) {
   const wallHeight = 3.6;
   const inset = 0.02; // slightly inside room boundary
@@ -199,10 +203,10 @@ function RoomWallPanels({
             <meshStandardMaterial
               color={wallColor}
               map={wallTex}
-              roughness={hasWallpaper ? 0.7 : 0.8}
-              metalness={0.01}
+              roughness={themeOverrides ? themeOverrides.roughness : (hasWallpaper ? 0.7 : 0.8)}
+              metalness={themeOverrides ? themeOverrides.metalness : 0.01}
               transparent
-              opacity={0.7}
+              opacity={themeOverrides ? themeOverrides.opacity : 0.7}
               side={THREE.DoubleSide}
             />
           </mesh>
@@ -220,8 +224,15 @@ export function Room({ room }: { room: RoomType }) {
   const setEditSelectedRoomId = useStore((s) => s.setEditSelectedRoomId);
   const setDecorateSelectedRoomId = useStore((s) => s.setDecorateSelectedRoomId);
   const roomDecorations = useStore((s) => s.roomDecorations);
+  const globalTheme = useStore((s) => s.globalTheme);
+  const perRoomThemes = useStore((s) => s.perRoomThemes);
   const [hovered, setHovered] = useState(false);
   const [dragEdge, setDragEdge] = useState<DragEdge | null>(null);
+
+  // Theme for this room
+  const activeThemeId: RoomThemeId = perRoomThemes[room.id] ?? globalTheme;
+  const theme = useMemo(() => getRoomTheme(activeThemeId), [activeThemeId]);
+  const isThemed = activeThemeId !== 'default';
 
   const { camera, gl } = useThree();
   const raycaster = useMemo(() => new THREE.Raycaster(), []);
@@ -247,11 +258,12 @@ export function Room({ room }: { room: RoomType }) {
   const deco = roomDecorations[room.id] ?? { wallColor: null, floorId: null, wallpaperId: null };
   const hasDecoration = deco.wallColor || deco.floorId || deco.wallpaperId;
 
-  // Floor appearance
+  // Floor appearance — decoration overrides take priority, then theme, then default
   const floorOption = deco.floorId ? getFloorOption(deco.floorId) : null;
-  const floorColor = floorOption ? floorOption.color : (room.color || '#4a4644');
-  const floorRoughness = floorOption ? floorOption.roughness : 0.75;
-  const floorMetalness = floorOption ? floorOption.metalness : 0.02;
+  const floorColor = floorOption ? floorOption.color : (isThemed ? theme.floorColor : (room.color || '#4a4644'));
+  const floorRoughness = floorOption ? floorOption.roughness : (isThemed ? theme.floorRoughness : 0.75);
+  const floorMetalness = floorOption ? floorOption.metalness : (isThemed ? theme.floorMetalness : 0.02);
+  const baseboardColor = isThemed ? theme.baseboardColor : '#332f2b';
 
   const handleDragStart = useCallback(
     (edge: DragEdge) => {
@@ -435,25 +447,31 @@ export function Room({ room }: { room: RoomType }) {
       {/* Subtle baseboards */}
       <mesh position={[room.position[0], bh / 2, room.position[2] - hd + bt / 2]}>
         <boxGeometry args={[room.size[0], bh, bt]} />
-        <meshStandardMaterial color="#332f2b" roughness={0.6} metalness={0.05} />
+        <meshStandardMaterial color={baseboardColor} roughness={0.6} metalness={0.05} />
       </mesh>
       <mesh position={[room.position[0], bh / 2, room.position[2] + hd - bt / 2]}>
         <boxGeometry args={[room.size[0], bh, bt]} />
-        <meshStandardMaterial color="#332f2b" roughness={0.6} metalness={0.05} />
+        <meshStandardMaterial color={baseboardColor} roughness={0.6} metalness={0.05} />
       </mesh>
       <mesh position={[room.position[0] - hw + bt / 2, bh / 2, room.position[2]]}>
         <boxGeometry args={[bt, bh, room.size[1]]} />
-        <meshStandardMaterial color="#332f2b" roughness={0.6} metalness={0.05} />
+        <meshStandardMaterial color={baseboardColor} roughness={0.6} metalness={0.05} />
       </mesh>
       <mesh position={[room.position[0] + hw - bt / 2, bh / 2, room.position[2]]}>
         <boxGeometry args={[bt, bh, room.size[1]]} />
-        <meshStandardMaterial color="#332f2b" roughness={0.6} metalness={0.05} />
+        <meshStandardMaterial color={baseboardColor} roughness={0.6} metalness={0.05} />
       </mesh>
 
-      {/* Wall panels — shown when room has wall color or wallpaper decoration */}
-      {hasDecoration && (deco.wallColor || deco.wallpaperId) && (
-        <RoomWallPanels room={room} deco={deco} />
-      )}
+      {/* Wall panels — shown when room has wall color, wallpaper, or active theme */}
+      {(hasDecoration && (deco.wallColor || deco.wallpaperId)) || isThemed ? (
+        <RoomWallPanels
+          room={room}
+          deco={isThemed && !deco.wallColor && !deco.wallpaperId
+            ? { wallColor: theme.wallColor, floorId: null, wallpaperId: null }
+            : deco}
+          themeOverrides={isThemed ? { roughness: theme.wallRoughness, metalness: theme.wallMetalness, opacity: theme.wallOpacity } : undefined}
+        />
+      ) : null}
 
       {/* Resize handles when selected in edit mode */}
       {isEditSelected && (
