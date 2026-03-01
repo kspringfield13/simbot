@@ -880,6 +880,10 @@ interface SimBotStore {
   tickVisitProgress: () => void;
   recallRobot: (robotId: RobotId) => void;
   returnToPlayerHouse: () => void;
+
+  // Robot Modding API
+  showModdingPanel: boolean;
+  setShowModdingPanel: (show: boolean) => void;
 }
 
 const initialSimMinutes = (7 * 60) + 20;
@@ -2364,6 +2368,10 @@ export const useStore = create<SimBotStore>((set) => ({
     };
   }),
   returnToPlayerHouse: () => set({ visitingHouseId: null, streetView: false }),
+
+  // ── Robot Modding API ──────────────────────────────────
+  showModdingPanel: false,
+  setShowModdingPanel: (show) => set({ showModdingPanel: show }),
 }));
 
 // Each completion reduces duration by ~5%, capping at 30% faster

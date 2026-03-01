@@ -62,6 +62,7 @@ import { StoryModePanel } from './components/ui/StoryModePanel';
 import { MiniGamesPanel } from './components/ui/MiniGamesPanel';
 import { TournamentsPanel } from './components/ui/TournamentsPanel';
 import { HouseFlippingPanel } from './components/ui/HouseFlippingPanel';
+import { ModdingPanel } from './components/ui/ModdingPanel';
 import { CookingMiniGame } from './components/ui/CookingMiniGame';
 import { RepairMiniGame } from './components/ui/RepairMiniGame';
 import { GardenMiniGame } from './components/ui/GardenMiniGame';
@@ -806,6 +807,23 @@ function HouseFlippingButton() {
   );
 }
 
+function ModdingButton() {
+  const setShow = useStore((s) => s.setShowModdingPanel);
+
+  return (
+    <button
+      type="button"
+      onClick={() => setShow(true)}
+      className="pointer-events-auto relative flex h-10 w-10 items-center justify-center rounded-full border border-violet-400/30 bg-black/50 text-lg backdrop-blur-md transition-all hover:bg-violet-400/20"
+      title="Robot Mod Workshop"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-violet-300">
+        <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+      </svg>
+    </button>
+  );
+}
+
 function TrophyButton() {
   const setShowLeaderboard = useStore((s) => s.setShowLeaderboard);
   const totalTasks = useStore((s) => s.totalTasksCompleted);
@@ -1124,6 +1142,7 @@ function App() {
             <StoryModeButton />
             <TournamentsButton />
             <HouseFlippingButton />
+            <ModdingButton />
             <ShopButton />
             <CraftingButton />
             <FurnitureCraftingButton />
@@ -1195,6 +1214,7 @@ function App() {
       <MiniGamesPanel />
       <TournamentsPanel />
       <HouseFlippingPanel />
+      <ModdingPanel />
       <CookingMiniGame />
       <RepairMiniGame />
       <GardenMiniGame />

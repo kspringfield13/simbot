@@ -354,3 +354,40 @@ export interface IntruderEvent {
   cameraDetected: boolean;   // true if camera spotted them
   alarmTriggered: boolean;   // true if alarm went off
 }
+
+// ── Robot Modding API ──────────────────────────────────────────
+export type ModType = 'behavior' | 'skin';
+
+export interface BehaviorMod {
+  id: string;
+  name: string;
+  description: string;
+  type: 'behavior';
+  code: string;           // JavaScript snippet (DSL subset)
+  targetRobot: RobotId | 'all';
+  enabled: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface SkinAccessory {
+  type: 'hat' | 'antenna' | 'shield' | 'trail';
+  color: string;
+}
+
+export interface SkinMod {
+  id: string;
+  name: string;
+  description: string;
+  type: 'skin';
+  bodyColor: string;
+  accentColor: string;
+  glowColor: string;
+  accessories: SkinAccessory[];
+  targetRobot: RobotId | 'all';
+  enabled: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export type RobotMod = BehaviorMod | SkinMod;
