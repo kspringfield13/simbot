@@ -38,6 +38,8 @@ class MusicEngine {
   private currentGenre: MusicGenre | null = null;
   private _enabled = false;
   private fadeOutTimers: number[] = [];
+  /** Crossfade duration in seconds — old genre fades out while new fades in */
+  private crossfadeSec = 2.0;
 
   get enabled() { return this._enabled; }
 
@@ -115,17 +117,18 @@ class MusicEngine {
   }
 
   private playGenre(genre: MusicGenre) {
-    // Fade out current layer over 1.5s, then start new one
+    if (!this.ctx || !this.masterGain) return;
+
+    // Crossfade: let old layer fade out gracefully while new one fades in
     const oldCleanup = this.activeCleanup;
     this.activeCleanup = null;
 
     if (oldCleanup) {
-      // Let the old fade handle itself
+      // Old cleanup handles its own fade-out envelope (1-2s)
       oldCleanup();
     }
 
-    if (!this.ctx || !this.masterGain) return;
-
+    // Start the new genre — each create*() method has its own fade-in
     switch (genre) {
       case 'lo-fi-chill':
         this.activeCleanup = this.createLofiChill();
@@ -316,14 +319,15 @@ class MusicEngine {
       clearInterval(chordInterval);
       clearInterval(bassInterval);
       const t = ctx.currentTime;
+      const fade = this.crossfadeSec;
       for (const g of gains) {
-        g.gain.linearRampToValueAtTime(0, t + 1);
+        g.gain.linearRampToValueAtTime(0, t + fade);
       }
-      noise.gainNode.gain.linearRampToValueAtTime(0, t + 1);
+      noise.gainNode.gain.linearRampToValueAtTime(0, t + fade);
       const timer = window.setTimeout(() => {
         for (const o of oscs) { try { o.stop(); } catch { /* already stopped */ } }
         try { noise.source.stop(); } catch { /* ok */ }
-      }, 1200);
+      }, (fade + 0.2) * 1000);
       this.fadeOutTimers.push(timer);
     };
   }
@@ -393,12 +397,13 @@ class MusicEngine {
       alive = false;
       clearInterval(beatInterval);
       const t = ctx.currentTime;
-      pad.gainNode.gain.linearRampToValueAtTime(0, t + 1);
-      pad2.gainNode.gain.linearRampToValueAtTime(0, t + 1);
+      const fade = this.crossfadeSec;
+      pad.gainNode.gain.linearRampToValueAtTime(0, t + fade);
+      pad2.gainNode.gain.linearRampToValueAtTime(0, t + fade);
       const timer = window.setTimeout(() => {
         try { pad.osc.stop(); } catch { /* ok */ }
         try { pad2.osc.stop(); } catch { /* ok */ }
-      }, 1200);
+      }, (fade + 0.2) * 1000);
       this.fadeOutTimers.push(timer);
     };
   }
@@ -464,12 +469,13 @@ class MusicEngine {
 
     return () => {
       const t = ctx.currentTime;
+      const fade = Math.max(this.crossfadeSec, 2);
       for (const g of gains) {
-        g.gain.linearRampToValueAtTime(0, t + 2);
+        g.gain.linearRampToValueAtTime(0, t + fade);
       }
       const timer = window.setTimeout(() => {
         for (const o of oscs) { try { o.stop(); } catch { /* ok */ } }
-      }, 2200);
+      }, (fade + 0.2) * 1000);
       this.fadeOutTimers.push(timer);
     };
   }
@@ -524,10 +530,11 @@ class MusicEngine {
       alive = false;
       clearInterval(stepInterval);
       const t = ctx.currentTime;
-      pad.gainNode.gain.linearRampToValueAtTime(0, t + 1);
+      const fade = this.crossfadeSec;
+      pad.gainNode.gain.linearRampToValueAtTime(0, t + fade);
       const timer = window.setTimeout(() => {
         try { pad.osc.stop(); } catch { /* ok */ }
-      }, 1200);
+      }, (fade + 0.2) * 1000);
       this.fadeOutTimers.push(timer);
     };
   }
@@ -614,12 +621,13 @@ class MusicEngine {
       alive = false;
       clearInterval(chordInterval);
       const t = ctx.currentTime;
+      const fade = Math.max(this.crossfadeSec, 2);
       for (const g of gains) {
-        g.gain.linearRampToValueAtTime(0, t + 2);
+        g.gain.linearRampToValueAtTime(0, t + fade);
       }
       const timer = window.setTimeout(() => {
         for (const o of oscs) { try { o.stop(); } catch { /* ok */ } }
-      }, 2500);
+      }, (fade + 0.5) * 1000);
       this.fadeOutTimers.push(timer);
     };
   }
@@ -681,10 +689,11 @@ class MusicEngine {
       alive = false;
       clearInterval(interval);
       const t = ctx.currentTime;
-      pad.gainNode.gain.linearRampToValueAtTime(0, t + 0.8);
+      const fade = this.crossfadeSec;
+      pad.gainNode.gain.linearRampToValueAtTime(0, t + fade);
       const timer = window.setTimeout(() => {
         try { pad.osc.stop(); } catch { /* ok */ }
-      }, 1000);
+      }, (fade + 0.2) * 1000);
       this.fadeOutTimers.push(timer);
     };
   }

@@ -5,6 +5,31 @@ import type { TaskType } from '../types';
  * All sounds generated via oscillators/noise — no external files.
  */
 
+// ─── Floor type system ───
+
+export type FloorType = 'tile' | 'carpet' | 'wood' | 'grass' | 'linoleum';
+
+/** Maps room IDs to their floor surface material */
+export const ROOM_FLOOR_TYPES: Record<string, FloorType> = {
+  kitchen: 'tile',
+  bathroom: 'tile',
+  'living-room': 'carpet',
+  bedroom: 'carpet',
+  hallway: 'wood',
+  laundry: 'linoleum',
+  yard: 'grass',
+  // Floor plan variants
+  'living-area': 'carpet',
+  kitchenette: 'tile',
+  'main-room': 'carpet',
+  'kitchen-area': 'tile',
+  'open-loft': 'wood',
+  study: 'wood',
+  library: 'wood',
+  'dining-room': 'wood',
+  gym: 'linoleum',
+};
+
 let ctx: AudioContext | null = null;
 let masterGain: GainNode | null = null;
 let _muted = false;
@@ -45,27 +70,166 @@ function noiseBuffer(duration: number): AudioBuffer {
 
 // ─── Individual sound generators ───
 
-/** Soft footstep tap — short filtered noise click */
-function playFootstep() {
+/** Tile footstep — sharp crisp tap (kitchen/bathroom) */
+function playFootstepTile() {
   const ac = getCtx();
   const now = ac.currentTime;
 
-  const buf = noiseBuffer(0.06);
+  // Short click with high-frequency resonance
+  const osc = ac.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(2200 + Math.random() * 600, now);
+  osc.frequency.exponentialRampToValueAtTime(800, now + 0.04);
+
+  const gain = ac.createGain();
+  gain.gain.setValueAtTime(0.14, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+
+  // Add a tiny noise click for texture
+  const buf = noiseBuffer(0.025);
+  const src = ac.createBufferSource();
+  src.buffer = buf;
+  const hp = ac.createBiquadFilter();
+  hp.type = 'highpass';
+  hp.frequency.value = 3000 + Math.random() * 1000;
+  const nGain = ac.createGain();
+  nGain.gain.setValueAtTime(0.08, now);
+  nGain.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
+
+  osc.connect(gain).connect(getMaster());
+  src.connect(hp).connect(nGain).connect(getMaster());
+  osc.start(now);
+  osc.stop(now + 0.06);
+  src.start(now);
+  src.stop(now + 0.03);
+}
+
+/** Carpet footstep — soft muffled thud (bedroom/living room) */
+function playFootstepCarpet() {
+  const ac = getCtx();
+  const now = ac.currentTime;
+
+  // Low-frequency thud, heavily dampened
+  const buf = noiseBuffer(0.08);
+  const src = ac.createBufferSource();
+  src.buffer = buf;
+
+  const lp = ac.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.frequency.value = 300 + Math.random() * 100;
+  lp.Q.value = 0.5;
+
+  const gain = ac.createGain();
+  gain.gain.setValueAtTime(0.08, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
+
+  src.connect(lp).connect(gain).connect(getMaster());
+  src.start(now);
+  src.stop(now + 0.08);
+}
+
+/** Wood footstep — hollow resonant knock (hallway) */
+function playFootstepWood() {
+  const ac = getCtx();
+  const now = ac.currentTime;
+
+  // Hollow body resonance
+  const osc = ac.createOscillator();
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(400 + Math.random() * 100, now);
+  osc.frequency.exponentialRampToValueAtTime(180, now + 0.08);
+
+  const bp = ac.createBiquadFilter();
+  bp.type = 'bandpass';
+  bp.frequency.value = 600 + Math.random() * 200;
+  bp.Q.value = 3;
+
+  const gain = ac.createGain();
+  gain.gain.setValueAtTime(0.13, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+
+  // Noise transient for the "knock" attack
+  const buf = noiseBuffer(0.03);
+  const src = ac.createBufferSource();
+  src.buffer = buf;
+  const nBp = ac.createBiquadFilter();
+  nBp.type = 'bandpass';
+  nBp.frequency.value = 1200 + Math.random() * 400;
+  nBp.Q.value = 1;
+  const nGain = ac.createGain();
+  nGain.gain.setValueAtTime(0.07, now);
+  nGain.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
+
+  osc.connect(bp).connect(gain).connect(getMaster());
+  src.connect(nBp).connect(nGain).connect(getMaster());
+  osc.start(now);
+  osc.stop(now + 0.12);
+  src.start(now);
+  src.stop(now + 0.04);
+}
+
+/** Grass footstep — soft rustle (yard) */
+function playFootstepGrass() {
+  const ac = getCtx();
+  const now = ac.currentTime;
+
+  const buf = noiseBuffer(0.1);
   const src = ac.createBufferSource();
   src.buffer = buf;
 
   const bp = ac.createBiquadFilter();
   bp.type = 'bandpass';
-  bp.frequency.value = 800 + Math.random() * 400;
-  bp.Q.value = 1.5;
+  bp.frequency.value = 1800 + Math.random() * 600;
+  bp.Q.value = 0.8;
 
   const gain = ac.createGain();
-  gain.gain.setValueAtTime(0.12, now);
-  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+  gain.gain.setValueAtTime(0.001, now);
+  gain.gain.linearRampToValueAtTime(0.06, now + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
 
   src.connect(bp).connect(gain).connect(getMaster());
   src.start(now);
-  src.stop(now + 0.06);
+  src.stop(now + 0.1);
+}
+
+/** Linoleum footstep — medium flat tap (laundry) */
+function playFootstepLinoleum() {
+  const ac = getCtx();
+  const now = ac.currentTime;
+
+  const buf = noiseBuffer(0.05);
+  const src = ac.createBufferSource();
+  src.buffer = buf;
+
+  const bp = ac.createBiquadFilter();
+  bp.type = 'bandpass';
+  bp.frequency.value = 1000 + Math.random() * 300;
+  bp.Q.value = 1.2;
+
+  const gain = ac.createGain();
+  gain.gain.setValueAtTime(0.1, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.045);
+
+  src.connect(bp).connect(gain).connect(getMaster());
+  src.start(now);
+  src.stop(now + 0.05);
+}
+
+/** Dispatch footstep sound based on floor type */
+function playFootstep(floorType: FloorType = 'wood') {
+  switch (floorType) {
+    case 'tile': playFootstepTile(); break;
+    case 'carpet': playFootstepCarpet(); break;
+    case 'wood': playFootstepWood(); break;
+    case 'grass': playFootstepGrass(); break;
+    case 'linoleum': playFootstepLinoleum(); break;
+  }
+}
+
+/** Get the floor type for a given room ID */
+export function getFloorTypeForRoom(roomId: string | null): FloorType {
+  if (!roomId) return 'wood';
+  return ROOM_FLOOR_TYPES[roomId] ?? 'wood';
 }
 
 /** Vacuum whir — low oscillator + filtered noise loop burst */
@@ -238,14 +402,23 @@ const taskSounds: Partial<Record<TaskType, SoundFn>> = {
 
 let walkIntervalId: number | null = null;
 let workIntervalId: number | null = null;
+let _currentFloorType: FloorType = 'wood';
 
 /** Start footstep sounds at a rate matching walk speed, capped at 3x */
-export function startWalkSound(simSpeed: number) {
+export function startWalkSound(simSpeed: number, floorType: FloorType = 'wood') {
   stopWalkSound();
+  _currentFloorType = floorType;
   const rate = Math.min(simSpeed, 3);
-  const intervalMs = Math.max(350 / rate, 120);
-  walkIntervalId = window.setInterval(playFootstep, intervalMs);
-  playFootstep(); // immediate first step
+  // Carpet footsteps are slightly slower cadence (softer surface)
+  const baseMs = floorType === 'carpet' ? 380 : floorType === 'grass' ? 400 : 350;
+  const intervalMs = Math.max(baseMs / rate, 120);
+  walkIntervalId = window.setInterval(() => playFootstep(_currentFloorType), intervalMs);
+  playFootstep(_currentFloorType); // immediate first step
+}
+
+/** Update floor type for currently playing walk sounds without restarting */
+export function updateWalkFloorType(floorType: FloorType) {
+  _currentFloorType = floorType;
 }
 
 export function stopWalkSound() {
