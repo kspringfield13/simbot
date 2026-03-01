@@ -9,6 +9,7 @@ import {
   getTierColor,
   type TournamentDefinition,
   type TournamentInstance,
+  type TournamentContestant,
   type BracketMatch,
   type TournamentTier,
 } from '../../config/tournaments';
@@ -84,6 +85,74 @@ function BracketConnectors({ totalRounds, bracketSize }: { totalRounds: number; 
   );
 }
 
+// ── Live race progress bars ──────────────────────────────
+
+function RaceProgressBars({
+  contestant1,
+  contestant2,
+}: {
+  contestant1: TournamentContestant | null;
+  contestant2: TournamentContestant | null;
+}) {
+  const [progress1, setProgress1] = useState(0);
+  const [progress2, setProgress2] = useState(0);
+
+  useEffect(() => {
+    if (!contestant1 || !contestant2) return;
+    const rate1 = contestant1.speed * 0.6 + contestant1.efficiency * 0.4;
+    const rate2 = contestant2.speed * 0.6 + contestant2.efficiency * 0.4;
+    const maxRate = Math.max(rate1, rate2);
+    const norm1 = rate1 / maxRate;
+    const norm2 = rate2 / maxRate;
+    let frame: number;
+    const start = performance.now();
+    const duration = 750; // ms
+
+    function tick() {
+      const elapsed = performance.now() - start;
+      const t = Math.min(elapsed / duration, 1);
+      const ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+      setProgress1(Math.min(ease * norm1 * 100 + Math.random() * 2, 100));
+      setProgress2(Math.min(ease * norm2 * 100 + Math.random() * 2, 100));
+      if (t < 1) frame = requestAnimationFrame(tick);
+    }
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [contestant1, contestant2]);
+
+  return (
+    <div className="mt-1.5 space-y-1">
+      <div className="flex items-center gap-1">
+        <span className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: contestant1?.color ?? '#888' }} />
+        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
+          <div
+            className="h-full rounded-full transition-none"
+            style={{
+              width: `${progress1}%`,
+              backgroundColor: contestant1?.color ?? '#888',
+              boxShadow: `0 0 6px ${contestant1?.color ?? '#888'}80`,
+            }}
+          />
+        </div>
+      </div>
+      <div className="flex items-center gap-1">
+        <span className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: contestant2?.color ?? '#888' }} />
+        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
+          <div
+            className="h-full rounded-full transition-none"
+            style={{
+              width: `${progress2}%`,
+              backgroundColor: contestant2?.color ?? '#888',
+              boxShadow: `0 0 6px ${contestant2?.color ?? '#888'}80`,
+            }}
+          />
+        </div>
+      </div>
+      <div className="text-center text-[9px] font-semibold text-amber-400 animate-pulse">Racing...</div>
+    </div>
+  );
+}
+
 // ── Single match card ──────────────────────────────────
 
 function MatchCard({
@@ -124,7 +193,33 @@ function MatchCard({
         )}
       </div>
 
-      <div className="my-1 h-px bg-slate-700/50" />
+      {/* Result bars for completed matches */}
+      {match.status === 'complete' && match.time1 != null && match.time2 != null && (
+        <div className="my-1 space-y-0.5">
+          <div className="h-1 overflow-hidden rounded-full bg-white/5">
+            <div
+              className="h-full rounded-full"
+              style={{
+                width: `${Math.max(20, 100 - (match.time1 / Math.max(match.time1, match.time2)) * 50)}%`,
+                backgroundColor: match.winner?.id === c1?.id ? '#4ade80' : '#ef4444',
+                opacity: match.winner?.id === c1?.id ? 1 : 0.4,
+              }}
+            />
+          </div>
+          <div className="h-1 overflow-hidden rounded-full bg-white/5">
+            <div
+              className="h-full rounded-full"
+              style={{
+                width: `${Math.max(20, 100 - (match.time2 / Math.max(match.time1, match.time2)) * 50)}%`,
+                backgroundColor: match.winner?.id === c2?.id ? '#4ade80' : '#ef4444',
+                opacity: match.winner?.id === c2?.id ? 1 : 0.4,
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {match.status !== 'complete' && <div className="my-1 h-px bg-slate-700/50" />}
 
       {/* Contestant 2 */}
       <div className={`flex items-center gap-1.5 ${match.winner && match.winner.id === c2?.id ? 'font-bold text-green-300' : match.winner && match.winner.id !== c2?.id ? 'text-slate-500 line-through' : ''}`}>
@@ -156,9 +251,7 @@ function MatchCard({
       )}
 
       {match.status === 'simulating' && (
-        <div className="mt-1.5 flex items-center justify-center gap-1 text-[10px] text-amber-400">
-          <span className="animate-pulse">Racing...</span>
-        </div>
+        <RaceProgressBars contestant1={c1} contestant2={c2} />
       )}
     </div>
   );
@@ -229,7 +322,7 @@ export function TournamentsPanel() {
         };
       });
 
-      // Simulate after a brief delay for drama
+      // Simulate after progress bar animation completes
       setTimeout(() => {
         const result = simulateMatch(match, selectedDef.baseMatchDuration);
         setTournament((prev) => {
@@ -250,7 +343,7 @@ export function TournamentsPanel() {
           return updated;
         });
         setSimulating(false);
-      }, 800);
+      }, 1200);
     },
     [tournament, selectedDef, simulating]
   );
