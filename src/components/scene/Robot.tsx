@@ -246,7 +246,7 @@ function HighFiveIndicator({ active }: { active: boolean }) {
 
 function EvolutionBadge({ robotId }: { robotId: RobotId }) {
   const evo = useStore((s) => s.robotEvolutions[robotId]);
-  if (!evo || evo.stage === 'newborn') return null;
+  if (!evo || evo.stage === 'novice') return null;
   const stageColor = getStageColor(evo.stage);
   const label = getStageLabel(evo.stage);
   return (
@@ -263,7 +263,7 @@ function EvolutionBadge({ robotId }: { robotId: RobotId }) {
 
 /** Antenna accessory — appears for junior+ robots */
 function RobotAntenna({ color, stage }: { color: string; stage: string }) {
-  const stageIdx = ['newborn', 'junior', 'seasoned', 'veteran', 'legendary'].indexOf(stage);
+  const stageIdx = ['novice', 'apprentice', 'expert', 'master', 'legend'].indexOf(stage);
   if (stageIdx < 1) return null;
 
   const tipRef = useRef<THREE.Mesh>(null);
@@ -295,7 +295,7 @@ function RobotAntenna({ color, stage }: { color: string; stage: string }) {
 
 /** Shoulder accent lights — seasoned+ robots */
 function ShoulderAccents({ color, stage }: { color: string; stage: string }) {
-  const stageIdx = ['newborn', 'junior', 'seasoned', 'veteran', 'legendary'].indexOf(stage);
+  const stageIdx = ['novice', 'apprentice', 'expert', 'master', 'legend'].indexOf(stage);
   if (stageIdx < 2) return null;
 
   const leftRef = useRef<THREE.Mesh>(null);
@@ -327,7 +327,7 @@ function ShoulderAccents({ color, stage }: { color: string; stage: string }) {
 
 /** Orbiting particle ring — veteran+ robots */
 function OrbitRing({ color, stage }: { color: string; stage: string }) {
-  const stageIdx = ['newborn', 'junior', 'seasoned', 'veteran', 'legendary'].indexOf(stage);
+  const stageIdx = ['novice', 'apprentice', 'expert', 'master', 'legend'].indexOf(stage);
   if (stageIdx < 3) return null;
 
   const groupRef = useRef<THREE.Group>(null);
@@ -691,7 +691,7 @@ function RobotModel({ robotId }: { robotId: RobotId }) {
         <RobotAntenna color={getStageColor(evolution.stage)} stage={evolution.stage} />
         <ShoulderAccents color={getStageColor(evolution.stage)} stage={evolution.stage} />
         <OrbitRing color={getStageColor(evolution.stage)} stage={evolution.stage} />
-        {evolution.stage === 'legendary' && <LegendaryCrown color={getStageColor(evolution.stage)} />}
+        {evolution.stage === 'legend' && <LegendaryCrown color={getStageColor(evolution.stage)} />}
       </group>
 
       {/* Night mode flashlight */}

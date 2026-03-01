@@ -648,7 +648,7 @@ function EvolutionButton() {
   const setShow = useStore((s) => s.setShowEvolutionPanel);
   const maxStage = useStore((s) => {
     let best = 0;
-    const stageOrder = ['newborn', 'junior', 'seasoned', 'veteran', 'legendary'];
+    const stageOrder = ['novice', 'apprentice', 'expert', 'master', 'legend'];
     for (const rid of ['sim', 'chef', 'sparkle'] as const) {
       const idx = stageOrder.indexOf(s.robotEvolutions[rid].stage);
       if (idx > best) best = idx;

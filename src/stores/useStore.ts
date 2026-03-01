@@ -1366,7 +1366,7 @@ export const useStore = create<SimBotStore>((set) => ({
     const next = { ...state.robotEvolutions, [robotId]: evolution };
     saveEvolutionData(next);
     if (stageChanged) {
-      const stageLabels: Record<string, string> = { junior: 'Junior', seasoned: 'Seasoned', veteran: 'Veteran', legendary: 'Legendary' };
+      const stageLabels: Record<string, string> = { apprentice: 'Apprentice', expert: 'Expert', master: 'Master', legend: 'Legend' };
       state.addNotification({
         type: 'achievement',
         title: 'Evolution!',

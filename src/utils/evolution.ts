@@ -2,51 +2,51 @@ import type { EvolutionStage, RobotEvolution, RobotId, TaskType } from '../types
 
 // ── Stage thresholds (cumulative tasks completed) ──────────────
 const STAGE_THRESHOLDS: { stage: EvolutionStage; tasks: number }[] = [
-  { stage: 'legendary', tasks: 200 },
-  { stage: 'veteran', tasks: 100 },
-  { stage: 'seasoned', tasks: 40 },
-  { stage: 'junior', tasks: 10 },
-  { stage: 'newborn', tasks: 0 },
+  { stage: 'legend', tasks: 200 },
+  { stage: 'master', tasks: 100 },
+  { stage: 'expert', tasks: 40 },
+  { stage: 'apprentice', tasks: 10 },
+  { stage: 'novice', tasks: 0 },
 ];
 
 export function getStageForTasks(totalTasks: number): EvolutionStage {
   for (const { stage, tasks } of STAGE_THRESHOLDS) {
     if (totalTasks >= tasks) return stage;
   }
-  return 'newborn';
+  return 'novice';
 }
 
 export function getStageIndex(stage: EvolutionStage): number {
-  const order: EvolutionStage[] = ['newborn', 'junior', 'seasoned', 'veteran', 'legendary'];
+  const order: EvolutionStage[] = ['novice', 'apprentice', 'expert', 'master', 'legend'];
   return order.indexOf(stage);
 }
 
 export function getNextStageThreshold(stage: EvolutionStage): number | null {
-  const order: EvolutionStage[] = ['newborn', 'junior', 'seasoned', 'veteran', 'legendary'];
+  const order: EvolutionStage[] = ['novice', 'apprentice', 'expert', 'master', 'legend'];
   const idx = order.indexOf(stage);
-  if (idx >= order.length - 1) return null; // already legendary
+  if (idx >= order.length - 1) return null; // already legend
   const next = order[idx + 1];
   return STAGE_THRESHOLDS.find((t) => t.stage === next)?.tasks ?? null;
 }
 
 export function getStageLabel(stage: EvolutionStage): string {
   const labels: Record<EvolutionStage, string> = {
-    newborn: 'Newborn',
-    junior: 'Junior',
-    seasoned: 'Seasoned',
-    veteran: 'Veteran',
-    legendary: 'Legendary',
+    novice: 'Novice',
+    apprentice: 'Apprentice',
+    expert: 'Expert',
+    master: 'Master',
+    legend: 'Legend',
   };
   return labels[stage];
 }
 
 export function getStageColor(stage: EvolutionStage): string {
   const colors: Record<EvolutionStage, string> = {
-    newborn: '#94a3b8',    // slate-400
-    junior: '#22d3ee',     // cyan-400
-    seasoned: '#a78bfa',   // violet-400
-    veteran: '#f59e0b',    // amber-500
-    legendary: '#ef4444',  // red-500
+    novice: '#94a3b8',      // slate-400
+    apprentice: '#22d3ee',   // cyan-400
+    expert: '#a78bfa',       // violet-400
+    master: '#f59e0b',       // amber-500
+    legend: '#ef4444',       // red-500
   };
   return colors[stage];
 }
@@ -99,8 +99,8 @@ export function createInitialEvolution(): RobotEvolution {
     taskSpecialty: {},
     firstActiveAt: 0,
     lastActiveAt: 0,
-    stage: 'newborn',
-    stageUnlockedAt: { newborn: 0, junior: null, seasoned: null, veteran: null, legendary: null },
+    stage: 'novice',
+    stageUnlockedAt: { novice: 0, apprentice: null, expert: null, master: null, legend: null },
   };
 }
 

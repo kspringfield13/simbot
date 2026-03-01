@@ -330,7 +330,7 @@ export type IntruderPhase = 'detected' | 'responding' | 'resolved';
 export type IntruderType = 'burglar' | 'raccoon' | 'prankster';
 
 // ── Robot Evolution / Aging ──────────────────────────────────
-export type EvolutionStage = 'newborn' | 'junior' | 'seasoned' | 'veteran' | 'legendary';
+export type EvolutionStage = 'novice' | 'apprentice' | 'expert' | 'master' | 'legend';
 
 export interface RobotEvolution {
   totalTasksCompleted: number;

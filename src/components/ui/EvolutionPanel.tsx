@@ -33,7 +33,7 @@ const TASK_LABELS: Record<string, string> = {
   visiting: 'Visiting',
 };
 
-const STAGES: EvolutionStage[] = ['newborn', 'junior', 'seasoned', 'veteran', 'legendary'];
+const STAGES: EvolutionStage[] = ['novice', 'apprentice', 'expert', 'master', 'legend'];
 
 function StageTimeline({ currentStage }: { currentStage: EvolutionStage }) {
   const currentIdx = getStageIndex(currentStage);
@@ -220,11 +220,11 @@ export function EvolutionPanel() {
               const color = getStageColor(stage);
               const thresholds = [0, 10, 40, 100, 200];
               const visuals: Record<string, string> = {
-                newborn: 'Base appearance — no accessories',
-                junior: 'Glowing antenna + subtle size increase',
-                seasoned: 'Shoulder accent lights + color shift',
-                veteran: 'Orbiting particle ring + glow pulse',
-                legendary: 'Crown halo + dense particle ring + max glow',
+                novice: 'Base appearance — no accessories',
+                apprentice: 'Glowing antenna + subtle size increase',
+                expert: 'Shoulder accent lights + color shift',
+                master: 'Orbiting particle ring + glow pulse',
+                legend: 'Crown halo + dense particle ring + max glow',
               };
               return (
                 <div key={stage} className="flex items-start gap-2 rounded-lg bg-white/5 px-2 py-1.5">
