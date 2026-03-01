@@ -36,6 +36,7 @@ import { TimelapseRecorder } from './components/systems/TimelapseRecorder';
 import { InstallPrompt } from './components/ui/InstallPrompt';
 import { AccessibilityPanel } from './components/ui/AccessibilityPanel';
 import { ScreenReaderAnnouncer } from './components/ui/ScreenReaderAnnouncer';
+import { DecoratePanel } from './components/ui/DecoratePanel';
 import { useStore } from './stores/useStore';
 import { useAccessibility } from './stores/useAccessibility';
 import { musicEngine } from './systems/MusicEngine';
@@ -181,6 +182,47 @@ function PhotoModeButton() {
         <line x1="2" y1="20" x2="7" y2="17" />
         <line x1="22" y1="20" x2="17" y2="17" />
       </svg>
+    </button>
+  );
+}
+
+function DecorateButton() {
+  const decorateMode = useStore((s) => s.decorateMode);
+  const setDecorateMode = useStore((s) => s.setDecorateMode);
+
+  return (
+    <button
+      type="button"
+      onClick={() => setDecorateMode(!decorateMode)}
+      className={`pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full border text-lg backdrop-blur-md transition-all ${
+        decorateMode
+          ? 'border-pink-400/50 bg-pink-500/30 hover:bg-pink-500/50'
+          : 'border-white/10 bg-black/50 hover:bg-black/70'
+      }`}
+      title={decorateMode ? 'Exit decorate mode' : 'Decorate rooms'}
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-white">
+        <path d="M18.37 2.63a2.12 2.12 0 0 1 3 3L14 13l-4 1 1-4 7.37-7.37z" />
+        <path d="M9 3.5H5a2 2 0 0 0-2 2V19a2 2 0 0 0 2 2h13.5a2 2 0 0 0 2-2V15" />
+      </svg>
+    </button>
+  );
+}
+
+function DecorateResetButton() {
+  const decorateMode = useStore((s) => s.decorateMode);
+  const resetRoomDecorations = useStore((s) => s.resetRoomDecorations);
+
+  if (!decorateMode) return null;
+
+  return (
+    <button
+      type="button"
+      onClick={() => resetRoomDecorations()}
+      className="pointer-events-auto flex h-10 items-center justify-center rounded-full border border-red-400/30 bg-black/50 px-3 text-xs text-red-300 backdrop-blur-md transition-all hover:bg-red-500/30"
+      title="Reset all room decorations"
+    >
+      Reset
     </button>
   );
 }
@@ -572,6 +614,8 @@ function App() {
             <FloorPlanButton />
             <RoomEditorButtons />
             <EditRoomsButton />
+            <DecorateResetButton />
+            <DecorateButton />
             <ResetFurnitureButton />
             <RearrangeButton />
             <PhotoModeButton />
@@ -600,6 +644,7 @@ function App() {
       <SocialPanel />
       <TimelapsePanel />
       <FloorPlanSelector />
+      <DecoratePanel />
       <AccessibilityPanel open={showA11y} onClose={() => setShowA11y(false)} />
       {!isSpectating && (
         <TutorialOverlay forceOpen={showTutorial} onClose={() => setShowTutorial(false)} />

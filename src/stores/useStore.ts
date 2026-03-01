@@ -8,6 +8,7 @@ import type { CustomRobot } from '../config/crafting';
 import { getDeployedRobotBonuses } from '../config/crafting';
 import { loadFloorPlanId, saveFloorPlanId } from '../config/floorPlans';
 import { getComfortMultiplier } from '../config/devices';
+import type { RoomDecoration } from '../config/decorations';
 import {
   createSessionStats,
   recordRobotTask,
@@ -246,6 +247,24 @@ function loadFriendships(): Record<string, FriendshipPair> {
 function saveFriendships(data: Record<string, FriendshipPair>) {
   try {
     localStorage.setItem(FRIENDSHIP_STORAGE_KEY, JSON.stringify(data));
+  } catch { /* ignore quota errors */ }
+}
+
+// ── Room decoration localStorage persistence ──────────────────────────
+const DECORATION_STORAGE_KEY = 'simbot-room-decorations';
+
+function loadRoomDecorations(): Record<string, RoomDecoration> {
+  try {
+    const stored = localStorage.getItem(DECORATION_STORAGE_KEY);
+    return stored ? JSON.parse(stored) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveRoomDecorations(data: Record<string, RoomDecoration>) {
+  try {
+    localStorage.setItem(DECORATION_STORAGE_KEY, JSON.stringify(data));
   } catch { /* ignore quota errors */ }
 }
 
@@ -503,6 +522,15 @@ interface SimBotStore {
   setTimelapsePlaybackPlaying: (playing: boolean) => void;
   setTimelapsePlaybackSpeed: (speed: 30 | 60 | 120) => void;
   setTimelapsePlaybackTime: (simMinutes: number) => void;
+
+  // Room decoration
+  decorateMode: boolean;
+  decorateSelectedRoomId: string | null;
+  roomDecorations: Record<string, RoomDecoration>;
+  setDecorateMode: (mode: boolean) => void;
+  setDecorateSelectedRoomId: (id: string | null) => void;
+  setRoomDecoration: (roomId: string, decoration: Partial<RoomDecoration>) => void;
+  resetRoomDecorations: () => void;
 }
 
 const initialSimMinutes = (7 * 60) + 20;
@@ -982,11 +1010,12 @@ export const useStore = create<SimBotStore>((set) => ({
   setShowFloorPlanSelector: (show) => set({ showFloorPlanSelector: show }),
   setFloorPlan: (id) => {
     saveFloorPlanId(id);
-    // Reset room/furniture/wall customizations when switching floor plans
+    // Reset room/furniture/wall/decoration customizations when switching floor plans
     const defaultLayout = { overrides: {}, addedRooms: [], deletedRoomIds: [] };
     saveRoomLayout(defaultLayout);
     saveFurniturePositions({});
     saveCustomWalls(null);
+    saveRoomDecorations({});
     set({
       floorPlanId: id,
       showFloorPlanSelector: false,
@@ -997,6 +1026,9 @@ export const useStore = create<SimBotStore>((set) => ({
       editSelectedRoomId: null,
       rearrangeMode: false,
       selectedFurnitureId: null,
+      decorateMode: false,
+      decorateSelectedRoomId: null,
+      roomDecorations: {},
       // Reset all robots to idle
       tasks: [],
       robots: createAllRobotStates(),
@@ -1175,6 +1207,28 @@ export const useStore = create<SimBotStore>((set) => ({
     if (!state.timelapsePlayback) return {};
     return { timelapsePlayback: { ...state.timelapsePlayback, currentSimMinutes: simMinutes } };
   }),
+
+  // Room decoration
+  decorateMode: false,
+  decorateSelectedRoomId: null,
+  roomDecorations: loadRoomDecorations(),
+  setDecorateMode: (mode) => set({
+    decorateMode: mode,
+    decorateSelectedRoomId: null,
+    // Disable other modes
+    ...(mode ? { editMode: false, rearrangeMode: false } : {}),
+  }),
+  setDecorateSelectedRoomId: (id) => set({ decorateSelectedRoomId: id }),
+  setRoomDecoration: (roomId, decoration) => set((state) => {
+    const current = state.roomDecorations[roomId] ?? { wallColor: null, floorId: null, wallpaperId: null };
+    const next = { ...state.roomDecorations, [roomId]: { ...current, ...decoration } };
+    saveRoomDecorations(next);
+    return { roomDecorations: next };
+  }),
+  resetRoomDecorations: () => {
+    saveRoomDecorations({});
+    set({ roomDecorations: {}, decorateSelectedRoomId: null });
+  },
 }));
 
 // Each completion reduces duration by ~5%, capping at 30% faster
