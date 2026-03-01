@@ -20,6 +20,7 @@ import { WeatherEffects } from './WeatherEffects';
 import { ChargingStation } from './ChargingStation';
 import { SmartDevices } from './SmartDevices';
 import { YardDecorations } from './YardDecorations';
+import { OutsideNPCs } from './OutsideNPCs';
 
 function DynamicSceneLighting() {
   const ambientRef = useRef<THREE.AmbientLight>(null);
@@ -143,6 +144,7 @@ export function HomeScene() {
       <VisitorSystem />
       <SeasonalDecorations />
       <YardDecorations />
+      <OutsideNPCs />
       <WeatherEffects />
     </>
   );
