@@ -2,18 +2,9 @@ import { Canvas } from '@react-three/fiber';
 import { Suspense } from 'react';
 import { getEffectiveRooms } from './utils/homeLayout';
 import { useStore } from './stores/useStore';
-import { CameraController } from './components/camera/CameraController';
 import { Room } from './components/scene/Room';
-import { Walls } from './components/scene/Walls';
-import { Robot } from './components/scene/Robot';
-import { RobotTerminal } from './components/ui/RobotTerminal';
-import { TournamentsPanel } from './components/ui/TournamentsPanel';
-import { TaskProcessor } from './components/systems/TaskProcessor';
-import { AIBrain } from './systems/AIBrain';
-import { TimeSystem } from './systems/TimeSystem';
-import { ROBOT_IDS } from './types';
 
-function MinimalHomeScene() {
+function MinimalScene() {
   const roomLayout = useStore((s) => s.roomLayout);
   const floorPlanId = useStore((s) => s.floorPlanId);
 
@@ -23,100 +14,32 @@ function MinimalHomeScene() {
 
   return (
     <>
-      <TimeSystem />
-      {ROBOT_IDS.map((id) => (
-        <AIBrain key={id} robotId={id} />
-      ))}
-      <CameraController />
+      <ambientLight intensity={1} />
+      <directionalLight position={[10, 25, 10]} intensity={1} />
 
-      {/* Simple static lighting */}
-      <ambientLight intensity={0.8} />
-      <hemisphereLight color="#ffffff" groundColor="#8888aa" intensity={0.5} />
-      <directionalLight position={[10, 25, 10]} intensity={1.0} castShadow
-        shadow-mapSize-width={2048} shadow-mapSize-height={2048}
-        shadow-camera-far={60} shadow-camera-left={-25} shadow-camera-right={25}
-        shadow-camera-top={25} shadow-camera-bottom={-25}
-      />
-      <directionalLight position={[-8, 15, -5]} intensity={0.3} />
-
-      {/* Ground */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]} receiveShadow>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]}>
         <planeGeometry args={[80, 80]} />
-        <meshStandardMaterial color="#3d3a36" roughness={0.8} />
+        <meshStandardMaterial color="#555" />
       </mesh>
 
-      {/* Rooms + Walls + Robot */}
       {effectiveRooms.map((room) => (
         <Room key={room.id} room={room} />
       ))}
-      <Walls />
-      <Robot />
     </>
-  );
-}
-
-function TournamentButton() {
-  const setShowTournaments = useStore((s) => s.setShowTournaments);
-
-  return (
-    <button
-      type="button"
-      onClick={() => setShowTournaments(true)}
-      style={{
-        position: 'fixed', top: 16, right: 64, zIndex: 30,
-        width: 40, height: 40, borderRadius: '50%',
-        background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)',
-        color: 'white', fontSize: 18, cursor: 'pointer',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-      }}
-      title="Robot Tournaments"
-    >
-      {'\uD83C\uDFC6'}
-    </button>
-  );
-}
-
-function CameraToggle() {
-  const cameraMode = useStore((s) => s.cameraMode);
-  const setCameraMode = useStore((s) => s.setCameraMode);
-  const isFollowing = cameraMode === 'follow';
-
-  return (
-    <button
-      type="button"
-      onClick={() => setCameraMode(isFollowing ? 'overview' : 'follow')}
-      style={{
-        position: 'fixed', top: 16, right: 16, zIndex: 30,
-        width: 40, height: 40, borderRadius: '50%',
-        background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)',
-        color: 'white', fontSize: 18, cursor: 'pointer',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-      }}
-      title={isFollowing ? 'Free camera' : 'Follow robot'}
-    >
-      {isFollowing ? '🔒' : '🔓'}
-    </button>
   );
 }
 
 function App() {
   return (
-    <div style={{ width: '100vw', height: '100vh', background: '#0a0a0a' }}>
-      <Canvas
-        shadows
-        camera={{ position: [0, 20, 20], fov: 50, near: 0.1, far: 500 }}
-        gl={{ antialias: true, preserveDrawingBuffer: true }}
-        dpr={[1, 1.5]}
-      >
+    <div style={{ width: '100vw', height: '100vh', background: '#111' }}>
+      <Canvas camera={{ position: [0, 30, 30], fov: 50 }}>
         <Suspense fallback={null}>
-          <MinimalHomeScene />
+          <MinimalScene />
         </Suspense>
       </Canvas>
-      <TaskProcessor />
-      <RobotTerminal />
-      <CameraToggle />
-      <TournamentButton />
-      <TournamentsPanel />
+      <div style={{ position: 'fixed', top: 16, left: 16, color: 'white', fontSize: 18, fontWeight: 'bold', background: 'rgba(0,0,0,0.5)', padding: '8px 16px', borderRadius: 8, zIndex: 10 }}>
+        Test: Rooms Only
+      </div>
     </div>
   );
 }
