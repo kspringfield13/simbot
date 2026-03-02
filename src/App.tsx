@@ -1,36 +1,21 @@
 import { Canvas } from '@react-three/fiber';
-import { Suspense, Component, type ReactNode } from 'react';
+import { Suspense } from 'react';
 import { getEffectiveRooms } from './utils/homeLayout';
 import { useStore } from './stores/useStore';
+import { CameraController } from './components/camera/CameraController';
 import { Room } from './components/scene/Room';
+import { Walls } from './components/scene/Walls';
+import { Robot } from './components/scene/Robot';
+import { RobotTerminal } from './components/ui/RobotTerminal';
+import { TournamentsPanel } from './components/ui/TournamentsPanel';
+import { ModdingPanel } from './components/ui/ModdingPanel';
+import { ModdingDocsPanel } from './components/ui/ModdingDocsPanel';
+import { TaskProcessor } from './components/systems/TaskProcessor';
+import { AIBrain } from './systems/AIBrain';
+import { TimeSystem } from './systems/TimeSystem';
+import { ROBOT_IDS } from './types';
 
-// Error boundary to catch and display crashes
-class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
-  state = { error: null as Error | null };
-  static getDerivedStateFromError(error: Error) { return { error }; }
-  render() {
-    if (this.state.error) {
-      return (
-        <div style={{ color: 'white', padding: 40, fontFamily: 'monospace', background: '#1a0000', height: '100vh' }}>
-          <h1 style={{ color: '#ff4444' }}>SimBot Crashed</h1>
-          <p>{this.state.error.message}</p>
-          <pre style={{ whiteSpace: 'pre-wrap', fontSize: 12, color: '#ff8888', maxHeight: '60vh', overflow: 'auto' }}>
-            {this.state.error.stack}
-          </pre>
-          <button
-            onClick={() => { localStorage.clear(); window.location.reload(); }}
-            style={{ marginTop: 20, padding: '12px 24px', background: '#ff4444', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 16 }}
-          >
-            Clear Data &amp; Reload
-          </button>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
-
-function MinimalScene() {
+function MinimalHomeScene() {
   const roomLayout = useStore((s) => s.roomLayout);
   const floorPlanId = useStore((s) => s.floorPlanId);
 
@@ -40,41 +25,144 @@ function MinimalScene() {
 
   return (
     <>
-      <ambientLight intensity={1} />
-      <directionalLight position={[10, 25, 10]} intensity={1} />
+      <TimeSystem />
+      {ROBOT_IDS.map((id) => (
+        <AIBrain key={id} robotId={id} />
+      ))}
+      <CameraController />
 
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]}>
+      <ambientLight intensity={0.8} />
+      <hemisphereLight color="#ffffff" groundColor="#8888aa" intensity={0.5} />
+      <directionalLight position={[10, 25, 10]} intensity={1.0} castShadow
+        shadow-mapSize-width={2048} shadow-mapSize-height={2048}
+        shadow-camera-far={60} shadow-camera-left={-25} shadow-camera-right={25}
+        shadow-camera-top={25} shadow-camera-bottom={-25}
+      />
+      <directionalLight position={[-8, 15, -5]} intensity={0.3} />
+
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]} receiveShadow>
         <planeGeometry args={[80, 80]} />
-        <meshStandardMaterial color="#555" />
+        <meshStandardMaterial color="#3d3a36" roughness={0.8} />
       </mesh>
 
       {effectiveRooms.map((room) => (
         <Room key={room.id} room={room} />
       ))}
+      <Walls />
+      <Robot />
     </>
+  );
+}
+
+function TournamentButton() {
+  const setShowTournaments = useStore((s) => s.setShowTournaments);
+
+  return (
+    <button
+      type="button"
+      onClick={() => setShowTournaments(true)}
+      style={{
+        position: 'fixed', top: 16, right: 64, zIndex: 30,
+        width: 40, height: 40, borderRadius: '50%',
+        background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)',
+        color: 'white', fontSize: 18, cursor: 'pointer',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}
+      title="Robot Tournaments"
+    >
+      {'\uD83C\uDFC6'}
+    </button>
+  );
+}
+
+function ModdingButton() {
+  const setShowModdingPanel = useStore((s) => s.setShowModdingPanel);
+
+  return (
+    <button
+      type="button"
+      onClick={() => setShowModdingPanel(true)}
+      style={{
+        position: 'fixed', top: 16, right: 112, zIndex: 30,
+        width: 40, height: 40, borderRadius: '50%',
+        background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)',
+        color: 'white', fontSize: 18, cursor: 'pointer',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}
+      title="Mod Manager"
+    >
+      {'\uD83E\uDDE9'}
+    </button>
+  );
+}
+
+function ModDocsButton() {
+  const setShowModdingDocs = useStore((s) => s.setShowModdingDocs);
+
+  return (
+    <button
+      type="button"
+      onClick={() => setShowModdingDocs(true)}
+      style={{
+        position: 'fixed', top: 16, right: 160, zIndex: 30,
+        width: 40, height: 40, borderRadius: '50%',
+        background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)',
+        color: 'white', fontSize: 18, cursor: 'pointer',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}
+      title="Modding API Docs"
+    >
+      {'\uD83D\uDCDA'}
+    </button>
+  );
+}
+
+function CameraToggle() {
+  const cameraMode = useStore((s) => s.cameraMode);
+  const setCameraMode = useStore((s) => s.setCameraMode);
+  const isFollowing = cameraMode === 'follow';
+
+  return (
+    <button
+      type="button"
+      onClick={() => setCameraMode(isFollowing ? 'overview' : 'follow')}
+      style={{
+        position: 'fixed', top: 16, right: 16, zIndex: 30,
+        width: 40, height: 40, borderRadius: '50%',
+        background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)',
+        color: 'white', fontSize: 18, cursor: 'pointer',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}
+      title={isFollowing ? 'Free camera' : 'Follow robot'}
+    >
+      {isFollowing ? '\uD83D\uDD12' : '\uD83D\uDD13'}
+    </button>
   );
 }
 
 function App() {
   return (
-    <ErrorBoundary>
-      <div style={{ width: '100vw', height: '100vh', background: '#111' }}>
-        <Canvas camera={{ position: [0, 30, 30], fov: 50 }}>
-          <Suspense fallback={null}>
-            <MinimalScene />
-          </Suspense>
-        </Canvas>
-        <div style={{ position: 'fixed', top: 16, left: 16, color: 'white', fontSize: 18, fontWeight: 'bold', background: 'rgba(0,0,0,0.5)', padding: '8px 16px', borderRadius: 8, zIndex: 10 }}>
-          Test: Rooms + Error Boundary
-        </div>
-        <button
-          onClick={() => { localStorage.clear(); window.location.reload(); }}
-          style={{ position: 'fixed', bottom: 16, right: 16, padding: '12px 24px', background: '#ff4444', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 14, zIndex: 10 }}
-        >
-          Clear Cache &amp; Reload
-        </button>
-      </div>
-    </ErrorBoundary>
+    <div style={{ width: '100vw', height: '100vh', background: '#0a0a0a' }}>
+      <Canvas
+        shadows
+        camera={{ position: [0, 20, 20], fov: 50, near: 0.1, far: 500 }}
+        gl={{ antialias: true, preserveDrawingBuffer: true }}
+        dpr={[1, 1.5]}
+      >
+        <Suspense fallback={null}>
+          <MinimalHomeScene />
+        </Suspense>
+      </Canvas>
+      <TaskProcessor />
+      <RobotTerminal />
+      <CameraToggle />
+      <TournamentButton />
+      <TournamentsPanel />
+      <ModDocsButton />
+      <ModdingButton />
+      <ModdingPanel />
+      <ModdingDocsPanel />
+    </div>
   );
 }
 

@@ -884,6 +884,8 @@ interface SimBotStore {
   // Robot Modding API
   showModdingPanel: boolean;
   setShowModdingPanel: (show: boolean) => void;
+  showModdingDocs: boolean;
+  setShowModdingDocs: (show: boolean) => void;
 }
 
 const initialSimMinutes = (7 * 60) + 20;
@@ -2372,6 +2374,8 @@ export const useStore = create<SimBotStore>((set) => ({
   // ── Robot Modding API ──────────────────────────────────
   showModdingPanel: false,
   setShowModdingPanel: (show) => set({ showModdingPanel: show }),
+  showModdingDocs: false,
+  setShowModdingDocs: (show) => set({ showModdingDocs: show }),
 }));
 
 // Each completion reduces duration by ~5%, capping at 30% faster
