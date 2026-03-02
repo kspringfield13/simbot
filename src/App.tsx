@@ -7,6 +7,7 @@ import { Room } from './components/scene/Room';
 import { Walls } from './components/scene/Walls';
 import { Robot } from './components/scene/Robot';
 import { RobotTerminal } from './components/ui/RobotTerminal';
+import { TournamentsPanel } from './components/ui/TournamentsPanel';
 import { TaskProcessor } from './components/systems/TaskProcessor';
 import { AIBrain } from './systems/AIBrain';
 import { TimeSystem } from './systems/TimeSystem';
@@ -54,6 +55,27 @@ function MinimalHomeScene() {
   );
 }
 
+function TournamentButton() {
+  const setShowTournaments = useStore((s) => s.setShowTournaments);
+
+  return (
+    <button
+      type="button"
+      onClick={() => setShowTournaments(true)}
+      style={{
+        position: 'fixed', top: 16, right: 64, zIndex: 30,
+        width: 40, height: 40, borderRadius: '50%',
+        background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)',
+        color: 'white', fontSize: 18, cursor: 'pointer',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}
+      title="Robot Tournaments"
+    >
+      {'\uD83C\uDFC6'}
+    </button>
+  );
+}
+
 function CameraToggle() {
   const cameraMode = useStore((s) => s.cameraMode);
   const setCameraMode = useStore((s) => s.setCameraMode);
@@ -93,6 +115,8 @@ function App() {
       <TaskProcessor />
       <RobotTerminal />
       <CameraToggle />
+      <TournamentButton />
+      <TournamentsPanel />
     </div>
   );
 }
