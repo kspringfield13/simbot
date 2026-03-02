@@ -15,6 +15,14 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      window.onerror = function(msg, src, line, col, err) {
+        document.getElementById('root').innerHTML = '<div style="color:white;padding:40px;font-family:monospace;background:#1a0000;min-height:100vh"><h1 style="color:#ff4444">JS Error</h1><p>' + msg + '</p><p>Source: ' + src + ':' + line + ':' + col + '</p><pre style="color:#ff8888;white-space:pre-wrap">' + (err && err.stack ? err.stack : 'no stack') + '</pre><button onclick="localStorage.clear();location.reload()" style="margin-top:20px;padding:12px 24px;background:#ff4444;color:white;border:none;border-radius:8px;cursor:pointer">Clear Data + Reload</button></div>';
+      };
+      window.addEventListener('unhandledrejection', function(e) {
+        document.getElementById('root').innerHTML = '<div style="color:white;padding:40px;font-family:monospace;background:#1a0000;min-height:100vh"><h1 style="color:#ff4444">Promise Error</h1><p>' + (e.reason && e.reason.message ? e.reason.message : e.reason) + '</p><pre style="color:#ff8888;white-space:pre-wrap">' + (e.reason && e.reason.stack ? e.reason.stack : 'no stack') + '</pre><button onclick="localStorage.clear();location.reload()" style="margin-top:20px;padding:12px 24px;background:#ff4444;color:white;border:none;border-radius:8px;cursor:pointer">Clear Data + Reload</button></div>';
+      });
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
