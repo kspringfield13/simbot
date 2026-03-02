@@ -91,6 +91,45 @@ if (robot.needs.social < 40) {
     targetRobot: 'all',
     enabled: false,
   },
+  {
+    name: 'Party Bot',
+    description: 'Breaks into dance whenever idle — life is a party!',
+    type: 'behavior',
+    hook: 'onIdle',
+    code: `// Party Bot: always dancing when idle
+var dances = ["shuffle", "spin", "wave", "bounce"];
+var pick = dances[Math.floor(Math.random() * dances.length)];
+action("dance", pick);
+if (Math.random() < 0.5) {
+  say("Party time! 🎉");
+} else if (Math.random() < 0.5) {
+  say("Can't stop, won't stop dancing!");
+} else {
+  say("Every task deserves a celebration!");
+}
+action("particle", "confetti");`,
+    targetRobot: 'all',
+    enabled: false,
+  },
+  {
+    name: 'Ninja Bot',
+    description: 'Moves silently and stealthily — you barely notice it working',
+    type: 'behavior',
+    hook: 'onTask',
+    code: `// Ninja Bot: silent and efficient
+action("set_speed", 1.5);
+action("stealth", true);
+if (robot.state === "idle") {
+  say("...");
+} else {
+  if (Math.random() < 0.15) {
+    say("Silent. Efficient. Done.");
+  }
+}
+action("particle", "shadow");`,
+    targetRobot: 'all',
+    enabled: false,
+  },
 ];
 
 export const EXAMPLE_SKIN_MODS: Omit<SkinMod, 'id' | 'createdAt' | 'updatedAt'>[] = [
@@ -149,6 +188,35 @@ export const EXAMPLE_SKIN_MODS: Omit<SkinMod, 'id' | 'createdAt' | 'updatedAt'>[
     accessories: [
       { type: 'antenna', color: '#00ff41' },
       { type: 'trail', color: '#00ff41' },
+    ],
+    targetRobot: 'all',
+    enabled: false,
+  },
+  {
+    name: 'Party Bot Skin',
+    description: 'Vibrant pink with confetti trail — party wherever you go',
+    type: 'skin',
+    bodyColor: '#ff1493',
+    accentColor: '#ffd700',
+    glowColor: '#ff69b4',
+    pattern: 'stripes',
+    accessories: [
+      { type: 'hat', color: '#ffd700' },
+      { type: 'trail', color: '#ff69b4' },
+    ],
+    targetRobot: 'all',
+    enabled: false,
+  },
+  {
+    name: 'Ninja Bot Skin',
+    description: 'Dark matte black with silent shadow trail',
+    type: 'skin',
+    bodyColor: '#0a0a0a',
+    accentColor: '#2d2d2d',
+    glowColor: '#1a1a2e',
+    pattern: 'camo',
+    accessories: [
+      { type: 'trail', color: '#1a1a2e' },
     ],
     targetRobot: 'all',
     enabled: false,

@@ -14,6 +14,9 @@ import { getRoomPreferenceBonus } from '../systems/Personality';
 import { getEventConfig } from '../systems/HomeEvents';
 import { PET_CONFIGS, PET_IDS, PET_THOUGHTS } from '../config/pets';
 import type { PetId } from '../config/pets';
+import { executeBehaviorMod } from '../config/modding';
+import { loadMods, getActiveModsForRobot, getBehaviorMods } from '../utils/modStorage';
+import type { BehaviorHook } from '../types';
 
 const ACTIVE_STATUSES = new Set(['queued', 'walking', 'working']);
 
@@ -364,6 +367,54 @@ function getMoodFromNeeds(energy: number, happiness: number, social: number, bor
 // THE BRAIN — per-robot instance
 // ═══════════════════════════════════════════════════════
 
+/** Run active behavior mods for a given hook and apply their results */
+function runBehaviorMods(
+  robotId: RobotId,
+  hook: BehaviorHook,
+  s: ReturnType<typeof useStore.getState>,
+  event?: string,
+): void {
+  const allMods = loadMods();
+  const activeMods = getActiveModsForRobot(allMods, robotId);
+  const behaviorMods = getBehaviorMods(activeMods).filter((m) => m.hook === hook);
+  if (behaviorMods.length === 0) return;
+
+  const robot = s.robots[robotId];
+  const context = {
+    robot: {
+      id: robotId,
+      battery: robot.battery,
+      mood: robot.mood,
+      state: robot.state,
+      needs: { ...robot.needs },
+    },
+    hook,
+    event,
+  };
+
+  for (const mod of behaviorMods) {
+    const result = executeBehaviorMod(mod.code, context);
+    // Apply thought bubbles from say() calls
+    if (result.messages.length > 0) {
+      s.setRobotThought(robotId, result.messages[0]);
+    }
+    // Process actions (speed, dance, stealth, particles are visual hints handled by the renderer)
+    for (const action of result.actions) {
+      if (action.type === 'pause' && typeof action.value === 'number') {
+        // Brief happiness boost from resting
+        s.updateRobotNeeds(robotId, {
+          happiness: Math.min(100, robot.needs.happiness + 2),
+        });
+      }
+      if (action.type === 'rest') {
+        s.updateRobotNeeds(robotId, {
+          energy: Math.min(100, robot.needs.energy + 5),
+        });
+      }
+    }
+  }
+}
+
 export function AIBrain({ robotId }: { robotId: RobotId }) {
   const config = ROBOT_CONFIGS[robotId];
   const nextDecisionRef = useRef(0);
@@ -382,6 +433,8 @@ export function AIBrain({ robotId }: { robotId: RobotId }) {
   const lastSeasonalTaskRef = useRef(0);
   const lastDiaryObsRef = useRef(0);
   const lastPetFeedRef = useRef(0);
+  const lastModRunRef = useRef(0);
+  const prevStateRef = useRef<string>('idle');
 
   useFrame(() => {
     const s = useStore.getState();
@@ -390,6 +443,23 @@ export function AIBrain({ robotId }: { robotId: RobotId }) {
     const robot = s.robots[robotId];
     const now = s.simMinutes;
     const needs = robot.needs;
+
+    // ── BEHAVIOR MODS ── fire hooks on state transitions & periodically
+    const prevState = prevStateRef.current;
+    prevStateRef.current = robot.state;
+
+    // onTask: fires when transitioning to working
+    if (robot.state === 'working' && prevState !== 'working') {
+      runBehaviorMods(robotId, 'onTask', s);
+    }
+    // onIdle: fires when transitioning to idle, plus periodically while idle (~every 20 sim-min)
+    if (robot.state === 'idle' && prevState !== 'idle') {
+      runBehaviorMods(robotId, 'onIdle', s);
+      lastModRunRef.current = now;
+    } else if (robot.state === 'idle' && now - lastModRunRef.current > 20) {
+      runBehaviorMods(robotId, 'onIdle', s);
+      lastModRunRef.current = now;
+    }
 
     // ── MOOD ── (weather influences mood)
     const weather = s.weather;
@@ -911,6 +981,7 @@ export function AIBrain({ robotId }: { robotId: RobotId }) {
       case 'emergency-response': {
         const event = s.activeHomeEvent;
         if (event) {
+          runBehaviorMods(robotId, 'onEvent', s, event.type);
           const evConfig = getEventConfig(event.type);
           const roomName = rooms.find((r) => r.id === behavior.roomId)?.name ?? behavior.roomId;
           const anchors = roomTaskAnchors[behavior.roomId];

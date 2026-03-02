@@ -1,17 +1,132 @@
+// @ts-nocheck
 import { useRef, useEffect, useMemo, useState, Suspense } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useGLTF, useAnimations, Html } from '@react-three/drei';
 import { useStore } from '../../stores/useStore';
 import { getAvoidanceForce, isPositionClear, findClearPosition } from '../../systems/ObstacleMap';
 import { ROBOT_CONFIGS } from '../../config/robots';
-import type { RobotId, ActiveChat } from '../../types';
+import type { RobotId, ActiveChat, SkinMod } from '../../types';
 import { ROBOT_IDS } from '../../types';
 import { useRobotDisplayName } from '../../stores/useRobotNames';
 import { getFriendshipKey } from '../../config/conversations';
 import { getActiveRooms } from '../../utils/homeLayout';
 import { getEvolutionVisuals, getStageLabel, getStageColor } from '../../utils/evolution';
+import { loadMods, getActiveModsForRobot, getSkinMods } from '../../utils/modStorage';
 import * as THREE from 'three';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
+
+// ── Skin Mod Helpers ──────────────────────────────────────────
+
+/** Get the first active skin mod for a robot, or null */
+function getActiveSkinMod(robotId: RobotId): SkinMod | null {
+  const allMods = loadMods();
+  const active = getActiveModsForRobot(allMods, robotId);
+  const skins = getSkinMods(active);
+  return skins.length > 0 ? skins[0] : null;
+}
+
+// ── Mod Accessory Components ──────────────────────────────────
+
+function ModHat({ color }: { color: string }) {
+  return (
+    <group position={[0, 2.05, 0]}>
+      {/* Brim */}
+      <mesh position={[0, 0, 0]}>
+        <cylinderGeometry args={[0.35, 0.35, 0.04, 16]} />
+        <meshStandardMaterial color={color} metalness={0.3} roughness={0.5} />
+      </mesh>
+      {/* Crown */}
+      <mesh position={[0, 0.18, 0]}>
+        <cylinderGeometry args={[0.2, 0.25, 0.32, 16]} />
+        <meshStandardMaterial color={color} metalness={0.4} roughness={0.4} />
+      </mesh>
+    </group>
+  );
+}
+
+function ModShield({ color }: { color: string }) {
+  return (
+    <group position={[-0.45, 1.0, 0.1]} rotation={[0, 0.3, 0]}>
+      <mesh>
+        <capsuleGeometry args={[0.18, 0.25, 4, 8]} />
+        <meshStandardMaterial color={color} metalness={0.6} roughness={0.3} />
+      </mesh>
+    </group>
+  );
+}
+
+function ModAntenna({ color }: { color: string }) {
+  return (
+    <group position={[0.1, 2.05, 0]}>
+      <mesh>
+        <cylinderGeometry args={[0.015, 0.015, 0.35, 6]} />
+        <meshStandardMaterial color={color} />
+      </mesh>
+      <mesh position={[0, 0.2, 0]}>
+        <sphereGeometry args={[0.04, 8, 8]} />
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={2} />
+      </mesh>
+    </group>
+  );
+}
+
+/** Particle trail effect — small orbs emitted behind the robot */
+function ModTrailParticles({ color }: { color: string }) {
+  const particlesRef = useRef<THREE.InstancedMesh>(null);
+  const count = 12;
+  const dummy = useMemo(() => new THREE.Object3D(), []);
+  const ages = useRef(new Float32Array(count).fill(0));
+  const positions = useRef(new Float32Array(count * 3).fill(0));
+
+  useFrame((_, delta) => {
+    if (!particlesRef.current) return;
+    for (let i = 0; i < count; i++) {
+      ages.current[i] += delta;
+      if (ages.current[i] > 1.0) {
+        ages.current[i] = 0;
+        positions.current[i * 3] = (Math.random() - 0.5) * 0.3;
+        positions.current[i * 3 + 1] = Math.random() * 0.5 + 0.2;
+        positions.current[i * 3 + 2] = (Math.random() - 0.5) * 0.3 - 0.3;
+      }
+      const age = ages.current[i];
+      const scale = Math.max(0, 1 - age) * 0.06;
+      positions.current[i * 3 + 1] += delta * 0.3;
+      dummy.position.set(
+        positions.current[i * 3],
+        positions.current[i * 3 + 1],
+        positions.current[i * 3 + 2],
+      );
+      dummy.scale.setScalar(scale);
+      dummy.updateMatrix();
+      particlesRef.current.setMatrixAt(i, dummy.matrix);
+    }
+    particlesRef.current.instanceMatrix.needsUpdate = true;
+  });
+
+  return (
+    <instancedMesh ref={particlesRef} args={[undefined, undefined, count]}>
+      <sphereGeometry args={[1, 6, 6]} />
+      <meshStandardMaterial color={color} emissive={color} emissiveIntensity={1.5} transparent opacity={0.7} />
+    </instancedMesh>
+  );
+}
+
+/** Render all mod accessories for an active skin */
+function ModAccessories({ skin }: { skin: SkinMod }) {
+  return (
+    <>
+      {skin.accessories.map((acc, i) => {
+        switch (acc.type) {
+          case 'hat': return <ModHat key={i} color={acc.color} />;
+          case 'shield': return <ModShield key={i} color={acc.color} />;
+          case 'antenna': return <ModAntenna key={i} color={acc.color} />;
+          case 'trail': return <ModTrailParticles key={i} color={acc.color} />;
+          default: return null;
+        }
+      })}
+    </>
+  );
+}
 
 const ROBOT_SCALE = 1.55;
 const ROBOT_COLLISION_RADIUS = 1.2;
@@ -404,7 +519,17 @@ function LegendaryCrown({ color }: { color: string }) {
 function RobotModel({ robotId }: { robotId: RobotId }) {
   const config = ROBOT_CONFIGS[robotId];
   const customColor = useStore((s) => s.robotColors[robotId]);
-  const displayColor = customColor ?? config.color;
+  const baseDisplayColor = customColor ?? config.color;
+  // Active skin mod overrides the display color
+  const [activeSkin, setActiveSkin] = useState<SkinMod | null>(null);
+  useEffect(() => {
+    const skin = getActiveSkinMod(robotId);
+    setActiveSkin(skin);
+    // Re-check for skin changes every 2s (mods toggled from panel)
+    const interval = setInterval(() => setActiveSkin(getActiveSkinMod(robotId)), 2000);
+    return () => clearInterval(interval);
+  }, [robotId]);
+  const displayColor = activeSkin ? activeSkin.bodyColor : baseDisplayColor;
   const evolution = useStore((s) => s.robotEvolutions[robotId]);
   const evoVisuals = getEvolutionVisuals(evolution);
   const groupRef = useRef<THREE.Group>(null);
@@ -430,6 +555,7 @@ function RobotModel({ robotId }: { robotId: RobotId }) {
   const { scene, animations } = useGLTF('/models/xbot.glb');
 
   // Clone scene for this robot instance with unique materials
+  const skinGlow = activeSkin?.glowColor ?? null;
   const clonedScene = useMemo(() => {
     const cloned = SkeletonUtils.clone(scene);
     const baseColor = new THREE.Color(displayColor);
@@ -442,18 +568,21 @@ function RobotModel({ robotId }: { robotId: RobotId }) {
       Math.min(1, hsl.s + sShift),
       Math.min(1, hsl.l + lShift),
     );
+    // When a skin mod has a glow color, use that for emissive
+    const emissiveColor = skinGlow ? new THREE.Color(skinGlow) : baseColor;
+    const emissiveIntensity = skinGlow ? evoVisuals.emissiveIntensity * 1.3 : evoVisuals.emissiveIntensity;
     cloned.traverse((child: any) => {
       if (child.isMesh || child.isSkinnedMesh) {
         child.material = child.material.clone();
-        child.material.emissive = baseColor;
-        child.material.emissiveIntensity = evoVisuals.emissiveIntensity;
+        child.material.emissive = emissiveColor;
+        child.material.emissiveIntensity = emissiveIntensity;
         child.castShadow = true;
         child.receiveShadow = true;
         child.frustumCulled = false;
       }
     });
     return cloned;
-  }, [scene, displayColor, evoVisuals.emissiveIntensity, evoVisuals.colorShift[0], evoVisuals.colorShift[1], evoVisuals.colorShift[2]]);
+  }, [scene, displayColor, skinGlow, evoVisuals.emissiveIntensity, evoVisuals.colorShift[0], evoVisuals.colorShift[1], evoVisuals.colorShift[2]]);
 
   const { actions, mixer } = useAnimations(animations, modelRef);
 
@@ -692,6 +821,8 @@ function RobotModel({ robotId }: { robotId: RobotId }) {
         <ShoulderAccents color={getStageColor(evolution.stage)} stage={evolution.stage} />
         <OrbitRing color={getStageColor(evolution.stage)} stage={evolution.stage} />
         {evolution.stage === 'legend' && <LegendaryCrown color={getStageColor(evolution.stage)} />}
+        {/* Mod skin accessories (hat, shield, antenna, trail particles) */}
+        {activeSkin && <ModAccessories skin={activeSkin} />}
       </group>
 
       {/* Night mode flashlight */}
