@@ -2,16 +2,19 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useStore } from '../../stores/useStore';
 import {
   TOURNAMENTS,
+  TOURNAMENT_TYPE_META,
   createTournament,
   simulateMatch,
   advanceRound,
   getPlayerPlacement,
   getTierColor,
+  getTrophy,
   type TournamentDefinition,
   type TournamentInstance,
   type TournamentContestant,
   type BracketMatch,
   type TournamentTier,
+  type TournamentType,
 } from '../../config/tournaments';
 import { ROBOT_CONFIGS } from '../../config/robots';
 import { loadTournamentHistory, saveTournamentResult, getTournamentStats } from '../../utils/tournamentProgress';
@@ -31,6 +34,18 @@ function TierBadge({ tier }: { tier: TournamentTier }) {
       style={{ backgroundColor: `${color}30`, color, border: `1px solid ${color}50` }}
     >
       {tier}
+    </span>
+  );
+}
+
+function TypeBadge({ type }: { type: TournamentType }) {
+  const meta = TOURNAMENT_TYPE_META[type];
+  return (
+    <span
+      className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
+      style={{ backgroundColor: `${meta.color}20`, color: meta.color, border: `1px solid ${meta.color}40` }}
+    >
+      {meta.emoji} {meta.label}
     </span>
   );
 }
@@ -324,7 +339,7 @@ export function TournamentsPanel() {
 
       // Simulate after progress bar animation completes
       setTimeout(() => {
-        const result = simulateMatch(match, selectedDef.baseMatchDuration);
+        const result = simulateMatch(match, selectedDef.baseMatchDuration, selectedDef.type);
         setTournament((prev) => {
           if (!prev) return prev;
           const updated = {
@@ -381,10 +396,13 @@ export function TournamentsPanel() {
       recordTransaction('income', 'task-reward', prize, `Tournament prize: ${tournament.name}`);
     }
 
+    const trophy = getTrophy(placement, tournament.tier);
+
     const entry: TournamentHistoryEntry = {
       tournamentId: tournament.definitionId,
       tournamentName: tournament.name,
       tier: tournament.tier,
+      type: tournament.type,
       emoji: tournament.emoji,
       playerRobotId: tournament.playerRobotId,
       placement,
@@ -393,6 +411,7 @@ export function TournamentsPanel() {
       completedAt: Date.now(),
       winnerId: tournament.winnerId ?? '',
       winnerName: winner?.name ?? 'Unknown',
+      trophy,
     };
     saveTournamentResult(entry);
     setHistory((prev) => [entry, ...prev]);
@@ -499,23 +518,49 @@ function TournamentList({
 }: {
   coins: number;
   onSelect: (def: TournamentDefinition) => void;
-  stats: { wins: number; totalPlayed: number; totalPrize: number; bestPlacement: number };
+  stats: { wins: number; totalPlayed: number; totalPrize: number; bestPlacement: number; trophies: string[] };
 }) {
+  const [typeFilter, setTypeFilter] = useState<TournamentType | 'all'>('all');
+  const filtered = typeFilter === 'all' ? TOURNAMENTS : TOURNAMENTS.filter((d) => d.type === typeFilter);
+
   return (
     <div className="space-y-3">
       {/* Stats bar */}
       {stats.totalPlayed > 0 && (
-        <div className="flex gap-3 rounded-lg border border-slate-700/50 bg-slate-800/50 px-3 py-2 text-xs text-slate-400">
+        <div className="flex flex-wrap gap-3 rounded-lg border border-slate-700/50 bg-slate-800/50 px-3 py-2 text-xs text-slate-400">
           <span>{'\uD83C\uDFC6'} {stats.wins} wins</span>
           <span>{'\uD83C\uDFAE'} {stats.totalPlayed} played</span>
           <span>{'\uD83D\uDCB0'} {stats.totalPrize} earned</span>
           {stats.bestPlacement > 0 && <span>{'\u2B50'} Best: #{stats.bestPlacement}</span>}
+          {stats.trophies.length > 0 && <span>{stats.trophies.slice(0, 5).join('')}</span>}
         </div>
       )}
 
+      {/* Type filter tabs */}
+      <div className="flex gap-1.5 rounded-lg border border-slate-700/30 bg-slate-800/30 p-1">
+        {(['all', 'speed', 'efficiency', 'endurance'] as const).map((t) => {
+          const active = typeFilter === t;
+          const meta = t === 'all' ? null : TOURNAMENT_TYPE_META[t];
+          return (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setTypeFilter(t)}
+              className={`flex-1 rounded-md px-2 py-1.5 text-[11px] font-semibold transition-all ${
+                active ? 'bg-slate-700/80 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'
+              }`}
+              style={active && meta ? { color: meta.color } : undefined}
+            >
+              {t === 'all' ? 'All' : `${meta!.emoji} ${meta!.label}`}
+            </button>
+          );
+        })}
+      </div>
+
       {/* Tournament cards */}
-      {TOURNAMENTS.map((def) => {
+      {filtered.map((def) => {
         const canAfford = coins >= def.entryFee;
+        const typeMeta = TOURNAMENT_TYPE_META[def.type];
         return (
           <button
             key={def.id}
@@ -527,9 +572,10 @@ function TournamentList({
               <div className="flex items-center gap-2">
                 <span className="text-2xl">{def.emoji}</span>
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="font-semibold text-slate-100">{def.name}</span>
                     <TierBadge tier={def.tier} />
+                    <TypeBadge type={def.type} />
                   </div>
                   <p className="mt-0.5 text-xs text-slate-400">{def.description}</p>
                 </div>
@@ -539,6 +585,7 @@ function TournamentList({
               <span>{def.bracketSize} bots</span>
               <span>{'\uD83D\uDCB0'} {def.entryFee} entry</span>
               <span className="text-yellow-400">{'\uD83C\uDFC6'} {def.prizePool} prize</span>
+              <span style={{ color: typeMeta.color }}>{typeMeta.description}</span>
               {!canAfford && <span className="text-red-400">Need {def.entryFee - coins} more coins</span>}
             </div>
           </button>
@@ -573,12 +620,16 @@ function Registration({
         <span className="text-4xl">{def.emoji}</span>
         <h3 className="mt-2 text-xl font-bold text-slate-100">{def.name}</h3>
         <p className="mt-1 text-sm text-slate-400">{def.description}</p>
-        <div className="mt-2 flex justify-center gap-2">
+        <div className="mt-2 flex flex-wrap justify-center gap-2">
           <TierBadge tier={def.tier} />
+          <TypeBadge type={def.type} />
           <span className="rounded-full bg-slate-700/50 px-2 py-0.5 text-[10px] text-slate-400">
             {def.bracketSize}-bot bracket
           </span>
         </div>
+        <p className="mt-2 text-xs" style={{ color: TOURNAMENT_TYPE_META[def.type].color }}>
+          {TOURNAMENT_TYPE_META[def.type].description}
+        </p>
       </div>
 
       {/* Prize info */}
@@ -612,8 +663,12 @@ function Registration({
                 <div className="text-sm font-semibold text-slate-200">{cfg.name}</div>
                 <div className="text-[10px] text-slate-500">{cfg.description}</div>
                 <div className="mt-1 flex justify-center gap-1 text-[9px]">
-                  <span className="text-blue-400">SPD:{Math.round(cfg.playfulness * 50 + cfg.curiosity * 30 + 20)}</span>
-                  <span className="text-green-400">EFF:{Math.round(cfg.diligence * 50 + cfg.sensitivity * 30 + 20)}</span>
+                  <span className={def.type === 'speed' ? 'font-bold text-amber-400' : 'text-blue-400'}>
+                    SPD:{Math.round(cfg.playfulness * 50 + cfg.curiosity * 30 + 20)}
+                  </span>
+                  <span className={def.type === 'efficiency' ? 'font-bold text-emerald-400' : 'text-green-400'}>
+                    EFF:{Math.round(cfg.diligence * 50 + cfg.sensitivity * 30 + 20)}
+                  </span>
                 </div>
               </button>
             );
@@ -681,10 +736,11 @@ function BracketView({
     <div className="space-y-3">
       {/* Tournament header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="text-lg">{tournament.emoji}</span>
           <span className="font-semibold text-slate-200">{tournament.name}</span>
           <TierBadge tier={tournament.tier} />
+          <TypeBadge type={tournament.type} />
         </div>
         <span className="text-xs text-slate-500">Round {tournament.currentRound} / {tournament.totalRounds}</span>
       </div>
@@ -799,6 +855,16 @@ function CelebrationView({
         <p className="mt-1 text-sm text-slate-400">
           {tournament.emoji} {tournament.name}
         </p>
+        <div className="mt-2 flex justify-center gap-2">
+          <TierBadge tier={tournament.tier} />
+          <TypeBadge type={tournament.type} />
+        </div>
+        {getTrophy(placement, tournament.tier) && (
+          <div className="mt-3 text-center">
+            <span className="text-3xl">{getTrophy(placement, tournament.tier)}</span>
+            <div className="text-[10px] text-yellow-400/70 mt-1">Trophy earned!</div>
+          </div>
+        )}
       </div>
 
       {/* Winner announcement */}
@@ -870,14 +936,15 @@ function HistoryView({ history }: { history: TournamentHistoryEntry[] }) {
           className="flex items-center justify-between rounded-lg border border-slate-700/30 bg-slate-800/40 px-3 py-2"
         >
           <div className="flex items-center gap-2">
-            <span className="text-lg">{entry.emoji}</span>
+            <span className="text-lg">{entry.trophy ?? entry.emoji}</span>
             <div>
-              <div className="flex items-center gap-1.5 text-sm">
+              <div className="flex flex-wrap items-center gap-1.5 text-sm">
                 <span className={entry.placement === 1 ? 'font-bold text-yellow-300' : 'text-slate-300'}>
                   #{entry.placement}
                 </span>
                 <span className="text-slate-400">{entry.tournamentName}</span>
                 <TierBadge tier={entry.tier} />
+                {entry.type && <TypeBadge type={entry.type} />}
               </div>
               <div className="text-[10px] text-slate-600">
                 {ROBOT_CONFIGS[entry.playerRobotId].name} {'\u00B7'}{' '}
@@ -885,9 +952,11 @@ function HistoryView({ history }: { history: TournamentHistoryEntry[] }) {
               </div>
             </div>
           </div>
-          {entry.prizeWon > 0 && (
-            <span className="text-xs font-semibold text-green-400">+{entry.prizeWon}</span>
-          )}
+          <div className="flex items-center gap-2">
+            {entry.prizeWon > 0 && (
+              <span className="text-xs font-semibold text-green-400">+{entry.prizeWon}</span>
+            )}
+          </div>
         </div>
       ))}
     </div>

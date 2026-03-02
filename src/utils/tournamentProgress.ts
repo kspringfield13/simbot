@@ -25,5 +25,6 @@ export function getTournamentStats(history: TournamentHistoryEntry[]) {
   const wins = history.filter((h) => h.placement === 1).length;
   const totalPrize = history.reduce((sum, h) => sum + h.prizeWon, 0);
   const bestPlacement = history.length > 0 ? Math.min(...history.map((h) => h.placement)) : 0;
-  return { wins, totalPlayed: history.length, totalPrize, bestPlacement };
+  const trophies = history.filter((h) => h.trophy).map((h) => h.trophy!);
+  return { wins, totalPlayed: history.length, totalPrize, bestPlacement, trophies };
 }

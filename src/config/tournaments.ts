@@ -4,12 +4,20 @@ import { ROBOT_CONFIGS } from './robots';
 // ── Types ──────────────────────────────────────────────
 
 export type TournamentTier = 'bronze' | 'silver' | 'gold' | 'diamond';
+export type TournamentType = 'speed' | 'efficiency' | 'endurance';
+
+export const TOURNAMENT_TYPE_META: Record<TournamentType, { label: string; emoji: string; description: string; color: string }> = {
+  speed: { label: 'Speed Clean', emoji: '\u26A1', description: 'Pure speed — fastest bot wins', color: '#f59e0b' },
+  efficiency: { label: 'Efficiency', emoji: '\uD83C\uDFAF', description: 'Thorough cleaning — precision over pace', color: '#10b981' },
+  endurance: { label: 'Endurance', emoji: '\uD83D\uDCAA', description: 'Marathon clean — stamina and consistency', color: '#8b5cf6' },
+};
 
 export interface TournamentDefinition {
   id: string;
   name: string;
   emoji: string;
   tier: TournamentTier;
+  type: TournamentType;
   description: string;
   entryFee: number;
   prizePool: number;
@@ -51,6 +59,7 @@ export interface TournamentInstance {
   definitionId: string;
   name: string;
   tier: TournamentTier;
+  type: TournamentType;
   emoji: string;
   brackets: BracketMatch[];
   contestants: TournamentContestant[];
@@ -67,6 +76,7 @@ export interface TournamentHistoryEntry {
   tournamentId: string;
   tournamentName: string;
   tier: TournamentTier;
+  type: TournamentType;
   emoji: string;
   playerRobotId: RobotId;
   placement: number;
@@ -75,6 +85,8 @@ export interface TournamentHistoryEntry {
   completedAt: number;
   winnerId: string;
   winnerName: string;
+  /** Trophy awarded (if any) */
+  trophy: string | null;
 }
 
 // ── NPC Opponents ──────────────────────────────────────
@@ -97,83 +109,92 @@ const NPC_OPPONENTS: Omit<TournamentContestant, 'id'>[] = [
 // ── Tournament Definitions ─────────────────────────────
 
 export const TOURNAMENTS: TournamentDefinition[] = [
+  // ── Speed Clean ─────────────────────────────────
   {
     id: 'kitchen-dash',
     name: 'Kitchen Dash Cup',
     emoji: '\uD83C\uDF73',
     tier: 'bronze',
+    type: 'speed',
     description: 'Speed-clean the kitchen! Fastest bot wins.',
     entryFee: 10,
     prizePool: 50,
     bracketSize: 4,
     matchRooms: ['kitchen'],
     taskTypes: ['dishes', 'cooking', 'sweeping'],
-    baseMatchDuration: 45,
+    baseMatchDuration: 35,
   },
   {
     id: 'sparkle-sprint',
     name: 'Sparkle Sprint',
-    emoji: '\u2728',
-    tier: 'bronze',
-    description: 'Race through the bathroom and bedroom cleaning tasks.',
-    entryFee: 10,
-    prizePool: 50,
-    bracketSize: 4,
-    matchRooms: ['bathroom', 'bedroom'],
-    taskTypes: ['scrubbing', 'bed-making', 'cleaning'],
-    baseMatchDuration: 50,
-  },
-  {
-    id: 'whole-home-blitz',
-    name: 'Whole Home Blitz',
-    emoji: '\uD83C\uDFE0',
+    emoji: '\u26A1',
     tier: 'silver',
-    description: 'A full-house cleaning tournament. Every room counts!',
+    type: 'speed',
+    description: 'Lightning-fast bathroom and bedroom blitz. Pure velocity.',
     entryFee: 25,
     prizePool: 120,
     bracketSize: 8,
-    matchRooms: ['kitchen', 'living-room', 'bathroom', 'bedroom'],
-    taskTypes: ['cleaning', 'vacuuming', 'dishes', 'sweeping', 'organizing'],
-    baseMatchDuration: 60,
+    matchRooms: ['bathroom', 'bedroom'],
+    taskTypes: ['scrubbing', 'bed-making', 'cleaning'],
+    baseMatchDuration: 40,
+  },
+  // ── Efficiency ──────────────────────────────────
+  {
+    id: 'precision-clean',
+    name: 'Precision Clean Open',
+    emoji: '\uD83C\uDFAF',
+    tier: 'bronze',
+    type: 'efficiency',
+    description: 'Clean every corner perfectly. Thoroughness beats speed.',
+    entryFee: 10,
+    prizePool: 50,
+    bracketSize: 4,
+    matchRooms: ['living-room', 'bedroom'],
+    taskTypes: ['cleaning', 'organizing', 'vacuuming'],
+    baseMatchDuration: 55,
   },
   {
     id: 'garden-grand-prix',
     name: 'Garden Grand Prix',
     emoji: '\uD83C\uDF3B',
     tier: 'silver',
-    description: 'Outdoor cleaning and garden mastery showdown.',
+    type: 'efficiency',
+    description: 'Outdoor mastery — precise watering, exact trimming, zero waste.',
     entryFee: 25,
     prizePool: 120,
     bracketSize: 8,
     matchRooms: ['yard'],
     taskTypes: ['mowing', 'watering', 'weeding', 'leaf-blowing'],
-    baseMatchDuration: 55,
+    baseMatchDuration: 60,
   },
+  // ── Endurance ───────────────────────────────────
   {
-    id: 'masters-invitational',
-    name: "Master's Invitational",
-    emoji: '\uD83C\uDFC6',
+    id: 'whole-home-marathon',
+    name: 'Whole Home Marathon',
+    emoji: '\uD83C\uDFE0',
     tier: 'gold',
-    description: 'The elite tournament. Only the best bots compete here.',
+    type: 'endurance',
+    description: 'Marathon clean — every room, every task. Stamina is king.',
     entryFee: 50,
     prizePool: 300,
     bracketSize: 8,
     matchRooms: ['kitchen', 'living-room', 'bathroom', 'bedroom', 'yard'],
     taskTypes: ['cleaning', 'vacuuming', 'dishes', 'cooking', 'scrubbing', 'sweeping'],
-    baseMatchDuration: 70,
+    baseMatchDuration: 90,
   },
   {
     id: 'diamond-championship',
     name: 'Diamond Championship',
     emoji: '\uD83D\uDC8E',
     tier: 'diamond',
-    description: 'The ultimate test of speed and efficiency. Legend awaits.',
+    type: 'endurance',
+    description: 'The ultimate endurance test. Only legends survive all rooms.',
     entryFee: 100,
     prizePool: 600,
     bracketSize: 8,
     matchRooms: ['kitchen', 'living-room', 'bathroom', 'bedroom', 'yard', 'laundry'],
     taskTypes: ['cleaning', 'vacuuming', 'dishes', 'cooking', 'scrubbing', 'sweeping', 'laundry', 'organizing'],
-    baseMatchDuration: 80,
+    baseMatchDuration: 110,
   },
 ];
 
@@ -269,6 +290,7 @@ export function createTournament(def: TournamentDefinition, robotId: RobotId): T
     definitionId: def.id,
     name: def.name,
     tier: def.tier,
+    type: def.type,
     emoji: def.emoji,
     brackets,
     contestants,
@@ -282,15 +304,23 @@ export function createTournament(def: TournamentDefinition, robotId: RobotId): T
   };
 }
 
+/** Stat weights per tournament type */
+const TYPE_WEIGHTS: Record<TournamentType, { speedW: number; effW: number; variance: number }> = {
+  speed: { speedW: 0.45, effW: 0.05, variance: 8 },
+  efficiency: { speedW: 0.05, effW: 0.45, variance: 6 },
+  endurance: { speedW: 0.20, effW: 0.25, variance: 14 },
+};
+
 /** Simulate a single match — returns winning contestant */
-export function simulateMatch(match: BracketMatch, baseDuration: number): BracketMatch {
+export function simulateMatch(match: BracketMatch, baseDuration: number, type: TournamentType = 'speed'): BracketMatch {
   const c1 = match.contestant1!;
   const c2 = match.contestant2!;
+  const w = TYPE_WEIGHTS[type];
 
-  // Calculate completion times (lower is better)
-  const variance = () => Math.random() * 12 - 6; // -6 to +6 seconds variance
-  const time1 = Math.max(10, baseDuration - (c1.speed * 0.3 + c1.efficiency * 0.2) + variance());
-  const time2 = Math.max(10, baseDuration - (c2.speed * 0.3 + c2.efficiency * 0.2) + variance());
+  // Calculate completion times (lower is better) — weights differ per tournament type
+  const variance = () => Math.random() * w.variance * 2 - w.variance;
+  const time1 = Math.max(10, baseDuration - (c1.speed * w.speedW + c1.efficiency * w.effW) + variance());
+  const time2 = Math.max(10, baseDuration - (c2.speed * w.speedW + c2.efficiency * w.effW) + variance());
 
   const roundedT1 = Math.round(time1 * 10) / 10;
   const roundedT2 = Math.round(time2 * 10) / 10;
@@ -302,6 +332,19 @@ export function simulateMatch(match: BracketMatch, baseDuration: number): Bracke
     winner: roundedT1 <= roundedT2 ? c1 : c2,
     status: 'complete',
   };
+}
+
+/** Get trophy for placement */
+export function getTrophy(placement: number, tier: TournamentTier): string | null {
+  if (placement === 1) {
+    const trophies: Record<TournamentTier, string> = {
+      bronze: '\uD83E\uDD49', silver: '\uD83E\uDD48', gold: '\uD83C\uDFC6', diamond: '\uD83D\uDC8E',
+    };
+    return trophies[tier];
+  }
+  if (placement === 2) return '\uD83E\uDD48';
+  if (placement <= 4) return '\uD83E\uDD49';
+  return null;
 }
 
 /** Advance tournament to next round — populate next bracket slots */
