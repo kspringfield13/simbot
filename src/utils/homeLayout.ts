@@ -1,25 +1,26 @@
 import type { Room, RoomId, TaskTarget, TaskType, Wall } from '../types';
 import { getFloorPlan } from '../config/floorPlans';
-import { useStore } from '../stores/useStore';
 
 // Scale factor: 2x from original layout.
 const S = 2;
 
+// Break circular dep: store ref set lazily
+let _getFloorPlanId: (() => string) | null = null;
+export function setHomeLayoutFloorPlanGetter(fn: () => string) { _getFloorPlanId = fn; }
+function fpId(): string { return _getFloorPlanId?.() ?? 'house'; }
+
 // ── Dynamic getters that read the active floor plan ─────────────
 
 export function getActiveRooms(): Room[] {
-  const id = useStore.getState().floorPlanId;
-  return getFloorPlan(id).rooms;
+  return getFloorPlan(fpId()).rooms;
 }
 
 export function getActiveWalls(): Wall[] {
-  const id = useStore.getState().floorPlanId;
-  return getFloorPlan(id).walls;
+  return getFloorPlan(fpId()).walls;
 }
 
 export function getActiveWindowSpots(): [number, number, number][] {
-  const id = useStore.getState().floorPlanId;
-  return getFloorPlan(id).windowSpots;
+  return getFloorPlan(fpId()).windowSpots;
 }
 
 // ── Static default exports (for backward compat) ────────────────

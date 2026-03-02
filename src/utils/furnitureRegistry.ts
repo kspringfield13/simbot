@@ -1,6 +1,5 @@
 import type { RoomId } from '../types';
 import { getFloorPlan } from '../config/floorPlans';
-import { useStore } from '../stores/useStore';
 
 export interface FurnitureModel {
   url: string;
@@ -22,12 +21,16 @@ export interface FurniturePiece {
 /** Static fallback for import-time usage — house preset furniture. */
 export const FURNITURE_PIECES: FurniturePiece[] = getFloorPlan('house').furniture;
 
+// Break circular dep: store ref set lazily after store initializes
+let _getFloorPlanId: (() => string) | null = null;
+export function setFloorPlanIdGetter(fn: () => string) { _getFloorPlanId = fn; }
+
 /** Get furniture for the currently active floor plan. */
-export function getActiveFurniture(): FurniturePiece[] {
-  const id = useStore.getState().floorPlanId;
+export function getActiveFurniture(floorPlanId?: string): FurniturePiece[] {
+  const id = floorPlanId ?? _getFloorPlanId?.() ?? 'house';
   return getFloorPlan(id).furniture;
 }
 
-export function getFurniturePiece(id: string): FurniturePiece | undefined {
-  return getActiveFurniture().find((p) => p.id === id);
+export function getFurniturePiece(id: string, floorPlanId?: string): FurniturePiece | undefined {
+  return getActiveFurniture(floorPlanId).find((p) => p.id === id);
 }

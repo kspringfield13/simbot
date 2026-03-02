@@ -1,11 +1,14 @@
-import { useStore } from '../stores/useStore';
 import { getActiveFurniture } from '../utils/furnitureRegistry';
 
 export interface Obstacle { x: number; z: number; r: number; }
 
+// Break circular dep: store ref set lazily
+let _getFurniturePositions: (() => Record<string, [number, number]>) | null = null;
+export function setObstacleStoreGetter(fn: () => Record<string, [number, number]>) { _getFurniturePositions = fn; }
+
 /** Build obstacles from current furniture positions (reads store). */
 export function getObstacles(): Obstacle[] {
-  const positions = useStore.getState().furniturePositions;
+  const positions = _getFurniturePositions?.() ?? {};
   return getActiveFurniture().map((piece) => {
     const override = positions[piece.id];
     return {

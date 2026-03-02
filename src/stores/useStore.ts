@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { createInitialRoomNeeds, decayRoomNeeds, boostRoomAfterTask } from '../systems/RoomState';
-import { getSimPeriod } from '../systems/TimeSystem';
+import { getSimPeriod } from '../utils/timeUtils';
 import { createAllRobotStates } from '../config/robots';
 import { DEFAULT_ACTIVE_WALLS } from '../utils/homeLayout';
 import { getBatteryDrainMultiplier, getEnergyMultiplier, UPGRADES } from '../config/shop';
@@ -2377,6 +2377,15 @@ export const useStore = create<SimBotStore>((set) => ({
   showModdingDocs: false,
   setShowModdingDocs: (show) => set({ showModdingDocs: show }),
 }));
+
+// ── Break circular dependencies: register store getters lazily ──
+import { setFloorPlanIdGetter } from '../utils/furnitureRegistry';
+import { setHomeLayoutFloorPlanGetter } from '../utils/homeLayout';
+import { setObstacleStoreGetter } from '../systems/ObstacleMap';
+const fpGetter = () => useStore.getState().floorPlanId;
+setFloorPlanIdGetter(fpGetter);
+setHomeLayoutFloorPlanGetter(fpGetter);
+setObstacleStoreGetter(() => useStore.getState().furniturePositions);
 
 // Each completion reduces duration by ~5%, capping at 30% faster
 export function getTaskSpeedMultiplier(taskType: TaskType): number {
